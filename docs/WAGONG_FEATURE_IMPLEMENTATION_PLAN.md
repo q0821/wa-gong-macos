@@ -117,7 +117,9 @@
 - [x] 交付層在面板關閉後再次檢查取消狀態，並將取消狀態傳入剪貼簿貼上流程，避免競態插入或 AutoSend。
 - [x] 模擬鍵盤貼上在取消時會釋放已按下的 Command 修飾鍵，不留下卡住的輸入狀態。
 - [x] 自訂指令日誌不再記錄 stdout、stderr 或錯誤訊息內容，只保留狀態、錯誤類型與位元組數。
+- [x] 完成本輪程式碼的日誌靜態掃描，未發現新增的完整語音、完整文字、剪貼簿或 API Key 記錄；實際 Log Export 仍待人工確認。
 - [x] `xcodebuild build-for-testing` 通過。
+- [x] `xcodebuild build` 通過，並從產物確認 App 版本為 `2.11.0`。
 - [ ] 單元測試 assertion 尚未取得，原因與階段一相同，macOS 測試執行器卡在 Launch Services worker。
 - [ ] Privacy HUD 目前是送出前提醒，不阻擋 Request；是否要改成需要人工允許後才送出，待醒來後決定。
 - [ ] 需要實際取消錄音、取消整理、取消串流與跨 App 插入測試。

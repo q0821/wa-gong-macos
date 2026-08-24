@@ -224,6 +224,7 @@
 - [x] 一般錄音、串流失敗後批次 fallback 與重新轉錄都會套用自訂詞彙至本機 Whisper。
 - [x] 非 Whisper Provider 不會因共用 Context 變更而額外收到本機 Whisper 詞彙提示。
 - [x] `xcodebuild build-for-testing` 通過，`make check` 通過。
+- [x] 快速鍵限制與詞彙替換行為測試已加入，`xcodebuild build-for-testing` 編譯通過。
 - [ ] 目前 `xcodebuild test` 仍受 macOS Launch Services 測試執行器阻塞，尚未取得 assertion 結果。
 - [ ] 需要實際模型與語音確認專有名詞辨識改善程度。
 

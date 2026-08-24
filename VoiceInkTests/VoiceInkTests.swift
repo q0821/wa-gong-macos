@@ -6,6 +6,9 @@
 //
 
 import Foundation
+import AppKit
+import Carbon.HIToolbox
+import SwiftData
 import Testing
 @testable import VoiceInk
 
@@ -151,6 +154,36 @@ struct VoiceInkTests {
         #expect(enrichedContext.prompt?.contains("Use Taiwan wording.") == true)
         #expect(enrichedContext.prompt?.contains("<CUSTOM_VOCABULARY>") == true)
         #expect(enrichedContext.prompt?.contains("聲筆, Wa-Gong") == true)
+    }
+
+    @Test func shortcutValidatorRejectsPlainTypingKey() {
+        let shortcut = Shortcut.key(keyCode: UInt16(kVK_ANSI_A), modifierFlags: [])
+
+        #expect(
+            ShortcutValidator.validationError(for: shortcut, action: .primaryRecording)
+                == .plainKeyRequiresModifier
+        )
+    }
+
+    @Test func shortcutValidatorAllowsFunctionKeyWithoutModifier() {
+        let shortcut = Shortcut.key(keyCode: UInt16(kVK_F6), modifierFlags: [])
+
+        #expect(ShortcutValidator.validationError(for: shortcut, action: .primaryRecording) == nil)
+    }
+
+    @Test func wordReplacementPrefersLongerTermsAndRespectsWordBoundaries() throws {
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: WordReplacement.self, configurations: configuration)
+        let context = ModelContext(container)
+        context.insert(WordReplacement(originalText: "Voice Ink, Voice Ink Pro", replacementText: "聲筆"))
+        try context.save()
+
+        let result = WordReplacementService.shared.applyReplacements(
+            to: "Voice Ink Pro Voice Ink Voice Inkish",
+            using: context
+        )
+
+        #expect(result == "聲筆 聲筆 Voice Inkish")
     }
 
 }

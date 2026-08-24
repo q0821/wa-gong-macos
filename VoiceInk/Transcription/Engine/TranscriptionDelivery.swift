@@ -12,6 +12,7 @@ final class TranscriptionDelivery {
         let responseConfig: EnhancementRuntimeConfiguration?
         let responseError: String?
         let isAssistantFollowUp: Bool
+        let isCanceled: () -> Bool
     }
 
     struct Actions {
@@ -20,9 +21,16 @@ final class TranscriptionDelivery {
         let sendFollowUp: (String, Transcription) async -> Void
         let showResponse: (String, String?) async -> Void
         let failResponse: (String) async -> Void
+        let pasteAtCursor: (String, @escaping () -> Bool) async -> CursorPaster.PasteResult
+        let autoSend: (AutoSendKey) -> Void
     }
 
     func deliver(_ request: Request, actions: Actions) async {
+        guard !request.isCanceled() else {
+            await actions.dismiss()
+            return
+        }
+
         guard request.transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue else {
             await actions.dismiss()
             return
@@ -46,7 +54,12 @@ final class TranscriptionDelivery {
         }
 
         if let text = request.text {
-            await paste(text, output: request.output, actions: actions)
+            await paste(
+                text,
+                output: request.output,
+                isCanceled: request.isCanceled,
+                actions: actions
+            )
         } else {
             await actions.dismiss()
         }
@@ -56,12 +69,14 @@ final class TranscriptionDelivery {
         SoundManager.shared.playStopSound()
 
         guard let text = item.text?.trimmingCharacters(in: .whitespacesAndNewlines),
-            !text.isEmpty
+            !text.isEmpty,
+            !item.isCanceled()
         else {
             return
         }
 
         actions.setState(.enhancing)
+        guard !item.isCanceled() else { return }
         await actions.sendFollowUp(text, item.transcription)
     }
 
@@ -97,10 +112,16 @@ final class TranscriptionDelivery {
         }
 
         let commandText = deliverableText(from: text)
+        guard !item.isCanceled() else {
+            await actions.dismiss()
+            return
+        }
+
         SoundManager.shared.playStopSound()
         await actions.dismiss()
 
         Task {
+            guard !item.isCanceled() else { return }
             await runCustomCommand(command: command, commandText: commandText)
         }
     }
@@ -143,22 +164,38 @@ final class TranscriptionDelivery {
         String(format: "%.3f", duration)
     }
 
-    private func paste(_ text: String, output: OutputRuntimeConfiguration, actions: Actions) async {
+    private func paste(
+        _ text: String,
+        output: OutputRuntimeConfiguration,
+        isCanceled: @escaping () -> Bool,
+        actions: Actions
+    ) async {
         let textToPaste = deliverableText(from: text)
         let appendSpace = UserDefaults.standard.bool(forKey: "AppendTrailingSpace")
         let pastedText = textToPaste + (appendSpace ? " " : "")
+
+        guard !isCanceled() else {
+            await actions.dismiss()
+            return
+        }
+
         SoundManager.shared.playStopSound()
         await actions.dismiss()
 
-        let pasteTask = CursorPaster.startPasteAtCursor(pastedText)
+        guard !isCanceled() else { return }
+
+        let pasteTask = Task { @MainActor in
+            await actions.pasteAtCursor(pastedText, isCanceled)
+        }
 
         let autoSendKey = output.outputMode == .paste ? output.autoSendKey : .none
         Task { @MainActor in
-            _ = await pasteTask.value
+            let pasteResult = await pasteTask.value
 
-            if autoSendKey.isEnabled {
+            if pasteResult.didPostPasteCommand, !isCanceled(), autoSendKey.isEnabled {
                 try? await Task.sleep(nanoseconds: 500_000_000)
-                CursorPaster.performAutoSend(autoSendKey)
+                guard !isCanceled() else { return }
+                actions.autoSend(autoSendKey)
             }
         }
     }

@@ -226,4 +226,53 @@ struct VoiceInkTests {
         #expect(AIProvider.anthropic.displayName == "Claude")
     }
 
+    @Test @MainActor func canceledDeliveryDoesNotPasteOrAutoSend() async {
+        var isCanceled = false
+        var didPaste = false
+        var didAutoSend = false
+        let transcription = Transcription(
+            text: "transcript",
+            duration: 1,
+            transcriptionStatus: .completed
+        )
+        let output = OutputRuntimeConfiguration(
+            mode: nil,
+            outputMode: .paste,
+            autoSendKey: .enter,
+            customCommand: nil
+        )
+        let delivery = TranscriptionDelivery()
+
+        await delivery.deliver(
+            TranscriptionDelivery.Request(
+                transcription: transcription,
+                text: "transcript",
+                output: output,
+                responseConfig: nil,
+                responseError: nil,
+                isAssistantFollowUp: false,
+                isCanceled: { isCanceled }
+            ),
+            actions: TranscriptionDelivery.Actions(
+                setState: { _ in },
+                dismiss: {
+                    isCanceled = true
+                },
+                sendFollowUp: { _, _ in },
+                showResponse: { _, _ in },
+                failResponse: { _ in },
+                pasteAtCursor: { _, _ in
+                    didPaste = true
+                    return .commandPosted
+                },
+                autoSend: { _ in
+                    didAutoSend = true
+                }
+            )
+        )
+
+        #expect(!didPaste)
+        #expect(!didAutoSend)
+    }
+
 }

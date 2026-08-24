@@ -32,19 +32,32 @@ class CursorPaster {
 
     @MainActor
     @discardableResult
-    static func startPasteAtCursor(_ text: String) -> Task<PasteResult, Never> {
+    static func startPasteAtCursor(
+        _ text: String,
+        shouldCancel: @escaping () -> Bool = { false }
+    ) -> Task<PasteResult, Never> {
         Task { @MainActor in
-            await performPasteSession(text)
+            await performPasteSession(text, shouldCancel: shouldCancel)
         }
     }
 
     @MainActor
-    static func pasteAtCursorAndWaitUntilPosted(_ text: String) async -> PasteResult {
-        await startPasteAtCursor(text).value
+    static func pasteAtCursorAndWaitUntilPosted(
+        _ text: String,
+        shouldCancel: @escaping () -> Bool = { false }
+    ) async -> PasteResult {
+        await startPasteAtCursor(text, shouldCancel: shouldCancel).value
     }
 
     @MainActor
-    private static func performPasteSession(_ text: String) async -> PasteResult {
+    private static func performPasteSession(
+        _ text: String,
+        shouldCancel: @escaping () -> Bool
+    ) async -> PasteResult {
+        guard !shouldCancel() else {
+            return .commandNotPosted
+        }
+
         let pasteboard = NSPasteboard.general
         let shouldRestoreClipboard = UserDefaults.standard.bool(forKey: "restoreClipboardAfterPaste")
         let savedContents = shouldRestoreClipboard ? snapshotClipboard(from: pasteboard) : []
@@ -63,7 +76,19 @@ class CursorPaster {
 
         await wait(prePasteDelay)
 
-        let pasteResult = await postPasteCommand()
+        guard !shouldCancel() else {
+            if shouldRestoreClipboard {
+                scheduleClipboardRestore(
+                    savedContents,
+                    expectedText: text,
+                    sessionID: sessionID,
+                    on: pasteboard
+                )
+            }
+            return .commandNotPosted
+        }
+
+        let pasteResult = await postPasteCommand(shouldCancel: shouldCancel)
         if shouldRestoreClipboard {
             scheduleClipboardRestore(
                 savedContents,
@@ -88,11 +113,13 @@ class CursorPaster {
     }
 
     @MainActor
-    private static func postPasteCommand() async -> PasteResult {
+    private static func postPasteCommand(shouldCancel: @escaping () -> Bool) async -> PasteResult {
+        guard !shouldCancel() else { return .commandNotPosted }
+
         if PasteMethod.current() == .appleScript {
             return pasteUsingAppleScript() ? .commandPosted : .commandNotPosted
         } else {
-            return await pasteFromClipboard()
+            return await pasteFromClipboard(shouldCancel: shouldCancel)
         }
     }
 
@@ -181,7 +208,8 @@ class CursorPaster {
 
     // Posts Cmd+V via CGEvent without modifying the active input source.
     @MainActor
-    private static func pasteFromClipboard() async -> PasteResult {
+    private static func pasteFromClipboard(shouldCancel: @escaping () -> Bool) async -> PasteResult {
+        guard !shouldCancel() else { return .commandNotPosted }
         guard AXIsProcessTrusted() else {
             logger.error("Accessibility permission is required to paste with simulated key events")
             return .commandNotPosted
@@ -202,8 +230,15 @@ class CursorPaster {
         vDown.flags = .maskCommand
         vUp.flags = .maskCommand
 
+        guard !shouldCancel() else { return .commandNotPosted }
         cmdDown.post(tap: .cghidEventTap)
         await wait(pasteShortcutEventDelay)
+
+        guard !shouldCancel() else {
+            cmdUp.post(tap: .cghidEventTap)
+            return .commandNotPosted
+        }
+
         vDown.post(tap: .cghidEventTap)
         await wait(pasteShortcutEventDelay)
         vUp.post(tap: .cghidEventTap)

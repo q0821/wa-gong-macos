@@ -59,7 +59,7 @@ class TranscriptionPipeline {
         recordingContextSnapshot: @escaping () async -> RecordingContextSnapshot? = { nil },
         outputConfiguration: @escaping () -> OutputRuntimeConfiguration,
         onStateChange: @escaping (RecordingState) -> Void,
-        shouldCancel: () -> Bool,
+        shouldCancel: @escaping () -> Bool,
         onCancel: @escaping () async -> Void,
         onDismiss: @escaping () async -> Void,
         assistant: AssistantHooks = .inactive
@@ -286,16 +286,29 @@ class TranscriptionPipeline {
                 output: outputForDelivery ?? outputConfiguration(),
                 responseConfig: responseConfig,
                 responseError: responseError,
-                isAssistantFollowUp: assistant.isFollowUp
+                isAssistantFollowUp: assistant.isFollowUp,
+                isCanceled: shouldCancel
             ),
             actions: TranscriptionDelivery.Actions(
                 setState: onStateChange,
                 dismiss: onDismiss,
                 sendFollowUp: assistant.sendFollowUp,
                 showResponse: assistant.showResponse,
-                failResponse: assistant.failResponse
+                failResponse: assistant.failResponse,
+                pasteAtCursor: { text, shouldCancel in
+                    await CursorPaster.pasteAtCursorAndWaitUntilPosted(
+                        text,
+                        shouldCancel: shouldCancel
+                    )
+                },
+                autoSend: CursorPaster.performAutoSend
             )
         )
+
+        if shouldCancel() {
+            await finishCanceledTranscription()
+            return
+        }
 
         saveTranscriptionAndPostCompletion()
     }

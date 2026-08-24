@@ -99,7 +99,8 @@ class CloudTranscriptionService: TranscriptionService {
 
     private func selectedLanguage(from context: TranscriptionRequestContext) -> String? {
         let lang = context.language ?? "auto"
-        return (lang == "auto" || lang.isEmpty) ? nil : lang
+        let apiLanguage = LanguageDictionary.whisperLanguageCode(for: lang)
+        return (apiLanguage == "auto" || apiLanguage.isEmpty) ? nil : apiLanguage
     }
 
     private func getCustomDictionaryTerms() -> [String] {

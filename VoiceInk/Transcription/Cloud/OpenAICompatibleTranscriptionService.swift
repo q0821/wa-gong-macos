@@ -47,7 +47,7 @@ class OpenAICompatibleTranscriptionService {
             throw CloudTranscriptionError.audioFileNotFound
         }
 
-        let selectedLanguage = context.language ?? "auto"
+        let selectedLanguage = LanguageDictionary.whisperLanguageCode(for: context.language ?? "auto")
         let crlf = "\r\n"
         var body = Data()
 

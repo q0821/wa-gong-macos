@@ -58,7 +58,9 @@ class WhisperTranscriptionService: TranscriptionService {
         let data = try readAudioSamples(audioURL)
 
         // Set prompt
-        await whisperContext.setLanguage(context.language)
+        await whisperContext.setLanguage(
+            context.language.map(LanguageDictionary.whisperLanguageCode)
+        )
         await whisperContext.setPrompt(context.prompt ?? "")
 
         // Transcribe

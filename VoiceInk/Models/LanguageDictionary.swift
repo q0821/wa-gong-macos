@@ -55,14 +55,16 @@ enum LanguageDictionary {
 
         if let cloudProvider = CloudProviderRegistry.provider(for: provider) {
             guard let codes = cloudProvider.languageCodes else {
-                return all
+                return withTaiwanChineseAlias(all)
             }
-            return forCodes(codes, includesAutoDetect: cloudProvider.includesAutoDetect)
+            return withTaiwanChineseAlias(
+                forCodes(codes, includesAutoDetect: cloudProvider.includesAutoDetect)
+            )
         }
 
         switch provider {
         case .whisper:
-            return languages(matching: whisperLanguageCodes)
+            return withTaiwanChineseAlias(languages(matching: whisperLanguageCodes))
 
         case .nativeApple:
             return appleNative
@@ -75,7 +77,7 @@ enum LanguageDictionary {
             ]
             var filtered = all.filter { codes.contains($0.key) }
             filtered["auto"] = "Auto-detect"
-            return filtered
+            return withTaiwanChineseAlias(filtered)
 
         default:
             return all
@@ -85,7 +87,34 @@ enum LanguageDictionary {
     static func forCodes(_ codes: [String], includesAutoDetect: Bool = false) -> [String: String] {
         var filtered = all.filter { codes.contains($0.key) }
         if includesAutoDetect { filtered["auto"] = "Auto-detect" }
-        return filtered
+        return withTaiwanChineseAlias(filtered)
+    }
+
+    static func orderedLanguageCodes(from languages: [String: String]) -> [String] {
+        let preferredOrder = ["auto", "zh-TW", "en", "ja", "ko"]
+
+        return languages.keys.sorted { lhs, rhs in
+            let lhsIndex = preferredOrder.firstIndex(of: lhs)
+            let rhsIndex = preferredOrder.firstIndex(of: rhs)
+
+            switch (lhsIndex, rhsIndex) {
+            case let (lhsIndex?, rhsIndex?):
+                return lhsIndex < rhsIndex
+            case (_?, nil):
+                return true
+            case (nil, _?):
+                return false
+            case (nil, nil):
+                let lhsName = languages[lhs, default: lhs]
+                let rhsName = languages[rhs, default: rhs]
+                if lhsName != rhsName { return lhsName < rhsName }
+                return lhs < rhs
+            }
+        }
+    }
+
+    static func whisperLanguageCode(for language: String) -> String {
+        language == "zh-TW" ? "zh" : language
     }
 
     static let nemotronLatin: [String: String] = [
@@ -136,6 +165,14 @@ enum LanguageDictionary {
 
     private static func languages(matching codes: Set<String>) -> [String: String] {
         all.filter { codes.contains($0.key) }
+    }
+
+    private static func withTaiwanChineseAlias(_ languages: [String: String]) -> [String: String] {
+        guard languages["zh"] != nil, languages["zh-TW"] == nil else { return languages }
+
+        var result = languages
+        result["zh-TW"] = "Chinese (Taiwan)"
+        return result
     }
 
     // Apple Native Speech languages in BCP-47 format.

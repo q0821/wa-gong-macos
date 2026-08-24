@@ -8,7 +8,7 @@ enum LanguageDisplayMode {
 
 struct LanguageSelectionView: View {
     @ObservedObject var transcriptionModelManager: TranscriptionModelManager
-    @AppStorage("SelectedLanguage") private var selectedLanguage: String = "en"
+    @AppStorage("SelectedLanguage") private var selectedLanguage: String = AppDefaults.defaultTranscriptionLanguage
     // Add display mode parameter with full as the default
     var displayMode: LanguageDisplayMode = .full
     @ObservedObject var whisperPrompt: WhisperPrompt
@@ -48,7 +48,7 @@ struct LanguageSelectionView: View {
 
     private func availableLanguagesForCurrentModel() -> [String: String] {
         guard let currentModel = transcriptionModelManager.currentTranscriptionModel else {
-            return ["en": "English"]  // Default to English if no model found
+            return ["auto": "Auto-detect"]
         }
         return TranscriptionLanguageSupport.languages(for: currentModel)
     }
@@ -127,13 +127,11 @@ struct LanguageSelectionView: View {
                         HStack(spacing: 8) {
                             Picker("Select Language", selection: selectedLanguageBinding) {
                                 ForEach(
-                                    availableLanguagesForCurrentModel().sorted(by: {
-                                        if $0.key == "auto" { return true }
-                                        if $1.key == "auto" { return false }
-                                        return $0.value < $1.value
-                                    }), id: \.key
-                                ) { key, value in
-                                    Text(value).tag(key)
+                                    LanguageDictionary.orderedLanguageCodes(
+                                        from: availableLanguagesForCurrentModel()
+                                    ), id: \.self
+                                ) { key in
+                                    Text(availableLanguagesForCurrentModel()[key, default: key]).tag(key)
                                 }
                             }
                             .pickerStyle(MenuPickerStyle())
@@ -195,17 +193,15 @@ struct LanguageSelectionView: View {
                 HStack(spacing: 8) {
                     Menu {
                         ForEach(
-                            availableLanguagesForCurrentModel().sorted(by: {
-                                if $0.key == "auto" { return true }
-                                if $1.key == "auto" { return false }
-                                return $0.value < $1.value
-                            }), id: \.key
-                        ) { key, value in
+                            LanguageDictionary.orderedLanguageCodes(
+                                from: availableLanguagesForCurrentModel()
+                            ), id: \.self
+                        ) { key in
                             Button {
                                 updateLanguage(key)
                             } label: {
                                 HStack {
-                                    Text(value)
+                                    Text(availableLanguagesForCurrentModel()[key, default: key])
                                     if selectedLanguage == key {
                                         Image(systemName: "checkmark")
                                     }

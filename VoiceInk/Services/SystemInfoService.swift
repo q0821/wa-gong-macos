@@ -210,7 +210,9 @@ final class SystemInfoService {
     }
 
     private func getCurrentLanguage() -> String {
-        return UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "en"
+        return
+            UserDefaults.standard.string(forKey: "SelectedLanguage")
+            ?? AppDefaults.defaultTranscriptionLanguage
     }
 
     private static func englishTimestamp() -> String {

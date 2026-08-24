@@ -68,7 +68,12 @@ enum RecorderDisplaySettingsKeys {
 }
 
 enum AppDefaults {
+    static let defaultTranscriptionLanguage = "auto"
+    private static let transcriptionLanguageMigrationKey = "HasMigratedTranscriptionLanguageToAuto"
+
     static func registerDefaults() {
+        migrateLegacyTranscriptionLanguageIfNeeded()
+
         UserDefaults.standard.register(defaults: [
             // Onboarding & General
             "hasCompletedOnboardingV2": false,
@@ -92,7 +97,7 @@ enum AppDefaults {
             // Recording & Transcription
             "IsTextFormattingEnabled": true,
             "IsVADEnabled": true,
-            "SelectedLanguage": "en",
+            "SelectedLanguage": defaultTranscriptionLanguage,
             "AppendTrailingSpace": true,
             "RecorderType": "mini",
             RecorderDisplaySettingsKeys.showLiveTranscript: true,
@@ -123,5 +128,15 @@ enum AppDefaults {
         ])
 
         PasteMethod.migrateLegacyUserDefaultIfNeeded()
+    }
+
+    static func migrateLegacyTranscriptionLanguageIfNeeded(defaults: UserDefaults = .standard) {
+        guard !defaults.bool(forKey: transcriptionLanguageMigrationKey) else { return }
+
+        if defaults.string(forKey: "SelectedLanguage") == "en" {
+            defaults.set(defaultTranscriptionLanguage, forKey: "SelectedLanguage")
+        }
+
+        defaults.set(true, forKey: transcriptionLanguageMigrationKey)
     }
 }

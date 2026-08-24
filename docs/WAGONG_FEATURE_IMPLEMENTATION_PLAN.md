@@ -136,7 +136,7 @@
 
 ## 6. 階段三：文字整理模式與自訂提示詞
 
-狀態：未開始
+狀態：三個預設整理 Prompt 與既有切換流程已完成，模式 UI 與 Provider fallback 仍在進行中
 
 預設提供三個可修改模式：
 
@@ -160,6 +160,15 @@
 - 三種模式對贅詞、商業內容與中英混合內容產生不同結果。
 - 整理 Provider 失敗時保留原始轉錄文字。
 - 自訂模式可以新增、修改、刪除與重新選取。
+
+### 預設整理 Prompt 目前驗證結果
+
+- [x] 先加入固定 ID、標題與 Seeder 測試。
+- [x] 新增「去除贅詞」、「商業整理」、「智慧模式」三個可修改預設 Prompt。
+- [x] 任一 Starter Mode 初始化時都會補齊三個預設 Prompt，既有使用者的自訂 Prompt 不會被覆寫。
+- [x] `EnhancementPromptPopover` 原有切換器可直接切換這三個 Prompt，不另造新的切換流程。
+- [x] `xcodebuild build-for-testing` 通過。
+- [ ] 尚未完成真實整理結果、Provider 失敗 fallback 與重啟後人工確認。
 
 ## 7. 階段四：Provider 整合
 

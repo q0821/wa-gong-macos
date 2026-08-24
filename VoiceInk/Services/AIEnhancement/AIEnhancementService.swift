@@ -71,12 +71,22 @@ class AIEnhancementService: ObservableObject {
         self.screenCaptureService = ScreenCaptureService()
         self.customVocabularyService = CustomVocabularyService.shared
 
+        let storedPrompts: [CustomPrompt]
         if let savedPromptsData = UserDefaults.standard.data(forKey: "customPrompts"),
             let decodedPrompts = try? JSONDecoder().decode([CustomPrompt].self, from: savedPromptsData)
         {
-            self.customPrompts = decodedPrompts
+            storedPrompts = decodedPrompts
         } else {
-            self.customPrompts = []
+            storedPrompts = []
+        }
+
+        let seededPrompts = StarterModePromptSeeder.ensurePrompts(
+            for: StarterModeKind.allCases,
+            in: storedPrompts
+        )
+        self.customPrompts = seededPrompts.prompts
+        if seededPrompts.didChange {
+            savePrompts()
         }
 
         repairModePromptSelections()

@@ -22,6 +22,8 @@ enum PromptTemplates {
     static let emailPromptId = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
     static let rewritePromptId = UUID(uuidString: "00000000-0000-0000-0000-000000000004")!
     static let assistantPromptId = UUID(uuidString: "00000000-0000-0000-0000-000000000005")!
+    static let fillerRemovalPromptId = UUID(uuidString: "00000000-0000-0000-0000-000000000006")!
+    static let businessPolishPromptId = UUID(uuidString: "00000000-0000-0000-0000-000000000007")!
 
     static var all: [TemplatePrompt] {
         createTemplatePrompts()
@@ -35,13 +37,44 @@ enum PromptTemplates {
         [
             TemplatePrompt(
                 id: defaultPromptId,
-                title: "Default",
+                title: "智慧模式",
                 promptText: """
-                    Polish the dictated speech in <TRANSCRIPT> into clean, general-purpose text.
+                    Polish the dictated speech in <TRANSCRIPT> using the appropriate level of editing for its content.
 
                     # Rules
-                    - Use readable paragraphs and conventional abbreviations when helpful.
-                    - Prefer a clean, neutral style unless the dictated speech clearly implies a different tone.
+                    - Remove obvious fillers, repetitions, false starts, and abandoned self-corrections.
+                    - Choose a natural level of editing. Keep a conversational tone for casual text and a clear professional tone for work-related text.
+                    - Preserve the original meaning, uncertainty, names, numbers, URLs, email addresses, code, and mixed-language terms.
+                    - Do not translate, add facts, answer questions, or invent missing details.
+                    """,
+                useSystemInstructions: true
+            ),
+            TemplatePrompt(
+                id: fillerRemovalPromptId,
+                title: "去除贅詞",
+                promptText: """
+                    Clean the dictated speech in <TRANSCRIPT> by removing spoken fillers and disfluencies.
+
+                    # Rules
+                    - Remove filler words, repeated words, false starts, and discarded self-corrections when they are not part of the intended meaning.
+                    - Preserve the speaker's wording, tone, order, facts, uncertainty, names, numbers, URLs, email addresses, code, and mixed-language terms.
+                    - Keep punctuation and paragraph breaks readable, but do not rewrite the text into a different style.
+                    - Do not translate, summarize, add facts, answer questions, or invent missing details.
+                    """,
+                useSystemInstructions: true
+            ),
+            TemplatePrompt(
+                id: businessPolishPromptId,
+                title: "商業整理",
+                promptText: """
+                    Turn the dictated speech in <TRANSCRIPT> into clear, concise business communication.
+
+                    # Rules
+                    - Use a professional, direct, and polite tone without making the message unnecessarily formal.
+                    - Organize requests, decisions, deadlines, risks, and action items into readable paragraphs or lists when useful.
+                    - Preserve the original meaning, facts, uncertainty, names, numbers, URLs, email addresses, code, and mixed-language terms.
+                    - Remove fillers, repetition, false starts, and vague phrasing only when the intended meaning is clear.
+                    - Do not invent recipients, commitments, deadlines, facts, opinions, or outcomes.
                     """,
                 useSystemInstructions: true
             ),

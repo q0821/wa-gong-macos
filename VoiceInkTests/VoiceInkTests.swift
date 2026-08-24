@@ -104,4 +104,39 @@ struct VoiceInkTests {
         #expect(provider.models.first?.isMultilingualModel == true)
     }
 
+    @Test func defaultRefinementPresetsHaveStableTitlesAndIDs() {
+        let prompts = PromptTemplates.seedPrompts
+        let titlesByID = Dictionary(uniqueKeysWithValues: prompts.map { ($0.id, $0.title) })
+
+        #expect(titlesByID[PromptTemplates.fillerRemovalPromptId] == "去除贅詞")
+        #expect(titlesByID[PromptTemplates.businessPolishPromptId] == "商業整理")
+        #expect(titlesByID[PromptTemplates.defaultPromptId] == "智慧模式")
+    }
+
+    @Test func seedingAnyStarterModeIncludesAllRefinementPresets() {
+        let result = StarterModePromptSeeder.ensurePrompts(for: [.clean], in: [])
+        let seededIDs = Set(result.prompts.map(\.id))
+
+        #expect(result.didChange)
+        #expect(seededIDs.contains(PromptTemplates.fillerRemovalPromptId))
+        #expect(seededIDs.contains(PromptTemplates.businessPolishPromptId))
+        #expect(seededIDs.contains(PromptTemplates.defaultPromptId))
+    }
+
+    @Test func legacyDefaultPromptGetsSmartModeTitleWithoutLosingCustomText() {
+        let legacyPrompt = CustomPrompt(
+            id: PromptTemplates.defaultPromptId,
+            title: "Default",
+            promptText: "Keep this user text",
+            useSystemInstructions: false
+        )
+
+        let result = StarterModePromptSeeder.ensurePrompts(for: [], in: [legacyPrompt])
+        let migratedPrompt = result.prompts.first { $0.id == PromptTemplates.defaultPromptId }
+
+        #expect(migratedPrompt?.title == "智慧模式")
+        #expect(migratedPrompt?.promptText == "Keep this user text")
+        #expect(migratedPrompt?.useSystemInstructions == false)
+    }
+
 }

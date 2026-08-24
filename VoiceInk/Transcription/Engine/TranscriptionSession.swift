@@ -20,16 +20,21 @@ protocol TranscriptionSession: AnyObject {
 @MainActor
 final class FileTranscriptionSession: TranscriptionSession {
     private let service: TranscriptionService
+    private let customVocabularyWords: [String]
     private var model: (any TranscriptionModel)?
     private var context: TranscriptionRequestContext = .currentDefaults
 
-    init(service: TranscriptionService) {
+    init(service: TranscriptionService, customVocabularyWords: [String] = []) {
         self.service = service
+        self.customVocabularyWords = customVocabularyWords
     }
 
     func prepare(configuration: TranscriptionRuntimeConfiguration) async throws -> ((Data) -> Void)? {
         self.model = configuration.model
-        self.context = configuration.requestContext.scoped(to: configuration.model)
+        let scopedContext = configuration.requestContext.scoped(to: configuration.model)
+        self.context = configuration.model.provider == .whisper
+            ? scopedContext.appendingCustomVocabulary(customVocabularyWords)
+            : scopedContext
         return nil
     }
 
@@ -52,6 +57,7 @@ final class FileTranscriptionSession: TranscriptionSession {
 final class StreamingTranscriptionSession: TranscriptionSession {
     private let streamingService: StreamingTranscriptionService
     private let fallbackService: TranscriptionService
+    private let customVocabularyWords: [String]
     private var model: (any TranscriptionModel)?
     private var context: TranscriptionRequestContext = .currentDefaults
     private var streamingFailed = false
@@ -59,14 +65,22 @@ final class StreamingTranscriptionSession: TranscriptionSession {
     private var startupTaskID: UUID?
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "StreamingTranscriptionSession")
 
-    init(streamingService: StreamingTranscriptionService, fallbackService: TranscriptionService) {
+    init(
+        streamingService: StreamingTranscriptionService,
+        fallbackService: TranscriptionService,
+        customVocabularyWords: [String] = []
+    ) {
         self.streamingService = streamingService
         self.fallbackService = fallbackService
+        self.customVocabularyWords = customVocabularyWords
     }
 
     func prepare(configuration: TranscriptionRuntimeConfiguration) async throws -> ((Data) -> Void)? {
         let model = configuration.model
-        let context = configuration.requestContext.scoped(to: model)
+        let scopedContext = configuration.requestContext.scoped(to: model)
+        let context = model.provider == .whisper
+            ? scopedContext.appendingCustomVocabulary(customVocabularyWords)
+            : scopedContext
 
         self.model = model
         self.context = context

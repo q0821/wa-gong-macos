@@ -14,6 +14,29 @@ struct TranscriptionRequestContext {
         )
     }
 
+    func appendingCustomVocabulary(_ words: [String]) -> TranscriptionRequestContext {
+        var seen = Set<String>()
+        let terms = words.compactMap { word -> String? in
+            let trimmed = word.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, seen.insert(trimmed.lowercased()).inserted else { return nil }
+            return trimmed
+        }
+
+        guard !terms.isEmpty else { return self }
+
+        let vocabularyPrompt = """
+        <CUSTOM_VOCABULARY>
+        \(terms.joined(separator: ", "))
+        </CUSTOM_VOCABULARY>
+        """
+        let combinedPrompt = [prompt, vocabularyPrompt]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+
+        return TranscriptionRequestContext(language: language, prompt: combinedPrompt)
+    }
+
     func scoped(to model: any TranscriptionModel) -> TranscriptionRequestContext {
         guard model.provider == .whisper else {
             return TranscriptionRequestContext(language: language, prompt: nil)

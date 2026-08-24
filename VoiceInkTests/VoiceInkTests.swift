@@ -139,4 +139,18 @@ struct VoiceInkTests {
         #expect(migratedPrompt?.useSystemInstructions == false)
     }
 
+    @Test func localWhisperContextIncludesCustomVocabularyWithoutReplacingPrompt() {
+        let context = TranscriptionRequestContext(
+            language: "auto",
+            prompt: "Use Taiwan wording."
+        )
+
+        let enrichedContext = context.appendingCustomVocabulary(["聲筆", "Wa-Gong"])
+
+        #expect(enrichedContext.language == "auto")
+        #expect(enrichedContext.prompt?.contains("Use Taiwan wording.") == true)
+        #expect(enrichedContext.prompt?.contains("<CUSTOM_VOCABULARY>") == true)
+        #expect(enrichedContext.prompt?.contains("聲筆, Wa-Gong") == true)
+    }
+
 }

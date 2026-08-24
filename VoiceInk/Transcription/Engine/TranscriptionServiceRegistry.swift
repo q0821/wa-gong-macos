@@ -56,7 +56,16 @@ class TranscriptionServiceRegistry {
         logger.debug(
             "Transcribing with \(model.displayName, privacy: .public) using \(String(describing: type(of: service)), privacy: .public)"
         )
-        return try await service.transcribe(audioURL: audioURL, model: model, context: context.scoped(to: model))
+        let scopedContext = context.scoped(to: model)
+        let transcriptionContext: TranscriptionRequestContext
+        if model.provider == .whisper {
+            let vocabulary = CustomVocabularyService.shared.getCustomVocabularyWords(from: modelContext) ?? []
+            transcriptionContext = scopedContext.appendingCustomVocabulary(vocabulary)
+        } else {
+            transcriptionContext = scopedContext
+        }
+
+        return try await service.transcribe(audioURL: audioURL, model: model, context: transcriptionContext)
     }
 
     /// Creates a streaming or file-based session for the resolved transcription configuration.
@@ -64,6 +73,7 @@ class TranscriptionServiceRegistry {
         for configuration: TranscriptionRuntimeConfiguration, onPartialTranscript: ((String) -> Void)? = nil
     ) -> TranscriptionSession {
         let model = configuration.model
+        let customVocabularyWords = CustomVocabularyService.shared.getCustomVocabularyWords(from: modelContext) ?? []
 
         if shouldUseRealtimeTranscription(for: configuration) {
             let streamingService = StreamingTranscriptionService(
@@ -72,9 +82,16 @@ class TranscriptionServiceRegistry {
                 onPartialTranscript: onPartialTranscript
             )
             let fallback = service(for: model.provider)
-            return StreamingTranscriptionSession(streamingService: streamingService, fallbackService: fallback)
+            return StreamingTranscriptionSession(
+                streamingService: streamingService,
+                fallbackService: fallback,
+                customVocabularyWords: customVocabularyWords
+            )
         } else {
-            return FileTranscriptionSession(service: service(for: model.provider))
+            return FileTranscriptionSession(
+                service: service(for: model.provider),
+                customVocabularyWords: customVocabularyWords
+            )
         }
     }
 

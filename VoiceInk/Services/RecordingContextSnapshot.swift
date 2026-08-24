@@ -4,7 +4,6 @@ import Foundation
 struct RecordingContextSnapshot {
     var capturedAt = Date()
     var selectedText: String?
-    var clipboardText: String?
     var screenText: String?
 }
 
@@ -14,10 +13,6 @@ final class RecordingContextSnapshotStore {
 
     func updateSelectedText(_ text: String?) {
         snapshot.selectedText = Self.normalized(text)
-    }
-
-    func updateClipboardText(_ text: String?) {
-        snapshot.clipboardText = Self.normalized(text)
     }
 
     func updateScreenText(_ text: String?) {
@@ -35,9 +30,6 @@ final class RecordingContextSnapshotStore {
 enum RecordingContextCaptureService {
     static func startCapture(into store: RecordingContextSnapshotStore) -> [Task<Void, Never>] {
         [
-            Task { @MainActor in
-                store.updateClipboardText(NSPasteboard.general.string(forType: .string))
-            },
             Task { @MainActor in
                 guard !Task.isCancelled else { return }
                 let selectedText = await SelectedTextService.fetchSelectedText()

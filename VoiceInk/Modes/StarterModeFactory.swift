@@ -84,7 +84,7 @@ enum StarterModeFactory {
             selectedTranscriptionModelName: transcriptionModelName,
             isRealtimeTranscriptionEnabled: isRealtimeTranscriptionEnabled,
             selectedLanguage: selectedLanguage,
-            useClipboardContext: template.kind == .email,
+            useClipboardContext: false,
             useSelectedTextContext: template.useSelectedTextContext,
             useScreenCapture: template.useScreenCapture,
             isTextFormattingEnabled: true,

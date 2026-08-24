@@ -72,7 +72,7 @@ struct ModeConfigDraft {
             isRealtimeTranscriptionEnabled = latestConfig.isRealtimeTranscriptionEnabled
             selectedLanguage = latestConfig.selectedLanguage
             isTextFormattingEnabled = latestConfig.isTextFormattingEnabled
-            useClipboardContext = latestConfig.useClipboardContext
+            useClipboardContext = false
             useSelectedTextContext = latestConfig.useSelectedTextContext
             useScreenCapture = latestConfig.useScreenCapture
             selectedAIProvider = latestConfig.selectedAIProvider
@@ -182,7 +182,7 @@ struct ModeConfigDraft {
                 selectedTranscriptionModelName: selectedTranscriptionModelName,
                 isRealtimeTranscriptionEnabled: isRealtimeTranscriptionEnabled,
                 selectedLanguage: selectedLanguage,
-                useClipboardContext: useClipboardContext,
+                useClipboardContext: false,
                 useSelectedTextContext: useSelectedTextContext,
                 useScreenCapture: useScreenCapture,
                 isTextFormattingEnabled: isTextFormattingEnabled,
@@ -208,7 +208,7 @@ struct ModeConfigDraft {
             updatedConfig.isRealtimeTranscriptionEnabled = isRealtimeTranscriptionEnabled
             updatedConfig.selectedLanguage = selectedLanguage
             updatedConfig.isTextFormattingEnabled = isTextFormattingEnabled
-            updatedConfig.useClipboardContext = useClipboardContext
+            updatedConfig.useClipboardContext = false
             updatedConfig.useSelectedTextContext = useSelectedTextContext
             updatedConfig.useScreenCapture = useScreenCapture
             updatedConfig.selectedAIProvider = selectedAIProvider

@@ -544,13 +544,6 @@ struct ModeConfigFormView: View {
                 }
             }
 
-            Toggle(isOn: $draft.useClipboardContext) {
-                HStack(spacing: 4) {
-                    Text("Clipboard")
-                    InfoTip("Use clipboard text as context for this mode.")
-                }
-            }
-
             Toggle(isOn: $draft.useScreenCapture) {
                 HStack(spacing: 4) {
                     Text("Screen")

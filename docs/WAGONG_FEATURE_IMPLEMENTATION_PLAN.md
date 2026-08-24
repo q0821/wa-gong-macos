@@ -93,7 +93,7 @@
 
 ## 5. 階段二：剪貼簿隔離與隱私透明度
 
-狀態：未開始
+狀態：剪貼簿隔離已完成，Privacy HUD、取消流程與完整外部 Request 透明度仍在進行中
 
 ### 資料政策
 
@@ -103,6 +103,17 @@
 - 選取文字、畫面 OCR、自訂詞彙與系統 Context 各自有獨立開關。
 - Privacy HUD 顯示資料類型、目的地與是否傳送，預設不顯示敏感資料全文。
 - 錄音取消後不得繼續轉錄、整理、傳送或插入。
+
+### 本階段目前驗證結果
+
+- [x] 先加入測試，確認啟用選取文字與畫面 OCR 時仍可產生 Context，剪貼簿內容不會進入 Context。
+- [x] 移除錄音 Context Snapshot 的剪貼簿欄位與擷取工作。
+- [x] 保留 `CursorPaster` 的剪貼簿暫存、貼上與原內容還原流程。
+- [x] 舊模式設定的剪貼簿欄位保留解碼相容性，但執行期固定為停用，設定畫面不再提供剪貼簿 Context 開關。
+- [x] 共用 AI Prompt 不再描述或引用剪貼簿 Context。
+- [x] `xcodebuild build-for-testing` 通過。
+- [ ] 單元測試 assertion 尚未取得，原因與階段一相同，macOS 測試執行器卡在 Launch Services worker。
+- [ ] Privacy HUD、Request 目的地與資料類型顯示、取消後的工作階段檢查，待後續測試先行實作。
 - 日誌不得記錄完整語音、完整文字、剪貼簿、選取文字、OCR 或 API Key。
 
 ### 實作內容

@@ -77,6 +77,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
     var isRealtimeTranscriptionEnabled: Bool = true
     var selectedLanguage: String?
     var isTextFormattingEnabled: Bool = false
+    // Legacy storage field retained for decoding old mode files. It is always false.
     var useClipboardContext: Bool
     var useSelectedTextContext: Bool
     var useScreenCapture: Bool
@@ -118,7 +119,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         self.triggerWords = Self.normalizedTriggerWords(triggerWords)
         self.isAIEnhancementEnabled = isAIEnhancementEnabled
         self.selectedPrompt = selectedPrompt
-        self.useClipboardContext = useClipboardContext
+        self.useClipboardContext = false
         self.useSelectedTextContext = useSelectedTextContext
         self.useScreenCapture = useScreenCapture
         self.autoSendKey = autoSendKey
@@ -169,9 +170,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
             try container.decodeIfPresent(Bool.self, forKey: .isRealtimeTranscriptionEnabled) ?? true
         selectedLanguage = try container.decodeIfPresent(String.self, forKey: .selectedLanguage)
         isTextFormattingEnabled = try container.decodeIfPresent(Bool.self, forKey: .isTextFormattingEnabled) ?? false
-        useClipboardContext =
-            try container.decodeIfPresent(Bool.self, forKey: .useClipboardContext)
-            ?? UserDefaults.standard.bool(forKey: "useClipboardContext")
+        useClipboardContext = false
         if let decodedSelectedTextContext = try container.decodeIfPresent(Bool.self, forKey: .useSelectedTextContext) {
             useSelectedTextContext = decodedSelectedTextContext
         } else if UserDefaults.standard.object(forKey: "useSelectedTextContext") == nil {
@@ -222,7 +221,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         try container.encode(isRealtimeTranscriptionEnabled, forKey: .isRealtimeTranscriptionEnabled)
         try container.encodeIfPresent(selectedLanguage, forKey: .selectedLanguage)
         try container.encode(isTextFormattingEnabled, forKey: .isTextFormattingEnabled)
-        try container.encode(useClipboardContext, forKey: .useClipboardContext)
+        try container.encode(false, forKey: .useClipboardContext)
         try container.encode(useSelectedTextContext, forKey: .useSelectedTextContext)
         try container.encode(useScreenCapture, forKey: .useScreenCapture)
         try container.encodeIfPresent(selectedAIProvider, forKey: .selectedAIProvider)

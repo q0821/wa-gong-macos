@@ -43,7 +43,7 @@ struct EnhancementRuntimeConfiguration {
             prompt: prompt,
             provider: provider,
             modelName: modelName,
-            useClipboardContext: useClipboardContext,
+            useClipboardContext: false,
             useSelectedTextContext: useSelectedTextContext,
             useScreenCaptureContext: useScreenCaptureContext
         )
@@ -171,7 +171,7 @@ enum ModeRuntimeResolver {
             prompt: prompt,
             provider: provider,
             modelName: modelName,
-            useClipboardContext: provider == .voiceInkRefine ? false : mode?.useClipboardContext ?? false,
+            useClipboardContext: false,
             useSelectedTextContext: provider == .voiceInkRefine ? false : mode?.useSelectedTextContext ?? true,
             useScreenCaptureContext: provider == .voiceInkRefine ? false : mode?.useScreenCapture ?? false
         )

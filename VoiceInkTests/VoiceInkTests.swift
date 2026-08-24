@@ -69,4 +69,30 @@ struct VoiceInkTests {
         #expect(model?.isMultilingualModel == true)
     }
 
+    @Test func llmContextExcludesClipboardWhileKeepingEnabledContexts() {
+        let blocks = AIEnhancementContextPolicy.contextBlocks(
+            selectedText: "selected-secret",
+            clipboardText: "clipboard-secret",
+            screenText: "screen-secret",
+            useSelectedText: true,
+            useScreenCapture: true
+        )
+        let context = blocks.joined(separator: "\n")
+
+        #expect(context.contains("selected-secret"))
+        #expect(context.contains("screen-secret"))
+        #expect(!context.contains("clipboard-secret"))
+        #expect(!context.contains("CLIPBOARD_CONTEXT"))
+    }
+
+    @Test func modeConfigurationCannotEnableClipboardContext() {
+        let mode = ModeConfig(
+            name: "Privacy Test",
+            isAIEnhancementEnabled: true,
+            useClipboardContext: true
+        )
+
+        #expect(mode.useClipboardContext == false)
+    }
+
 }

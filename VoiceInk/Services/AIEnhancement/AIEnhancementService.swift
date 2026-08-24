@@ -12,6 +12,34 @@ struct AIEnhancementResult: Sendable {
     let userMessage: String?
 }
 
+enum AIEnhancementContextPolicy {
+    static func contextBlocks(
+        selectedText: String?,
+        clipboardText _: String?,
+        screenText: String?,
+        useSelectedText: Bool,
+        useScreenCapture: Bool
+    ) -> [String] {
+        var blocks: [String] = []
+
+        if useSelectedText,
+            let selectedText,
+            !selectedText.isEmpty
+        {
+            blocks.append("<CURRENTLY_SELECTED_TEXT>\n\(selectedText)\n</CURRENTLY_SELECTED_TEXT>")
+        }
+
+        if useScreenCapture,
+            let screenText,
+            !screenText.isEmpty
+        {
+            blocks.append("<CURRENT_WINDOW_CONTEXT>\n\(screenText)\n</CURRENT_WINDOW_CONTEXT>")
+        }
+
+        return blocks
+    }
+}
+
 @MainActor
 class AIEnhancementService: ObservableObject {
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "AIEnhancementService")
@@ -36,8 +64,6 @@ class AIEnhancementService: ObservableObject {
     private let rateLimitInterval: TimeInterval = 1.0
     private var lastRequestTime: Date?
     private let modelContext: ModelContext
-
-    @Published var lastCapturedClipboard: String?
 
     init(aiService: AIService = AIService(), modelContext: ModelContext) {
         self.aiService = aiService
@@ -113,42 +139,15 @@ class AIEnhancementService: ObservableObject {
         configuration: EnhancementRuntimeConfiguration,
         contextSnapshot: RecordingContextSnapshot?
     ) async -> String {
-        let useSelectedText = configuration.useSelectedTextContext
-        let useClipboard = configuration.useClipboardContext
-        let useScreenCapture = configuration.useScreenCaptureContext
-
-        lastCapturedClipboard = contextSnapshot?.clipboardText
         screenCaptureService.lastCapturedText = contextSnapshot?.screenText
 
-        let selectedTextContext: String
-        if useSelectedText,
-            let selectedText = contextSnapshot?.selectedText,
-            !selectedText.isEmpty
-        {
-            selectedTextContext = "<CURRENTLY_SELECTED_TEXT>\n\(selectedText)\n</CURRENTLY_SELECTED_TEXT>"
-        } else {
-            selectedTextContext = ""
-        }
-
-        let clipboardContext =
-            if useClipboard,
-                let clipboardText = lastCapturedClipboard,
-                !clipboardText.isEmpty
-            {
-                "<CLIPBOARD_CONTEXT>\n\(clipboardText)\n</CLIPBOARD_CONTEXT>"
-            } else {
-                ""
-            }
-
-        let screenCaptureContext =
-            if useScreenCapture,
-                let capturedText = screenCaptureService.lastCapturedText,
-                !capturedText.isEmpty
-            {
-                "<CURRENT_WINDOW_CONTEXT>\n\(capturedText)\n</CURRENT_WINDOW_CONTEXT>"
-            } else {
-                ""
-            }
+        let contextBlocks = AIEnhancementContextPolicy.contextBlocks(
+            selectedText: contextSnapshot?.selectedText,
+            clipboardText: nil,
+            screenText: contextSnapshot?.screenText,
+            useSelectedText: configuration.useSelectedTextContext,
+            useScreenCapture: configuration.useScreenCaptureContext
+        )
 
         let customVocabulary = customVocabularyService.getCustomVocabulary(from: modelContext)
 
@@ -164,9 +163,6 @@ class AIEnhancementService: ObservableObject {
             } else {
                 ""
             }
-
-        let contextBlocks = [selectedTextContext, clipboardContext, screenCaptureContext]
-            .filter { !$0.isEmpty }
 
         let contextSection =
             if !contextBlocks.isEmpty {
@@ -522,12 +518,7 @@ class AIEnhancementService: ObservableObject {
         }
     }
 
-    func captureClipboardContext() {
-        lastCapturedClipboard = NSPasteboard.general.string(forType: .string)
-    }
-
     func clearCapturedContexts() {
-        lastCapturedClipboard = nil
         screenCaptureService.lastCapturedText = nil
     }
 

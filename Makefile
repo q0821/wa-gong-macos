@@ -4,6 +4,7 @@ WHISPER_CPP_DIR := $(DEPS_DIR)/whisper.cpp
 FRAMEWORK_PATH := $(WHISPER_CPP_DIR)/build-apple/whisper.xcframework
 LOCAL_DERIVED_DATA := $(CURDIR)/.local-build
 LOCAL_CODESIGN_IDENTITY ?=
+XCODEBUILD_VALIDATION_FLAGS ?= -skipPackagePluginValidation -skipMacroValidation
 
 .PHONY: all clean whisper setup build local check healthcheck help dev run release release-setup
 
@@ -43,11 +44,13 @@ setup: whisper
 	@echo "Please ensure your Xcode project references the framework from this new location."
 
 build: setup
-	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug CODE_SIGN_IDENTITY="" build
+	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug \
+		$(XCODEBUILD_VALIDATION_FLAGS) \
+		CODE_SIGN_IDENTITY="" build
 
 # Build locally with stable Apple Development signing when available.
 local: check setup
-	@echo "Building VoiceInk for local use (no Apple Developer certificate required)..."
+	@echo "Building Wa-Gong for local use (no Apple Developer certificate required)..."
 	@rm -rf "$(LOCAL_DERIVED_DATA)"
 	@SIGNING_IDENTITY="$(LOCAL_CODESIGN_IDENTITY)"; \
 	if [ -z "$$SIGNING_IDENTITY" ]; then \
@@ -70,6 +73,7 @@ local: check setup
 	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug \
 		-derivedDataPath "$(LOCAL_DERIVED_DATA)" \
 		-xcconfig LocalBuild.xcconfig \
+		$(XCODEBUILD_VALIDATION_FLAGS) \
 		CODE_SIGN_IDENTITY="$$SIGNING_IDENTITY" \
 		CODE_SIGNING_REQUIRED="$$SIGNING_REQUIRED" \
 		CODE_SIGNING_ALLOWED=YES \
@@ -77,37 +81,37 @@ local: check setup
 		CODE_SIGN_ENTITLEMENTS="$(CURDIR)/VoiceInk/VoiceInk.local.entitlements" \
 		SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) LOCAL_BUILD' \
 		build
-	@APP_PATH="$(LOCAL_DERIVED_DATA)/Build/Products/Debug/VoiceInk.app" && \
+	@APP_PATH="$(LOCAL_DERIVED_DATA)/Build/Products/Debug/Wa-Gong.app" && \
 	if [ -d "$$APP_PATH" ]; then \
-		echo "Copying VoiceInk.app to ~/Downloads..."; \
-		rm -rf "$$HOME/Downloads/VoiceInk.app"; \
-		ditto "$$APP_PATH" "$$HOME/Downloads/VoiceInk.app"; \
-		xattr -cr "$$HOME/Downloads/VoiceInk.app"; \
+		echo "Copying Wa-Gong.app to ~/Downloads..."; \
+		rm -rf "$$HOME/Downloads/Wa-Gong.app"; \
+		ditto "$$APP_PATH" "$$HOME/Downloads/Wa-Gong.app"; \
+		xattr -cr "$$HOME/Downloads/Wa-Gong.app"; \
 		echo ""; \
-		echo "Build complete! App saved to: ~/Downloads/VoiceInk.app"; \
-		echo "Run with: open ~/Downloads/VoiceInk.app"; \
+		echo "Build complete! App saved to: ~/Downloads/Wa-Gong.app"; \
+		echo "Run with: open ~/Downloads/Wa-Gong.app"; \
 		echo ""; \
 		echo "Limitations of local builds:"; \
 		echo "  - No iCloud dictionary sync"; \
 		echo "  - No automatic updates (pull new code and rebuild to update)"; \
 	else \
-		echo "Error: Could not find built VoiceInk.app at $$APP_PATH"; \
+		echo "Error: Could not find built Wa-Gong.app at $$APP_PATH"; \
 		exit 1; \
 	fi
 
 # Run application
 run:
-	@if [ -d "$$HOME/Downloads/VoiceInk.app" ]; then \
-		echo "Opening ~/Downloads/VoiceInk.app..."; \
-		open "$$HOME/Downloads/VoiceInk.app"; \
+	@if [ -d "$$HOME/Downloads/Wa-Gong.app" ]; then \
+		echo "Opening ~/Downloads/Wa-Gong.app..."; \
+		open "$$HOME/Downloads/Wa-Gong.app"; \
 	else \
-		echo "Looking for VoiceInk.app in DerivedData..."; \
-		APP_PATH=$$(find "$$HOME/Library/Developer/Xcode/DerivedData" -name "VoiceInk.app" -type d | head -1) && \
+		echo "Looking for Wa-Gong.app in DerivedData..."; \
+		APP_PATH=$$(find "$$HOME/Library/Developer/Xcode/DerivedData" -name "Wa-Gong.app" -type d | head -1) && \
 		if [ -n "$$APP_PATH" ]; then \
 			echo "Found app at: $$APP_PATH"; \
 			open "$$APP_PATH"; \
 		else \
-			echo "VoiceInk.app not found. Please run 'make build' or 'make local' first."; \
+			echo "Wa-Gong.app not found. Please run 'make build' or 'make local' first."; \
 			exit 1; \
 		fi; \
 	fi
@@ -135,11 +139,12 @@ help:
 	@echo "Available targets:"
 	@echo "  check/healthcheck  Check if required CLI tools are installed"
 	@echo "  whisper            Clone and build whisper.cpp XCFramework"
-	@echo "  setup              Copy whisper XCFramework to VoiceInk project"
-	@echo "  build              Build the VoiceInk Xcode project"
+	@echo "  setup              Copy whisper XCFramework to the Wa-Gong project"
+	@echo "  build              Build the Wa-Gong Xcode project"
 	@echo "  local              Build locally with stable signing when available"
 	@echo "    LOCAL_CODESIGN_IDENTITY=<SHA or name> overrides automatic Apple Development detection"
-	@echo "  run                Launch the built VoiceInk app"
+	@echo "    XCODEBUILD_VALIDATION_FLAGS=... overrides package and macro validation flags"
+	@echo "  run                Launch the built Wa-Gong app"
 	@echo "  dev                Build and run the app (for development)"
 	@echo "  release            Build DMG and Appcast using release-notes/<version>.html"
 	@echo "  release-setup      Store notarization credentials in Keychain"

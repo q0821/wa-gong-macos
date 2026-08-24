@@ -1,4 +1,59 @@
 import Foundation
+import OSLog
+
+enum AppIdentity {
+    static let displayName = "聲筆 Wa-Gong"
+    static let bundleIdentifier = "com.jackie-yeh.wagong"
+    static let legacyBundleIdentifier = "com.prakashjoshipax.VoiceInk"
+    static let refineXPCBundleIdentifier = "\(bundleIdentifier).RefineXPC"
+    static let iCloudContainerIdentifier = "iCloud.\(bundleIdentifier)"
+
+    private static let logger = Logger(subsystem: bundleIdentifier, category: "AppIdentity")
+
+    static var applicationSupportDirectoryURL: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(bundleIdentifier, isDirectory: true)
+    }
+
+    static func migrateLegacyStorageIfNeeded(fileManager: FileManager = .default) {
+        migrateLegacyUserDefaultsIfNeeded()
+
+        let applicationSupportRoot = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let currentDirectory = applicationSupportRoot.appendingPathComponent(bundleIdentifier, isDirectory: true)
+        let legacyDirectory = applicationSupportRoot.appendingPathComponent(
+            legacyBundleIdentifier,
+            isDirectory: true
+        )
+
+        guard !fileManager.fileExists(atPath: currentDirectory.path),
+            fileManager.fileExists(atPath: legacyDirectory.path)
+        else {
+            return
+        }
+
+        do {
+            try fileManager.moveItem(at: legacyDirectory, to: currentDirectory)
+            logger.info("Migrated legacy application support data to the Wa-Gong storage location")
+        } catch {
+            logger.error("Failed to migrate legacy application support data: \(error, privacy: .public)")
+        }
+    }
+
+    private static func migrateLegacyUserDefaultsIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard let legacyDomain = defaults.persistentDomain(forName: legacyBundleIdentifier), !legacyDomain.isEmpty else {
+            return
+        }
+
+        let currentDomain = defaults.persistentDomain(forName: bundleIdentifier) ?? [:]
+        guard currentDomain.isEmpty else {
+            return
+        }
+
+        defaults.setPersistentDomain(legacyDomain, forName: bundleIdentifier)
+        logger.info("Migrated legacy user defaults to the Wa-Gong preferences domain")
+    }
+}
 
 enum CleanupSettingsKeys {
     static let isTranscriptionCleanupEnabled = "IsTranscriptionCleanupEnabled"

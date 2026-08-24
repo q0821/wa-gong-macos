@@ -9,8 +9,7 @@ class TranscriptionAutoCleanupService {
     private var modelContext: ModelContext?
 
     private var recordingsDirectory: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("com.prakashjoshipax.VoiceInk")
+        AppIdentity.applicationSupportDirectoryURL
             .appendingPathComponent("Recordings")
     }
 

@@ -1,6 +1,6 @@
 # macOS 語音輸入 App 實作計畫
 
-更新日期：2026-08-24
+更新日期：2026-08-25
 
 本計畫依據 [PROJECT_DIRECTION.md](./PROJECT_DIRECTION.md) 執行。每個階段完成後更新狀態與驗證結果。
 
@@ -47,7 +47,22 @@
 - 執行 Debug Build。
 - 以備忘錄完成一次端對端實機測試。
 
-**狀態**：未開始
+**目前驗證結果**：
+
+- [x] `make check` 通過。
+- [x] `xcodebuild -list` 成功解析專案 targets、schemes 與 Swift packages。
+- [x] 已確認 M1 Pro、Xcode 26.6、Swift 6.3.3 與 macOS Deployment Target 14.4。
+- [x] Apple Silicon `arm64` Debug Build 成功，建置時需略過 Xcode 26.6 的 package plugin 與 macro validation。
+- [x] `VoiceInkTests/example()` 通過，使用 `LocalBuild.xcconfig` 與 local entitlements。
+- [x] UI tests 實際執行 8 個測試，0 個失敗，涵蓋 App 啟動、啟動效能與 Light／Dark 外觀啟動畫面截圖。
+- [x] 第一階段品牌識別切換完成：App 顯示名稱為「聲筆 Wa-Gong」、Bundle Identifier 為 `com.jackie-yeh.wagong`、本機產物為 `Wa-Gong.app`，並保留 Swift module name `VoiceInk` 以維持既有測試與內部程式碼相容性。
+- [x] 主 App、測試 target 與 Refine XPC 的識別字串已同步，舊版 Application Support 目錄與 UserDefaults domain 已加入啟動時搬遷。
+- [ ] 完成使用者可見的 VoiceInk 本地化文案、App Intents 名稱與匯出檔名的全面盤點。
+- [ ] 完成 Apple Developer Portal 的新 App ID、iCloud container、Keychain access group 與正式簽署設定。
+- [ ] 建立 Wa-Gong 自有的 Sparkle feed、公開金鑰與 Release／DMG 發布設定。
+- [ ] 實機麥克風、Accessibility、錄音、轉錄與備忘錄文字插入端對端測試。
+
+**狀態**：進行中
 
 ## 階段 2：建立延遲基準與觀測能力
 

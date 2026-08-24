@@ -11,7 +11,7 @@
 
 本專案目前處於早期開發階段，尚未發布可供一般使用者下載的穩定版本。
 
-現階段程式碼以 [Beingpax/VoiceInk](https://github.com/Beingpax/VoiceInk) 最新版為基底，部分 App 名稱、Bundle Identifier、圖示、設定與建置流程仍沿用 VoiceInk，尚未完成 Wa-Gong 品牌與功能調整。
+現階段程式碼以 [Beingpax/VoiceInk](https://github.com/Beingpax/VoiceInk) 最新版為基底，App 顯示名稱、Bundle Identifier 與本機產物名稱已完成第一階段的 Wa-Gong 品牌遷移。內部 target 名稱、部分上游元件名稱與既有本地化文案仍保留 VoiceInk，方便持續同步上游程式碼。
 
 本專案是獨立社群 Fork，不是 VoiceInk 官方版本，也不由 VoiceInk 原作者提供支援。
 
@@ -91,7 +91,7 @@ make check
 make local
 ```
 
-本機 Build 目前仍可能輸出名為 `VoiceInk.app` 的 App。完成品牌與 Bundle Identifier 遷移前，請勿將其視為正式 Wa-Gong Release。
+本機 Build 會輸出名為 `Wa-Gong.app` 的 App。正式 Wa-Gong Release 仍需另外完成 Apple Developer 能力、Sparkle 更新來源與簽署設定確認。
 
 ## Git Remote 建議
 

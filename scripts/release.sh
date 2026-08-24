@@ -20,7 +20,7 @@ NOTARY_PROFILE="${VOICEINK_NOTARY_PROFILE:-VoiceInk-Notarization}"
 SPARKLE_ACCOUNT="${VOICEINK_SPARKLE_ACCOUNT:-VoiceInk}"
 RELEASE_BASE_URL="${VOICEINK_RELEASE_BASE_URL:-https://github.com/Beingpax/VoiceInk/releases/download}"
 EXPECTED_FEED_URL="https://beingpax.github.io/VoiceInk/appcast.xml"
-EXPECTED_BUNDLE_ID="com.prakashjoshipax.VoiceInk"
+EXPECTED_BUNDLE_ID="com.jackie-yeh.wagong"
 EXPECTED_MINIMUM_SYSTEM_VERSION="14.4"
 
 XCODE_DEVELOPER_DIR="${VOICEINK_XCODE_DEVELOPER_DIR:-${DEVELOPER_DIR:-}}"
@@ -35,8 +35,8 @@ INPUT_APP=""
 INPUT_ARCHIVE=""
 NOTES_PATH=""
 RELEASE_TIMESTAMP="$(date '+%Y-%m-%d_%H-%M-%S')"
-RELEASE_OUTPUT_ROOT="${VOICEINK_RELEASE_OUTPUT_ROOT:-$HOME/Downloads/VoiceInk Builds}"
-OUTPUT_DIR="$RELEASE_OUTPUT_ROOT/VoiceInk-$RELEASE_TIMESTAMP"
+RELEASE_OUTPUT_ROOT="${VOICEINK_RELEASE_OUTPUT_ROOT:-$HOME/Downloads/Wa-Gong Builds}"
+OUTPUT_DIR="$RELEASE_OUTPUT_ROOT/Wa-Gong-$RELEASE_TIMESTAMP"
 APPCAST_OUTPUT="$REPO_ROOT/appcast.xml"
 SKIP_NOTARIZATION=0
 ALLOW_DIRTY=0
@@ -46,11 +46,11 @@ usage() {
 Usage:
   scripts/release.sh --notes <release-notes.html> [options]
 
-Builds, signs, notarizes, packages, validates, and creates VoiceInk's Appcast.
+Builds, signs, notarizes, packages, validates, and creates Wa-Gong's Appcast.
 The script never commits, pushes, tags, or creates a GitHub release.
 
 Options:
-  --app <VoiceInk.app>        Use an existing exported app instead of archiving.
+  --app <Wa-Gong.app>         Use an existing exported app instead of archiving.
   --archive <file.xcarchive>  Export an existing archive instead of rebuilding.
   --notes <file>              Override release-notes/<app-version>.html.
   --output-dir <directory>    Override the timestamped Downloads directory.
@@ -63,7 +63,7 @@ Options:
 Examples:
   make release
   make release NOTES=release-notes/2.2.html
-  scripts/release.sh --app /path/to/VoiceInk.app \
+  scripts/release.sh --app /path/to/Wa-Gong.app \
     --notes /path/to/notes.html --skip-notarization --allow-dirty
 EOF
 }
@@ -238,21 +238,21 @@ mkdir -p "$OUTPUT_DIR"
 OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
 EXPORT_DIR="$OUTPUT_DIR/export"
 WORK_DIR="$OUTPUT_DIR/work"
-ARCHIVE_PATH="$OUTPUT_DIR/VoiceInk.xcarchive"
-DMG_PATH="$OUTPUT_DIR/VoiceInk.dmg"
+ARCHIVE_PATH="$OUTPUT_DIR/Wa-Gong.xcarchive"
+DMG_PATH="$OUTPUT_DIR/Wa-Gong.dmg"
 mkdir -p "$EXPORT_DIR" "$WORK_DIR"
 
 if [[ -n "$INPUT_APP" ]]; then
     [[ -d "$INPUT_APP" ]] || fail "Input app not found: $INPUT_APP"
     log "Copying existing application"
-    ditto "$INPUT_APP" "$EXPORT_DIR/VoiceInk.app"
+    ditto "$INPUT_APP" "$EXPORT_DIR/Wa-Gong.app"
 else
     require_command xcodebuild
     if [[ -n "$INPUT_ARCHIVE" ]]; then
         [[ -d "$INPUT_ARCHIVE" ]] || fail "Input archive not found: $INPUT_ARCHIVE"
         ARCHIVE_PATH="$INPUT_ARCHIVE"
     else
-        log "Archiving VoiceInk"
+        log "Archiving Wa-Gong"
         xcodebuild archive \
             -project "$PROJECT_PATH" \
             -scheme "$SCHEME" \
@@ -267,9 +267,9 @@ else
         -exportOptionsPlist "$EXPORT_OPTIONS"
 fi
 
-APP_PATH="$EXPORT_DIR/VoiceInk.app"
+APP_PATH="$EXPORT_DIR/Wa-Gong.app"
 INFO_PLIST="$APP_PATH/Contents/Info.plist"
-[[ -d "$APP_PATH" ]] || fail "Exported VoiceInk.app not found"
+[[ -d "$APP_PATH" ]] || fail "Exported Wa-Gong.app not found"
 [[ -f "$INFO_PLIST" ]] || fail "Exported app Info.plist not found"
 
 SHORT_VERSION="$(read_plist_value "$INFO_PLIST" CFBundleShortVersionString)"
@@ -279,7 +279,7 @@ BUNDLE_ID="$(read_plist_value "$INFO_PLIST" CFBundleIdentifier)"
 FEED_URL="$(read_plist_value "$INFO_PLIST" SUFeedURL)"
 APP_PUBLIC_KEY="$(read_plist_value "$INFO_PLIST" SUPublicEDKey)"
 RELEASE_TAG="v$SHORT_VERSION"
-DOWNLOAD_URL="$RELEASE_BASE_URL/$RELEASE_TAG/VoiceInk.dmg"
+DOWNLOAD_URL="$RELEASE_BASE_URL/$RELEASE_TAG/Wa-Gong.dmg"
 
 if [[ -z "$NOTES_PATH" ]]; then
     NOTES_PATH="$REPO_ROOT/release-notes/$SHORT_VERSION.html"
@@ -307,7 +307,7 @@ KEYCHAIN_PUBLIC_KEY="$("$GENERATE_KEYS" --account "$SPARKLE_ACCOUNT" -p)"
 [[ "$KEYCHAIN_PUBLIC_KEY" == "$APP_PUBLIC_KEY" ]] || fail "Sparkle Keychain public key does not match the app"
 
 if [[ "$SKIP_NOTARIZATION" == "0" ]]; then
-    APP_ZIP="$WORK_DIR/VoiceInk.zip"
+    APP_ZIP="$WORK_DIR/Wa-Gong.zip"
     log "Submitting application for notarization"
     ditto -c -k --keepParent "$APP_PATH" "$APP_ZIP"
     xcrun notarytool submit "$APP_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
@@ -320,7 +320,7 @@ fi
 
 DMG_SOURCE_DIR="$WORK_DIR/dmg-source"
 mkdir -p "$DMG_SOURCE_DIR"
-ditto "$APP_PATH" "$DMG_SOURCE_DIR/VoiceInk.app"
+ditto "$APP_PATH" "$DMG_SOURCE_DIR/Wa-Gong.app"
 
 log "Building DMG with extracted DMG Canvas layout"
 create-dmg \
@@ -331,8 +331,8 @@ create-dmg \
     --window-size "$DMG_WINDOW_WIDTH" "$DMG_WINDOW_HEIGHT" \
     --text-size "$DMG_TEXT_SIZE" \
     --icon-size "$DMG_ICON_SIZE" \
-    --icon "VoiceInk.app" "$DMG_APP_X" "$DMG_APP_Y" \
-    --hide-extension "VoiceInk.app" \
+    --icon "Wa-Gong.app" "$DMG_APP_X" "$DMG_APP_Y" \
+    --hide-extension "Wa-Gong.app" \
     --app-drop-link "$DMG_APPLICATIONS_X" "$DMG_APPLICATIONS_Y" \
     --filesystem APFS \
     --format ULFO \
@@ -360,8 +360,8 @@ DMG_MOUNT_DIR="$(mktemp -d /tmp/voiceink-release-mount.XXXXXX)"
 hdiutil attach -readonly -nobrowse -mountpoint "$DMG_MOUNT_DIR" "$DMG_PATH"
 DMG_MOUNTED=1
 
-MOUNTED_APP="$DMG_MOUNT_DIR/VoiceInk.app"
-[[ -d "$MOUNTED_APP" ]] || fail "VoiceInk.app is missing from the DMG"
+MOUNTED_APP="$DMG_MOUNT_DIR/Wa-Gong.app"
+[[ -d "$MOUNTED_APP" ]] || fail "Wa-Gong.app is missing from the DMG"
 [[ -L "$DMG_MOUNT_DIR/Applications" ]] || fail "Applications shortcut is missing from the DMG"
 [[ "$(read_plist_value "$MOUNTED_APP/Contents/Info.plist" CFBundleShortVersionString)" == "$SHORT_VERSION" ]] \
     || fail "DMG app short version does not match"
@@ -376,8 +376,8 @@ DMG_MOUNTED=0
 
 APPCAST_WORK_DIR="$WORK_DIR/appcast"
 mkdir -p "$APPCAST_WORK_DIR"
-ditto "$DMG_PATH" "$APPCAST_WORK_DIR/VoiceInk.dmg"
-cp "$NOTES_PATH" "$APPCAST_WORK_DIR/VoiceInk.$NOTES_EXTENSION"
+ditto "$DMG_PATH" "$APPCAST_WORK_DIR/Wa-Gong.dmg"
+cp "$NOTES_PATH" "$APPCAST_WORK_DIR/Wa-Gong.$NOTES_EXTENSION"
 
 log "Generating Sparkle Appcast"
 "$GENERATE_APPCAST" \

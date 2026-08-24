@@ -50,9 +50,8 @@ final class DashboardStatsSnapshotStore: @unchecked Sendable {
             fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? fileManager.homeDirectoryForCurrentUser.appendingPathComponent(
                 "Library/Application Support", isDirectory: true)
-        let appSupportURL =
-            appSupportRoot
-            .appendingPathComponent("com.prakashjoshipax.VoiceInk", isDirectory: true)
+        let appSupportURL = appSupportRoot
+            .appendingPathComponent(AppIdentity.bundleIdentifier, isDirectory: true)
         self.snapshotURL = appSupportURL.appendingPathComponent("dashboard-stats-snapshot.json")
     }
 

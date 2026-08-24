@@ -41,6 +41,7 @@ struct VoiceInkApp: App {
         // Disable HTTP response caching — prevents API responses from being stored in Cache.db
         URLCache.shared = URLCache(memoryCapacity: 0, diskCapacity: 0)
 
+        AppIdentity.migrateLegacyStorageIfNeeded()
         AppDefaults.registerDefaults()
         AppLanguagePreference.applyStored()
         AppAppearancePreference.applyStored()
@@ -70,7 +71,7 @@ struct VoiceInkApp: App {
                     alert.messageText = String(localized: "Storage Warning")
                     alert.informativeText = String(
                         localized:
-                            "VoiceInk couldn't access its storage location. Your transcriptions will not be saved between sessions."
+                            "Wa-Gong couldn't access its storage location. Your transcriptions will not be saved between sessions."
                     )
                     alert.alertStyle = .warning
                     alert.addButton(withTitle: String(localized: "OK"))
@@ -83,7 +84,7 @@ struct VoiceInkApp: App {
                     "❌ All ModelContainer init attempts failed.\nPersistent:\n\(persistentDetail, privacy: .public)\nIn-memory:\n\(memoryDetail, privacy: .public)"
                 )
                 fatalError(
-                    "VoiceInk failed to initialize storage.\nPersistent:\n\(persistentDetail)\nIn-memory:\n\(memoryDetail)"
+                    "Wa-Gong failed to initialize storage.\nPersistent:\n\(persistentDetail)\nIn-memory:\n\(memoryDetail)"
                 )
             }
         }
@@ -103,8 +104,7 @@ struct VoiceInkApp: App {
         _enhancementService = StateObject(wrappedValue: enhancementService)
 
         // 1. Create modelsDirectory URL
-        let appSupportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("com.prakashjoshipax.VoiceInk")
+        let appSupportDirectory = AppIdentity.applicationSupportDirectoryURL
         let modelsDirectory = appSupportDirectory.appendingPathComponent("WhisperModels")
 
         // 2. Create model managers
@@ -211,8 +211,7 @@ struct VoiceInkApp: App {
     }
 
     private static func createPersistentContainer(schema: Schema, logger: Logger) throws -> ModelContainer {
-        let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("com.prakashjoshipax.VoiceInk", isDirectory: true)
+        let appSupportURL = AppIdentity.applicationSupportDirectoryURL
 
         try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
 
@@ -233,7 +232,7 @@ struct VoiceInkApp: App {
             let dictionaryCloudKit: ModelConfiguration.CloudKitDatabase = .none
         #else
             let dictionaryCloudKit: ModelConfiguration.CloudKitDatabase = .private(
-                "iCloud.com.prakashjoshipax.VoiceInk")
+                AppIdentity.iCloudContainerIdentifier)
         #endif
         let dictionaryConfig = ModelConfiguration(
             "dictionary",
@@ -279,7 +278,7 @@ struct VoiceInkApp: App {
     }
 
     var body: some Scene {
-        Window("VoiceInk", id: AppWindowID.main) {
+        Window(AppIdentity.displayName, id: AppWindowID.main) {
             Group {
                 if hasCompletedOnboardingV2 {
                     ContentView()

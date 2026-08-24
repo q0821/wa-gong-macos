@@ -177,7 +177,7 @@
 
 ## 7. 階段四：Provider 整合
 
-狀態：OpenAI 語音轉文字 Provider 已完成，文字整理 Provider 與取消、逾時測試仍未開始
+狀態：OpenAI 語音轉文字 Provider 已完成，OpenAI、Gemini、Claude 文字整理路徑已存在並完成名稱相容處理，真實 Provider 失敗與帳務驗證待處理
 
 ### 語音轉文字
 
@@ -201,6 +201,15 @@
 - Provider 未設定時不會嘗試傳送資料。
 - API 逾時與取消不會卡住錄音流程。
 - 本機模式不產生非必要外部 Request。
+
+### 文字整理 Provider 目前驗證結果
+
+- [x] OpenAI、Gemini 與既有 Anthropic 實作共用三個整理 Prompt 與自訂提示詞流程。
+- [x] 使用者介面顯示 `Claude`，設定與 Keychain 仍使用 `Anthropic` 儲存識別字。
+- [x] Provider Request 送出前會顯示目的地、模型與實際資料類型。
+- [x] 取消後會停止新的整理 Request 與重試，並避免回寫結果。
+- [x] `xcodebuild build-for-testing` 通過。
+- [ ] 未使用真實 API Key，未驗證各 Provider 的額度、逾時、網路失敗與實際整理品質。
 
 ### OpenAI 語音轉文字目前驗證結果
 

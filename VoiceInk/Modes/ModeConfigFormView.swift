@@ -374,7 +374,7 @@ struct ModeConfigFormView: View {
                 } else {
                     Picker("AI Provider", selection: providerBinding) {
                         ForEach(providerOptions, id: \.self) { provider in
-                            Text(provider.rawValue).tag(provider)
+                            Text(provider.displayName).tag(provider)
                         }
                     }
                     .onChange(of: draft.selectedAIProvider) { _, newValue in

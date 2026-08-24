@@ -20,6 +20,15 @@ enum AIProvider: String, CaseIterable {
     case localCLI = "Local CLI"
     case custom = "Custom"
 
+    var displayName: String {
+        switch self {
+        case .anthropic:
+            return "Claude"
+        default:
+            return rawValue
+        }
+    }
+
     var baseURL: String {
         switch self {
         case .cerebras:

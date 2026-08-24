@@ -494,9 +494,9 @@ private struct ModelProviderIdentity {
         }
 
         return ModelProviderIdentity(
-            providerName: provider.rawValue,
+            providerName: provider.displayName,
             descriptor: descriptor(
-                displayName: provider.rawValue,
+                displayName: provider.displayName,
                 providerKey: provider.rawValue,
                 aiProvider: provider,
                 cloudProvider: cloudProvider

@@ -295,7 +295,7 @@ struct AIProviderVerificationCard: View {
                     aiService.isAPIKeyValid = true
                     apiKey = ""
                     verificationMessage = String(
-                        format: String(localized: "%@ connection verified."), provider.rawValue)
+                        format: String(localized: "%@ connection verified."), provider.displayName)
                     verificationDetailMessage = nil
                     NotificationCenter.default.post(name: .aiProviderKeyChanged, object: nil)
                 } else {
@@ -357,7 +357,7 @@ private struct ProviderChoiceButton: View {
                 )
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(provider.rawValue)
+                    Text(provider.displayName)
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(AppTheme.Text.primary)
                         .lineLimit(1)
@@ -381,7 +381,7 @@ private struct ProviderChoiceButton: View {
             .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
-        .help(provider.rawValue)
+        .help(provider.displayName)
     }
 
 }
@@ -405,7 +405,7 @@ private struct RecommendedProviderPill: View {
 
 fileprivate func providerDescriptor(for provider: AIProvider) -> ProviderDescriptor {
     ProviderDescriptor(
-        displayName: provider.rawValue,
+        displayName: provider.displayName,
         providerKey: provider.rawValue,
         aiProvider: provider,
         cloudProvider: nil

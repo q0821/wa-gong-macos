@@ -221,4 +221,9 @@ struct VoiceInkTests {
         #expect(PrivacyRequestSummary.transcriptionDestination(for: .whisper) == nil)
     }
 
+    @Test func anthropicProviderUsesClaudeDisplayNameWithoutChangingStorageKey() {
+        #expect(AIProvider.anthropic.rawValue == "Anthropic")
+        #expect(AIProvider.anthropic.displayName == "Claude")
+    }
+
 }

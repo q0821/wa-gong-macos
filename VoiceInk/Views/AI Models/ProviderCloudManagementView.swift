@@ -18,7 +18,7 @@ struct CloudProviderManagementView: View {
 
         var descriptors = enhancementProviders.map { aiProvider in
             ProviderDescriptor(
-                displayName: aiProvider.rawValue,
+                displayName: aiProvider.displayName,
                 providerKey: aiProvider.rawValue,
                 aiProvider: aiProvider,
                 cloudProvider: matchingCloudProvider(for: aiProvider)
@@ -42,7 +42,7 @@ struct CloudProviderManagementView: View {
         }
 
         let preferredOrder = [
-            "Groq", "Cerebras", "Gemini", "OpenAI", "OpenRouter", "Anthropic", "Mistral",
+            "Groq", "Cerebras", "Gemini", "OpenAI", "OpenRouter", "Claude", "Mistral",
             "Deepgram", "ElevenLabs", "Soniox", "Speechmatics", "AssemblyAI", "xAI", "Cartesia",
         ]
 

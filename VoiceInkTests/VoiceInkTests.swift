@@ -95,4 +95,13 @@ struct VoiceInkTests {
         #expect(mode.useClipboardContext == false)
     }
 
+    @Test func openAITranscriptionProviderUsesOpenAIWhisperEndpointDefaults() {
+        let provider = OpenAIProvider()
+
+        #expect(provider.modelProvider == .openAI)
+        #expect(provider.providerKey == "OpenAI")
+        #expect(provider.models.map(\.name) == ["whisper-1"])
+        #expect(provider.models.first?.isMultilingualModel == true)
+    }
+
 }

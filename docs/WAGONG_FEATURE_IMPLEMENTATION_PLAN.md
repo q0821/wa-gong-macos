@@ -163,7 +163,7 @@
 
 ## 7. 階段四：Provider 整合
 
-狀態：未開始
+狀態：OpenAI 語音轉文字 Provider 已完成，文字整理 Provider 與取消、逾時測試仍未開始
 
 ### 語音轉文字
 
@@ -187,6 +187,14 @@
 - Provider 未設定時不會嘗試傳送資料。
 - API 逾時與取消不會卡住錄音流程。
 - 本機模式不產生非必要外部 Request。
+
+### OpenAI 語音轉文字目前驗證結果
+
+- [x] 先加入 Provider 設定測試，確認原始程式沒有 OpenAI 語音轉文字 Provider。
+- [x] 新增 OpenAI Provider 與 `whisper-1` 模型，使用 OpenAI `/v1` 語音轉文字端點。
+- [x] OpenAI Provider 加入共用 Provider Registry，API Key 仍由既有 Keychain 流程取得。
+- [x] `xcodebuild build-for-testing` 通過。
+- [ ] 未使用真實 API Key，也未執行網路請求。API Key 與實際帳務驗證待人工處理。
 
 ## 8. 階段五：快速鍵、游標插入與自訂詞彙
 

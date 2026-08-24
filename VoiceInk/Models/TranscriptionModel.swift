@@ -5,6 +5,7 @@ enum ModelProvider: String, Codable, Hashable, CaseIterable {
     case whisper = "Whisper"
     case fluidAudio = "Parakeet"
     case transcribeCpp = "TranscribeCpp"
+    case openAI = "OpenAI"
     case groq = "Groq"
     case elevenLabs = "ElevenLabs"
     case deepgram = "Deepgram"

@@ -2,6 +2,8 @@
 
 更新日期：2026-08-25
 
+> 本輪功能開發以 [WAGONG_FEATURE_IMPLEMENTATION_PLAN.md](./WAGONG_FEATURE_IMPLEMENTATION_PLAN.md) 為準。這份文件保留第一階段基底建置的歷史驗證記錄；新功能一律遵守測試先行與每個功能獨立 commit 的規則。
+
 本計畫依據 [PROJECT_DIRECTION.md](./PROJECT_DIRECTION.md) 執行。每個階段完成後更新狀態與驗證結果。
 
 ## Non-scope

@@ -1,108 +1,134 @@
 <div align="center">
-  <img src="VoiceInk/Assets.xcassets/AppIcon.appiconset/256-mac.png" width="180" height="180" />
-  <h1>VoiceInk</h1>
-  <p>Voice to text app for macOS to transcribe what you say to text almost instantly</p>
+  <h1>聲筆 Wa-Gong for macOS</h1>
+  <p>本機優先、繁體中文優先的 macOS 語音輸入工具</p>
 
-  [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-  ![Platform](https://img.shields.io/badge/platform-macOS%2014.0%2B-brightgreen)
-  [![GitHub release (latest by date)](https://img.shields.io/github/v/release/Beingpax/VoiceInk)](https://github.com/Beingpax/VoiceInk/releases)
-  ![GitHub all releases](https://img.shields.io/github/downloads/Beingpax/VoiceInk/total)
-  ![GitHub stars](https://img.shields.io/github/stars/Beingpax/VoiceInk?style=social)
-  <p>
-    <a href="https://tryvoiceink.com">Website</a> •
-    <a href="https://www.youtube.com/@tryvoiceink">YouTube</a>
-  </p>
-
-  <a href="https://tryvoiceink.com">
-    <img src="https://img.shields.io/badge/Download%20Now-Latest%20Version-blue?style=for-the-badge&logo=apple" alt="Download VoiceInk" width="250"/>
-  </a>
+  [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
+  [![Platform](https://img.shields.io/badge/platform-macOS-lightgrey.svg)](https://www.apple.com/macos/)
+  [![Status](https://img.shields.io/badge/status-early%20development-orange.svg)](docs/IMPLEMENTATION_PLAN.md)
 </div>
 
----
+## 專案狀態
 
-VoiceInk is a native macOS application that transcribes what you say to text almost instantly. You can find all the information and download the app from [here](https://tryvoiceink.com). 
+本專案目前處於早期開發階段，尚未發布可供一般使用者下載的穩定版本。
 
-![VoiceInk Mac App](https://github.com/user-attachments/assets/12367379-83e7-48a6-b52c-4488a6a04bba)
+現階段程式碼以 [Beingpax/VoiceInk](https://github.com/Beingpax/VoiceInk) 最新版為基底，部分 App 名稱、Bundle Identifier、圖示、設定與建置流程仍沿用 VoiceInk，尚未完成 Wa-Gong 品牌與功能調整。
 
-After dedicating the past 5 months to developing this app, I've decided to open source it for the greater good. 
+本專案是獨立社群 Fork，不是 VoiceInk 官方版本，也不由 VoiceInk 原作者提供支援。
 
-My goal is to make it **the most efficient and privacy-focused voice-to-text solution for macOS** that is a joy to use. While the source code is now open for experienced developers to build and contribute, purchasing a license helps support continued development and gives you access to automatic updates, priority support, and upcoming features.
+## 專案目標
 
-## Features
+聲筆 Wa-Gong for macOS 希望提供一條快速、可稽核且能完全在本機執行的語音輸入流程：
 
-- 🎙️ **Accurate Transcription**: Local AI models that transcribe your voice to text with 99% accuracy, almost instantly
-- 🔒 **Privacy First**: 100% offline processing ensures your data never leaves your device
-- ⚡ **Modes**: Intelligent app detection automatically applies your perfect pre-configured settings based on the app/ URL you're on
-- 🧠 **Context Aware**: Smart AI that understands your screen content and adapts to the context
-- 🎯 **Global Shortcuts**: Configurable keyboard shortcuts for quick recording and push-to-talk functionality
-- 📝 **Personal Dictionary**: Train the AI to understand your unique terminology with custom words, industry terms, and smart text replacements
-- 🔄 **Smart Modes**: Instantly switch between AI-powered modes optimized for different writing styles and contexts
-- 🤖 **AI Assistant**: Built-in voice assistant mode for a quick chatGPT like conversational assistant
-
-## Get Started
-
-### Download
-Get the latest version with a free trial from [tryvoiceink.com](https://tryvoiceink.com). Your purchase helps me work on VoiceInk full-time and continuously improve it with new features and updates.
-
-#### Homebrew
-Alternatively, you can install VoiceInk via `brew`:
-
-```shell
-brew install --cask voiceink
+```text
+全域快速鍵
+→ 錄音
+→ 本機語音轉錄
+→ 繁體中文正規化
+→ 本機文字整理
+→ 插入目前使用中的 App
 ```
 
-### Build from Source
-As an open-source project, you can build VoiceInk yourself by following the instructions in [BUILDING.md](BUILDING.md). However, the compiled version includes additional benefits like automatic updates, priority support via Discord and email, and helps fund ongoing development.
+開發優先順序：
 
-## Requirements
+1. 降低停止錄音後的等待時間。
 
-- macOS 14.4 or later
+2. 穩定輸出台灣繁體中文與中英混合內容。
 
-## Documentation
+3. 讓使用者清楚知道哪些資料留在本機，哪些資料會送往外部服務。
 
-- [Building from Source](BUILDING.md) - Detailed instructions for building the project
-- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute to VoiceInk
-- [Code of Conduct](CODE_OF_CONDUCT.md) - Our community standards
+4. 保留可替換的本機與雲端 Provider，不綁定單一模型。
 
-## Contributing
+5. 透過 GitHub 提供可重現、可稽核的原始碼與 Release。
 
-This project is **not accepting pull requests** at this time. You're welcome to fork and modify VoiceInk for your own use.
+## 預計技術方向
 
-You can still contribute by:
-- Reporting bugs via [issues](https://github.com/Beingpax/VoiceInk/issues)
-- Suggesting features or enhancements
-- Improving documentation via issues
+### 語音轉錄
 
-For more details, see our [Contributing Guidelines](CONTRIBUTING.md). For build instructions, see our [Building Guide](BUILDING.md).
+- 優先驗證 Apple `SpeechAnalyzer` 與 `SpeechTranscriber`。
+- 保留 VoiceInk 既有 Whisper、FluidAudio 與雲端 Provider 作為比較及降級方案。
+- 量測停止錄音、Partial Transcript、Final Transcript 與文字插入時間。
 
-## License
+### 文字整理
 
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+- 先驗證 VoiceInk 既有的 `VoiceInk Refine V1` 本機模型。
+- 評估 Apple Foundation Models 作為另一個本機文字整理 Provider。
+- Private Cloud Compute 暫列後續研究，不作為第一版必要條件。
 
-## Support
+### 繁體中文
 
-If you encounter any issues or have questions, please:
-1. Check the existing issues in the GitHub repository
-2. Create a new issue if your problem isn't already reported
-3. Provide as much detail as possible about your environment and the problem
+- 中文預設輸出台灣繁體中文。
+- 參考 [opass/VoiceTwInk](https://github.com/opass/VoiceTwInk) 的台灣用語提示詞與 OpenCC 保底處理。
+- 保留英文、日文、URL、程式碼與專有名詞，不進行破壞性轉換。
 
-## Acknowledgments
+### 隱私
 
-### Core Technology
-- [whisper.cpp](https://github.com/ggerganov/whisper.cpp) - High-performance inference of OpenAI's Whisper model
-- [FluidAudio](https://github.com/FluidInference/FluidAudio) - Used for Parakeet model implementation
-- [TranscribeCpp for Swift](https://github.com/Beingpax/Transcribe-cpp-swift) - SwiftPM distribution of [transcribe.cpp](https://github.com/handy-computer/transcribe.cpp), used for Cohere Transcribe
+- 本機模式不傳送語音或轉錄文字至外部服務。
+- 外部 Request 必須讓使用者理解傳送目的地與資料類型。
+- 剪貼簿、選取文字、畫面 OCR 與自訂詞彙 Context 必須能獨立停用。
+- 日誌不記錄完整錄音、完整文字、剪貼簿內容或 API Key。
 
-### Essential Dependencies
-- [Sparkle](https://github.com/sparkle-project/Sparkle) - Keeping VoiceInk up to date
-- [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) - User-customizable keyboard shortcuts
-- [LaunchAtLogin](https://github.com/sindresorhus/LaunchAtLogin) - Launch at login functionality
-- [MediaRemoteAdapter](https://github.com/ejbills/mediaremote-adapter) - Media playback control during recording
-- [Zip](https://github.com/marmelroy/Zip) - File compression and decompression utilities
-- [SelectedTextKit](https://github.com/tisfeng/SelectedTextKit) - A modern macOS library for getting selected text
-- [Swift Atomics](https://github.com/apple/swift-atomics) - Low-level atomic operations for thread-safe concurrent programming
+## 文件
 
+- [專案方向](docs/PROJECT_DIRECTION.md)
+- [實作計畫與 Preflight Checklist](docs/IMPLEMENTATION_PLAN.md)
+- [上游建置說明](BUILDING.md)
+- [上游貢獻說明](CONTRIBUTING.md)
 
----
+## 目前建置方式
 
-Made with ❤️ by Pax
+目前仍沿用 VoiceInk 的建置流程。開始前請先閱讀 [BUILDING.md](BUILDING.md)。
+
+基本需求：
+
+- macOS 14.4 或更新版本。
+- Xcode 與 Command Line Tools。
+- Git。
+
+```bash
+git clone https://github.com/q0821/wa-gong-macos.git
+cd wa-gong-macos
+make check
+make local
+```
+
+本機 Build 目前仍可能輸出名為 `VoiceInk.app` 的 App。完成品牌與 Bundle Identifier 遷移前，請勿將其視為正式 Wa-Gong Release。
+
+## Git Remote 建議
+
+貢獻者若需要追蹤兩個參考專案，可設定：
+
+```bash
+git remote add upstream https://github.com/Beingpax/VoiceInk.git
+git remote add voicetwink https://github.com/opass/VoiceTwInk.git
+```
+
+定位如下：
+
+- `origin`：Wa-Gong for macOS。
+- `upstream`：VoiceInk 的安全修正與主要架構更新來源。
+- `voicetwink`：繁體中文、隱私與模擬輸入功能的參考來源。
+
+VoiceTwInk 與 VoiceInk 已有明顯架構差異，本專案不會整批 Cherry-pick VoiceTwInk，而是依最新版 VoiceInk 架構逐項移植需要的能力。
+
+## 發布方式
+
+目前只規劃透過 GitHub 發布，不規劃 Mac App Store、付費授權或訂閱。
+
+每個執行檔 Release 必須：
+
+- 對應明確的 Git Tag 與 Commit SHA。
+- 同步提供完全對應的原始碼與必要建置腳本。
+- 提供第三方套件、模型與字典資產的授權資訊。
+- 不包含 API Key、簽署憑證、Team ID 或開發者本機路徑。
+
+## 授權
+
+本專案是 VoiceInk 的衍生作品，依 [GNU General Public License v3.0](LICENSE) 發布。
+
+發布修改版本時必須保留原作者著作權與授權聲明，並清楚標示修改內容。第三方套件、模型權重與資料檔案可能具有各自的授權條款，請另外查閱對應來源。
+
+## 致謝
+
+- [Beingpax/VoiceInk](https://github.com/Beingpax/VoiceInk)：本專案的主要程式碼與架構基底。
+- [opass/VoiceTwInk](https://github.com/opass/VoiceTwInk)：繁體中文、隱私透明度與輸出方式的參考實作。
+- VoiceInk 所列的所有核心技術、第三方套件與貢獻者。

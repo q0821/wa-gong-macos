@@ -2,6 +2,47 @@ import Foundation
 import LLMkit
 
 extension AIService {
+    private func announceExternalChatRequest(
+        provider: AIProvider,
+        modelName: String,
+        hasSystemPrompt: Bool,
+        hasMessages: Bool
+    ) async {
+        guard provider != .voiceInkRefine, provider != .ollama, provider != .localCLI else {
+            return
+        }
+
+        let destination: String
+        if provider == .custom {
+            guard
+                let customConfiguration = CustomAIProviderManager.shared.requestConfiguration(forModel: modelName)
+            else {
+                return
+            }
+            destination = customConfiguration.baseURL
+        } else {
+            destination = provider.baseURL
+        }
+
+        var dataTypes: [PrivacyRequestSummary.DataType] = []
+        if hasMessages {
+            dataTypes.append(.conversation)
+        }
+        if hasSystemPrompt {
+            dataTypes.append(.prompt)
+        }
+
+        let summary = PrivacyRequestSummary(
+            destination: destination,
+            modelName: modelName,
+            dataTypes: dataTypes
+        )
+
+        await MainActor.run {
+            PrivacyHUD.show(summary)
+        }
+    }
+
     func completeChat(
         provider: AIProvider,
         modelName: String?,
@@ -10,6 +51,13 @@ extension AIService {
         timeout: TimeInterval = 30
     ) async throws -> String {
         let resolvedModel = modelName?.isEmpty == false ? modelName! : selectedModel(for: provider)
+
+        await announceExternalChatRequest(
+            provider: provider,
+            modelName: resolvedModel,
+            hasSystemPrompt: !(systemPrompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true),
+            hasMessages: !messages.isEmpty
+        )
 
         let result: String
         switch provider {

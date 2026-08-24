@@ -186,4 +186,39 @@ struct VoiceInkTests {
         #expect(result == "聲筆 聲筆 Voice Inkish")
     }
 
+    @Test func privacyRequestSummaryShowsDestinationAndDataKindsWithoutPayload() {
+        let summary = PrivacyRequestSummary(
+            destination: "https://api.openai.com/v1/chat/completions",
+            modelName: "gpt-4.1-mini",
+            dataTypes: [.transcript, .prompt, .selectedText]
+        )
+
+        #expect(summary.displayText.contains("api.openai.com/v1/chat/completions"))
+        #expect(summary.displayText.contains("gpt-4.1-mini"))
+        #expect(summary.displayText.contains("Transcript"))
+        #expect(summary.displayText.contains("Selected text"))
+        #expect(!summary.displayText.contains("clipboard-secret"))
+        #expect(!summary.displayText.contains("sk-test"))
+    }
+
+    @Test func privacyRequestSummaryRedactsURLQueryItems() {
+        let summary = PrivacyRequestSummary(
+            destination: "https://example.com/v1/chat?api_key=sk-test",
+            modelName: "custom-model",
+            dataTypes: [.transcript]
+        )
+
+        #expect(summary.destination == "https://example.com/v1/chat")
+        #expect(!summary.displayText.contains("api_key"))
+        #expect(!summary.displayText.contains("sk-test"))
+    }
+
+    @Test func privacyRequestSummaryUsesOpenAITranscriptionDestination() {
+        #expect(
+            PrivacyRequestSummary.transcriptionDestination(for: .openAI)
+                == "https://api.openai.com/v1/audio/transcriptions"
+        )
+        #expect(PrivacyRequestSummary.transcriptionDestination(for: .whisper) == nil)
+    }
+
 }

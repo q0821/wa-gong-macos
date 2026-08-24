@@ -135,13 +135,69 @@ class AIEnhancementService: ObservableObject {
     }
 
     private func waitForRateLimit() async throws {
+        try Task.checkCancellation()
+
         if let lastRequest = lastRequestTime {
             let timeSinceLastRequest = Date().timeIntervalSince(lastRequest)
             if timeSinceLastRequest < rateLimitInterval {
                 try await Task.sleep(nanoseconds: UInt64((rateLimitInterval - timeSinceLastRequest) * 1_000_000_000))
             }
         }
+        try Task.checkCancellation()
         lastRequestTime = Date()
+    }
+
+    private func announceExternalRequest(
+        provider: AIProvider,
+        modelName: String,
+        configuration: EnhancementRuntimeConfiguration,
+        contextSnapshot: RecordingContextSnapshot?,
+        includesCustomVocabulary: Bool
+    ) {
+        guard provider != .voiceInkRefine, provider != .ollama, provider != .localCLI else {
+            return
+        }
+
+        let destination: String
+        if provider == .custom {
+            guard
+                let customConfiguration = CustomAIProviderManager.shared.requestConfiguration(forModel: modelName)
+            else {
+                return
+            }
+            destination = customConfiguration.baseURL
+        } else {
+            destination = provider.baseURL
+        }
+
+        var dataTypes: [PrivacyRequestSummary.DataType] = [.transcript, .prompt]
+        if configuration.useSelectedTextContext, configurationUsesSelectedText(contextSnapshot) {
+            dataTypes.append(.selectedText)
+        }
+        if configuration.useScreenCaptureContext, configurationUsesScreenOCR(contextSnapshot) {
+            dataTypes.append(.screenOCR)
+        }
+        if includesCustomVocabulary {
+            dataTypes.append(.customVocabulary)
+        }
+
+        PrivacyHUD.show(
+            PrivacyRequestSummary(
+                destination: destination,
+                modelName: modelName,
+                dataTypes: dataTypes
+            )
+        )
+    }
+
+    private func configurationUsesSelectedText(_ contextSnapshot: RecordingContextSnapshot?) -> Bool {
+        guard let selectedText = contextSnapshot?.selectedText else { return false }
+        return !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func configurationUsesScreenOCR(_ contextSnapshot: RecordingContextSnapshot?) -> Bool {
+        guard let screenText = contextSnapshot?.screenText else { return false }
+        return !screenText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func getSystemMessage(
@@ -195,6 +251,8 @@ class AIEnhancementService: ObservableObject {
         configuration: EnhancementRuntimeConfiguration,
         contextSnapshot: RecordingContextSnapshot?
     ) async throws -> (text: String, systemMessage: String?, userMessage: String?) {
+        try Task.checkCancellation()
+
         guard isConfigured(for: configuration) else {
             throw EnhancementError.notConfigured
         }
@@ -239,6 +297,7 @@ class AIEnhancementService: ObservableObject {
             configuration: configuration,
             contextSnapshot: contextSnapshot
         )
+        let includesCustomVocabulary = !customVocabularyService.getCustomVocabulary(from: modelContext).isEmpty
 
         if provider == .ollama {
             do {
@@ -288,6 +347,14 @@ class AIEnhancementService: ObservableObject {
         }
 
         try await waitForRateLimit()
+        try Task.checkCancellation()
+        announceExternalRequest(
+            provider: provider,
+            modelName: modelName,
+            configuration: configuration,
+            contextSnapshot: contextSnapshot,
+            includesCustomVocabulary: includesCustomVocabulary
+        )
 
         do {
             let result: String
@@ -352,6 +419,7 @@ class AIEnhancementService: ObservableObject {
                     timeout: baseTimeout
                 )
             }
+            try Task.checkCancellation()
             return (
                 AIEnhancementOutputFilter.filter(
                     result.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -418,6 +486,7 @@ class AIEnhancementService: ObservableObject {
 
         while retries < maxRetries {
             do {
+                try Task.checkCancellation()
                 return try await makeRequest(
                     text: text,
                     configuration: configuration,
@@ -490,11 +559,13 @@ class AIEnhancementService: ObservableObject {
         let promptName = configuration.prompt?.title
 
         do {
+            try Task.checkCancellation()
             let requestResult = try await makeRequestWithRetry(
                 text: text,
                 configuration: configuration,
                 contextSnapshot: contextSnapshot
             )
+            try Task.checkCancellation()
             let endTime = Date()
             let duration = endTime.timeIntervalSince(startTime)
             return AIEnhancementResult(
@@ -504,6 +575,8 @@ class AIEnhancementService: ObservableObject {
                 systemMessage: requestResult.systemMessage,
                 userMessage: requestResult.userMessage
             )
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             let errorDescription = EnhancementFailureFormatter.description(for: error)
             let providerName = configuration.provider?.rawValue ?? "Unconfigured"

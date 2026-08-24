@@ -56,6 +56,11 @@ class CloudTranscriptionService: TranscriptionService {
                 guard let customModel = model as? CustomCloudModel else {
                     throw CloudTranscriptionError.unsupportedProvider
                 }
+                await announceExternalTranscriptionRequest(
+                    destination: customModel.apiEndpoint,
+                    modelName: customModel.modelName,
+                    includesCustomVocabulary: false
+                )
                 return try await openAICompatibleService.transcribe(
                     audioURL: audioURL, model: customModel, context: context)
             }
@@ -64,13 +69,19 @@ class CloudTranscriptionService: TranscriptionService {
                 throw CloudTranscriptionError.unsupportedProvider
             }
             let apiKey = try requireAPIKey(forProvider: cloudProvider.providerKey)
+            let vocabulary = getCustomDictionaryTerms()
+            await announceExternalTranscriptionRequest(
+                destination: PrivacyRequestSummary.transcriptionDestination(for: model.provider),
+                modelName: model.name,
+                includesCustomVocabulary: !vocabulary.isEmpty
+            )
             return try await cloudProvider.transcribe(
                 audioData: audioData,
                 fileName: fileName,
                 apiKey: apiKey,
                 model: model.name,
                 language: language,
-                customVocabulary: getCustomDictionaryTerms()
+                customVocabulary: vocabulary
             )
         } catch let error as CloudTranscriptionError {
             throw error
@@ -120,6 +131,28 @@ class CloudTranscriptionService: TranscriptionService {
             }
         }
         return unique
+    }
+
+    private func announceExternalTranscriptionRequest(
+        destination: String?,
+        modelName: String,
+        includesCustomVocabulary: Bool
+    ) async {
+        guard let destination else { return }
+
+        var dataTypes: [PrivacyRequestSummary.DataType] = [.audio]
+        if includesCustomVocabulary {
+            dataTypes.append(.customVocabulary)
+        }
+
+        let summary = PrivacyRequestSummary(
+            destination: destination,
+            modelName: modelName,
+            dataTypes: dataTypes
+        )
+        await MainActor.run {
+            PrivacyHUD.show(summary)
+        }
     }
 
     private func mapLLMKitError(_ error: LLMKitError) -> CloudTranscriptionError {

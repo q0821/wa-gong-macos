@@ -120,33 +120,22 @@ final class TranscriptionDelivery {
             let stdoutBytes = result.stdout.utf8.count
             let stderrBytes = result.stderr.utf8.count
 
-            if !result.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                logger.notice(
-                    "Custom command stdout bytes=\(stdoutBytes, privacy: .public): \(result.stdout, privacy: .public)")
-            }
-
-            if !result.stderr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                logger.notice(
-                    "Custom command succeeded with stderr duration=\(Self.formattedDuration(duration), privacy: .public)s stdoutBytes=\(stdoutBytes, privacy: .public) stderrBytes=\(stderrBytes, privacy: .public): \(result.stderr, privacy: .public)"
-                )
-            } else {
-                logger.notice(
-                    "Custom command succeeded duration=\(Self.formattedDuration(duration), privacy: .public)s stdoutBytes=\(stdoutBytes, privacy: .public) stderrBytes=\(stderrBytes, privacy: .public)"
-                )
-            }
+            logger.notice(
+                "Custom command completed duration=\(Self.formattedDuration(duration), privacy: .public)s status=\(result.status, privacy: .public) stdoutBytes=\(stdoutBytes, privacy: .public) stderrBytes=\(stderrBytes, privacy: .public)"
+            )
         } catch {
             notifyCustomCommandFailure(error, duration: Date().timeIntervalSince(startTime))
         }
     }
 
     private func notifyCustomCommandFailure(_ error: Error, duration: TimeInterval? = nil) {
-        let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        let errorType = String(describing: type(of: error))
         if let duration {
             logger.error(
-                "Custom command failed duration=\(Self.formattedDuration(duration), privacy: .public)s: \(message, privacy: .public)"
+                "Custom command failed duration=\(Self.formattedDuration(duration), privacy: .public)s errorType=\(errorType, privacy: .public)"
             )
         } else {
-            logger.error("Custom command failed: \(message, privacy: .public)")
+            logger.error("Custom command failed errorType=\(errorType, privacy: .public)")
         }
     }
 

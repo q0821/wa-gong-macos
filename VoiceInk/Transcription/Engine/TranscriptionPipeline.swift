@@ -192,6 +192,10 @@ class TranscriptionPipeline {
                             configuration: resolvedEnhancementConfiguration,
                             contextSnapshot: contextSnapshot
                         )
+                        if shouldCancel() {
+                            await finishCanceledTranscription()
+                            return
+                        }
                         transcription.enhancedText = enhancementResult.text
                         transcription.aiEnhancementModelName =
                             resolvedEnhancementConfiguration.modelName
@@ -202,6 +206,10 @@ class TranscriptionPipeline {
                         transcription.aiRequestUserMessage = enhancementResult.userMessage
                         finalText = enhancementResult.text
                     } catch {
+                        if shouldCancel() {
+                            await finishCanceledTranscription()
+                            return
+                        }
                         let errorDescription = EnhancementFailureFormatter.description(for: error)
                         let failureMessage = EnhancementFailureFormatter.message(description: errorDescription)
                         transcription.enhancedText = failureMessage

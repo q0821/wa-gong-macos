@@ -50,7 +50,7 @@ struct AppNotificationView: View {
                     .font(.system(size: 12))
                     .fontWeight(.medium)
                     .foregroundColor(.white)
-                    .lineLimit(2)
+                    .lineLimit(4)
                     .multilineTextAlignment(.leading)
 
                 Spacer()

@@ -166,6 +166,21 @@ class StreamingTranscriptionService {
             "Streaming start requested model=\(model.displayName, privacy: .public) language=\(selectedLanguage, privacy: .public)"
         )
 
+        if let destination = PrivacyRequestSummary.transcriptionDestination(for: model.provider) {
+            var dataTypes: [PrivacyRequestSummary.DataType] = [.audio]
+            let vocabulary = CustomVocabularyService.shared.getCustomVocabularyWords(from: modelContext) ?? []
+            if !vocabulary.isEmpty {
+                dataTypes.append(.customVocabulary)
+            }
+            PrivacyHUD.show(
+                PrivacyRequestSummary(
+                    destination: destination,
+                    modelName: model.name,
+                    dataTypes: dataTypes
+                )
+            )
+        }
+
         try await provider.connect(model: model, language: selectedLanguage)
 
         // If cancel() was called while we were awaiting the connection, tear down immediately.

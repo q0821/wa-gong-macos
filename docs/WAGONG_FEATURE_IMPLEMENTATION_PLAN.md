@@ -288,7 +288,15 @@
 - App 首次啟動會進行本地模型預熱，這次記錄約 97 秒。若在測試完成前強制終止，可能留下測試宿主程序，下一輪測試需要先清除相同測試產物對應的殘留程序。
 - [ ] 完整 UI 測試與實機跨 App 插入仍待人工驗證。
 
-## 11. 共用 Preflight Checklist
+## 11. Build 診斷與驗證結果
+
+- [x] 確認 `mlx-swift-lm` 鎖定 revision 與 checkout 一致，並確認其 manifest 正確宣告 `MLXHuggingFaceMacros`。
+- [x] 以獨立 SwiftPM scratch build 編譯 `MLXHuggingFace`，包含巨集 target，確認第三方套件本身可正常編譯。
+- [x] Xcode 26.6 使用 `-skipPackagePluginValidation` 與 `-skipMacroValidation` 後，已越過 Package Plugin 與 Swift Macro 驗證階段。
+- [x] 使用 `CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO` 完整編譯 `Wa-Gong.app`，並確認產物內的 `CFBundleDisplayName`、Bundle ID、版本與 `AppIcon` 都正確。
+- 本機標準簽署 Build 仍需要 Apple Development 憑證、私密金鑰與 `com.jackie-yeh.wagong` provisioning profile；這是本機帳號環境待處理項目，不修改專案設定。
+
+## 12. 共用 Preflight Checklist
 
 ### 隱私與資料流
 
@@ -328,12 +336,12 @@
 - [ ] 不提交 API Key、Team ID、個人資料或本機錄音。
 - [ ] 完成前更新本文件的狀態與驗證結果。
 
-## 12. Definition of Done
+## 13. Definition of Done
 
 - 測試先於實作建立，且能捕捉原始問題。
 - 功能測試、失敗測試、取消測試與降級測試通過。
 - `make check` 通過。
-- `xcodebuild build` 通過。
+- 未簽署本機 `xcodebuild build` 通過；標準簽署 Build 仍待補齊 Apple Development 憑證與 provisioning profile。
 - `VoiceInkTests` 單元測試 22 項通過；UI 測試與實機驗證另行完成後才可勾選完整驗收。
 - `git diff --check` 通過。
 - 文件狀態與實際程式碼一致。

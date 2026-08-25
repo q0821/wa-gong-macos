@@ -51,7 +51,7 @@
 
 ## 4. 階段一：語言預設與模型相容性
 
-狀態：程式實作完成，已通過 `build-for-testing` 編譯驗證，單元測試執行受目前 macOS 測試執行器環境阻塞
+狀態：程式實作完成，`VoiceInkTests` 單元測試已實際通過，實機語言與模型品質比較待人工驗證
 
 ### 目標
 
@@ -83,7 +83,7 @@
 - [x] 測試先建立，先確認原始程式缺少預期語言 API，再補上實作。
 - [x] `auto` 預設值、既有 `en` 遷移、語言排序、English-only fallback 與 `zh-TW` API 邊界測試已加入。
 - [x] `xcodebuild build-for-testing` 通過。
-- [ ] `xcodebuild test` 尚未取得測試 assertion 結果。測試 bundle 啟動時，macOS 測試執行器在 Launch Services worker 階段卡住，最後以退出碼 75 結束，不能視為測試通過。
+- [x] 使用 `xcodebuild test-without-building` 實際執行 `VoiceInkTests`，共 22 項測試通過，0 失敗、0 跳過；結果由 `xcresulttool` 確認。
 
 ### 待人工決定或驗證
 
@@ -93,7 +93,7 @@
 
 ## 5. 階段二：剪貼簿隔離與隱私透明度
 
-狀態：剪貼簿隔離、外部 Request HUD 與取消後的流程阻擋已完成，測試執行器與實機驗證待處理
+狀態：剪貼簿隔離、外部 Request HUD 與取消後的流程阻擋已完成，單元測試已通過，實機驗證待處理
 
 ### 資料政策
 
@@ -120,7 +120,7 @@
 - [x] 完成本輪程式碼的日誌靜態掃描，未發現新增的完整語音、完整文字、剪貼簿或 API Key 記錄；實際 Log Export 仍待人工確認。
 - [x] `xcodebuild build-for-testing` 通過。
 - [x] `xcodebuild build` 通過，並從產物確認 App 版本為 `2.11.0`。
-- [ ] 單元測試 assertion 尚未取得，原因與階段一相同，macOS 測試執行器卡在 Launch Services worker。
+- [x] `VoiceInkTests` 22 項單元測試已取得 assertion 結果，22 通過、0 失敗、0 跳過。
 - [ ] Privacy HUD 目前是送出前提醒，不阻擋 Request；是否要改成需要人工允許後才送出，待醒來後決定。
 - [ ] 需要實際取消錄音、取消整理、取消串流與跨 App 插入測試。
 - 日誌不得記錄完整語音、完整文字、剪貼簿、選取文字、OCR 或 API Key。
@@ -245,7 +245,7 @@
 - [x] `xcodebuild build-for-testing` 通過，`make check` 通過。
 - [x] 快速鍵限制與詞彙替換行為測試已加入，`xcodebuild build-for-testing` 編譯通過。
 - [x] 取消後不會在面板關閉與游標貼上之間開始插入，也不會執行 AutoSend；交付取消測試已加入。
-- [ ] 目前 `xcodebuild test` 仍受 macOS Launch Services 測試執行器阻塞，尚未取得 assertion 結果。
+- [x] 使用序列化的 `xcodebuild test-without-building` 實際執行 `VoiceInkTests`，22 項測試全部通過。
 - [ ] 需要實際模型與語音確認專有名詞辨識改善程度。
 
 ### 測試
@@ -278,7 +278,17 @@
 
 在有固定語料與實測數據前，不直接更換預設模型。
 
-## 10. 共用 Preflight Checklist
+## 10. 測試執行器診斷結果
+
+- [x] 先以單一測試建立可重現的測試迴圈，確認先前確實是在 App-hosted test 啟動階段中止，沒有把退出碼誤判成 assertion 通過。
+- [x] 確認測試 bundle 已完成連結並通過 `codesign --verify --deep --strict`。
+- [x] 找到兩個位於 `/private/tmp/wa-gong-precise-naming-red` 的殘留測試宿主程序。兩者使用相同測試 App 路徑與 Bundle ID，會讓 Launch Services 可能指向過期的測試宿主。
+- [x] 清除上述明確確認的殘留測試宿主程序後，使用 `-only-testing:VoiceInkTests` 與 `-parallel-testing-enabled NO` 實際執行測試。
+- [x] `xcresulttool` 確認本次測試結果為 22 通過、0 失敗、0 跳過。
+- App 首次啟動會進行本地模型預熱，這次記錄約 97 秒。若在測試完成前強制終止，可能留下測試宿主程序，下一輪測試需要先清除相同測試產物對應的殘留程序。
+- [ ] 完整 UI 測試與實機跨 App 插入仍待人工驗證。
+
+## 11. 共用 Preflight Checklist
 
 ### 隱私與資料流
 
@@ -318,13 +328,13 @@
 - [ ] 不提交 API Key、Team ID、個人資料或本機錄音。
 - [ ] 完成前更新本文件的狀態與驗證結果。
 
-## 11. Definition of Done
+## 12. Definition of Done
 
 - 測試先於實作建立，且能捕捉原始問題。
 - 功能測試、失敗測試、取消測試與降級測試通過。
 - `make check` 通過。
 - `xcodebuild build` 通過。
-- 相關單元測試與 UI 測試通過。
+- `VoiceInkTests` 單元測試 22 項通過；UI 測試與實機驗證另行完成後才可勾選完整驗收。
 - `git diff --check` 通過。
 - 文件狀態與實際程式碼一致。
 - 每個功能已建立獨立 commit。

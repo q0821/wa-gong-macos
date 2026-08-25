@@ -396,7 +396,7 @@ class AIEnhancementService: ObservableObject {
             default:
                 guard let baseURL = URL(string: provider.baseURL) else {
                     throw EnhancementError.customError(
-                        "\(provider.rawValue) has an invalid API endpoint URL. Please update it in AI settings.")
+                        "\(provider.apiProviderName) has an invalid API endpoint URL. Please update it in AI settings.")
                 }
                 let temperature = modelName.lowercased().hasPrefix("gpt-5") ? 1.0 : 0.3
                 let reasoningEffort = ReasoningConfig.getReasoningParameter(

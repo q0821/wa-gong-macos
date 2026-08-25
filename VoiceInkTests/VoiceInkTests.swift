@@ -221,9 +221,20 @@ struct VoiceInkTests {
         #expect(PrivacyRequestSummary.transcriptionDestination(for: .whisper) == nil)
     }
 
-    @Test func anthropicProviderUsesClaudeDisplayNameWithoutChangingStorageKey() {
+    @Test func anthropicUsesClaudeForModelBrandAndAnthropicForAPIService() {
         #expect(AIProvider.anthropic.rawValue == "Anthropic")
         #expect(AIProvider.anthropic.displayName == "Claude")
+        #expect(AIProvider.anthropic.apiProviderName == "Anthropic")
+
+        let descriptor = ProviderDescriptor(
+            displayName: AIProvider.anthropic.displayName,
+            providerKey: AIProvider.anthropic.rawValue,
+            aiProvider: .anthropic,
+            cloudProvider: nil
+        )
+
+        #expect(descriptor.displayName == "Claude")
+        #expect(descriptor.apiDisplayName == "Anthropic")
     }
 
     @Test @MainActor func canceledDeliveryDoesNotPasteOrAutoSend() async {

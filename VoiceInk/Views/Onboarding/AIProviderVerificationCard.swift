@@ -66,7 +66,7 @@ struct AIProviderVerificationCard: View {
             )
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(selectedProvider.rawValue)
+                Text(selectedProvider.displayName)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(AppTheme.Text.primary)
             }
@@ -104,7 +104,7 @@ struct AIProviderVerificationCard: View {
     private var apiKeyField: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center) {
-                Text(String(format: String(localized: "%@ API Key"), selectedProvider.rawValue))
+                Text(String(format: String(localized: "%@ API Key"), selectedProvider.apiProviderName))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(AppTheme.Text.primary)
 
@@ -226,7 +226,7 @@ struct AIProviderVerificationCard: View {
     }
 
     private var apiKeyPlaceholder: String {
-        String(format: String(localized: "Paste %@ API key"), selectedProvider.rawValue)
+        String(format: String(localized: "Paste %@ API key"), selectedProvider.apiProviderName)
     }
 
     private var apiKeyURL: URL? {
@@ -237,7 +237,7 @@ struct AIProviderVerificationCard: View {
         verificationSucceeded = isSelectedProviderConnected
         verificationMessage =
             verificationSucceeded
-            ? String(format: String(localized: "%@ connection verified."), selectedProvider.rawValue)
+            ? String(format: String(localized: "%@ connection verified."), selectedProvider.displayName)
             : nil
         verificationDetailMessage = nil
 

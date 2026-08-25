@@ -88,6 +88,10 @@ struct ProviderDescriptor: Identifiable {
 
     var id: String { providerKey }
 
+    var apiDisplayName: String {
+        aiProvider?.apiProviderName ?? displayName
+    }
+
     var transcriptionModels: [CloudModel] {
         cloudProvider?.models ?? []
     }

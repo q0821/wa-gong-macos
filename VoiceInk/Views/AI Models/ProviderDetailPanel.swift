@@ -160,7 +160,7 @@ struct ProviderDetailPanel: View {
             Text(
                 String(
                     format: String(localized: "This will remove your %@ API key. You can add it again later."),
-                    descriptor.displayName))
+                    descriptor.apiDisplayName))
         }
     }
 
@@ -213,7 +213,7 @@ struct ProviderDetailPanel: View {
                         Image(systemName: "link")
                             .font(.system(size: 11, weight: .semibold))
 
-                        Text(String(format: String(localized: "Get %@ API Key"), descriptor.displayName))
+                        Text(String(format: String(localized: "Get %@ API Key"), descriptor.apiDisplayName))
                             .font(.system(size: 12, weight: .medium))
 
                         Image(systemName: "arrow.up.right.square")
@@ -227,7 +227,7 @@ struct ProviderDetailPanel: View {
                     .background(neutralLinkButtonBackground)
                 }
                 .buttonStyle(.plain)
-                .help(String(format: String(localized: "Open %@ API key page"), descriptor.displayName))
+                .help(String(format: String(localized: "Open %@ API key page"), descriptor.apiDisplayName))
             }
         }
         .padding(12)

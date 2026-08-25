@@ -194,7 +194,7 @@
 
 - 完成 OpenAI Provider 驗證。
 - 完成 Gemini Provider 驗證。
-- 將 Anthropic 在 UI 顯示為 Claude，程式內保留既有識別字相容性。
+- 模型與供應商選擇介面顯示 `Claude`，API 金鑰、API 服務與內部儲存識別顯示或保留 `Anthropic`。
 - 各 Provider 都支援三種整理模式與自訂提示詞。
 - 網路失敗、逾時、額度不足與未設定 API Key 時提供清楚錯誤。
 
@@ -209,7 +209,8 @@
 ### 文字整理 Provider 目前驗證結果
 
 - [x] OpenAI、Gemini 與既有 Anthropic 實作共用三個整理 Prompt 與自訂提示詞流程。
-- [x] 使用者介面顯示 `Claude`，設定與 Keychain 仍使用 `Anthropic` 儲存識別字。
+- [x] 模型介面顯示 `Claude`，API Key 相關文字使用 `Anthropic API Key`，設定與 Keychain 仍使用 `Anthropic` 儲存識別字。
+- [x] 加入回歸測試，固定 `Claude` 模型品牌與 `Anthropic` API 服務名稱不可混用。
 - [x] Provider Request 送出前會顯示目的地、模型與實際資料類型。
 - [x] 取消後會停止新的整理 Request 與重試，並避免回寫結果。
 - [x] `xcodebuild build-for-testing` 通過。

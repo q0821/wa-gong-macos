@@ -29,6 +29,10 @@ enum AIProvider: String, CaseIterable {
         }
     }
 
+    var apiProviderName: String {
+        rawValue
+    }
+
     var baseURL: String {
         switch self {
         case .cerebras:

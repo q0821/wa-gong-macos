@@ -8,7 +8,7 @@ extension AIService {
         hasSystemPrompt: Bool,
         hasMessages: Bool
     ) async {
-        guard provider != .voiceInkRefine, provider != .ollama, provider != .localCLI else {
+        guard provider != .waGongRefine, provider != .ollama, provider != .localCLI else {
             return
         }
 
@@ -95,9 +95,9 @@ extension AIService {
                 temperature: 0.3,
                 timeout: timeout
             )
-        case .voiceInkRefine:
+        case .waGongRefine:
             throw EnhancementError.customError(
-                String(localized: "VoiceInk Refine only supports transcript cleanup.")
+                String(localized: "Wa-Gong Refine only supports transcript cleanup.")
             )
         case .ollama:
             result = try await enhanceWithOllama(

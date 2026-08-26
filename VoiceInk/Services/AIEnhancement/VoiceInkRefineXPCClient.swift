@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-private final class VoiceInkRefineXPCReply<Value>: @unchecked Sendable {
+private final class WaGongRefineXPCReply<Value>: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<Value, Error>?
 
@@ -19,7 +19,7 @@ private final class VoiceInkRefineXPCReply<Value>: @unchecked Sendable {
     }
 }
 
-private final class VoiceInkRefineXPCCancellationHandle: @unchecked Sendable {
+private final class WaGongRefineXPCCancellationHandle: @unchecked Sendable {
     private let connection: NSXPCConnection
 
     init(_ connection: NSXPCConnection) {
@@ -31,12 +31,12 @@ private final class VoiceInkRefineXPCCancellationHandle: @unchecked Sendable {
     }
 }
 
-private enum VoiceInkRefineXPCOperation {
+private enum WaGongRefineXPCOperation {
     case prepare
     case enhance
 }
 
-private enum VoiceInkRefineXPCOperationWaiter {
+private enum WaGongRefineXPCOperationWaiter {
     case standard(CheckedContinuation<Void, Never>)
     case cancellable(id: UUID, continuation: CheckedContinuation<Void, Error>)
 
@@ -60,18 +60,18 @@ private enum VoiceInkRefineXPCOperationWaiter {
     }
 }
 
-actor VoiceInkRefineXPCClient {
+actor WaGongRefineXPCClient {
     private static let warmGracePeriod: Duration = .seconds(10)
 
     private let logger = Logger(
-        subsystem: "com.prakashjoshipax.voiceink",
-        category: "VoiceInkRefineXPCClient"
+        subsystem: "com.jackie-yeh.wagong",
+        category: "WaGongRefineXPCClient"
     )
 
     private var connection: NSXPCConnection?
     private var connectionID: UUID?
     private var operationIsActive = false
-    private var operationWaiters: [VoiceInkRefineXPCOperationWaiter] = []
+    private var operationWaiters: [WaGongRefineXPCOperationWaiter] = []
     private var idleShutdownTask: Task<Void, Never>?
     private var idleShutdownToken: UUID?
 
@@ -82,30 +82,30 @@ actor VoiceInkRefineXPCClient {
         try Task.checkCancellation()
         cancelIdleShutdown()
 
-        let request = VoiceInkRefinePrepareRequest(
+        let request = WaGongRefinePrepareRequest(
             requestID: UUID(),
             modelDirectoryPath: modelDirectory.path,
             systemPrompt: systemPrompt
         )
         let requestData = try JSONEncoder().encode(request)
         let activeConnection = connectionForRequest()
-        let cancellationHandle = VoiceInkRefineXPCCancellationHandle(activeConnection)
+        let cancellationHandle = WaGongRefineXPCCancellationHandle(activeConnection)
 
         do {
             try await withTaskCancellationHandler {
                 try await withCheckedThrowingContinuation { continuation in
-                    let reply = VoiceInkRefineXPCReply<Void>(continuation)
+                    let reply = WaGongRefineXPCReply<Void>(continuation)
                     guard
                         let proxy = activeConnection.remoteObjectProxyWithErrorHandler({
                             error in
                             reply.resolve(.failure(error))
-                        }) as? VoiceInkRefineXPCProtocol
+                        }) as? WaGongRefineXPCProtocol
                     else {
                         reply.resolve(
                             .failure(
-                                makeVoiceInkRefineXPCError(
+                                makeWaGongRefineXPCError(
                                     .connectionFailed,
-                                    description: "Could not create the VoiceInk Refine XPC proxy."
+                                    description: "Could not create the Wa-Gong Refine XPC proxy."
                                 )
                             )
                         )
@@ -145,7 +145,7 @@ actor VoiceInkRefineXPCClient {
         try Task.checkCancellation()
         cancelIdleShutdown()
 
-        let request = VoiceInkRefineEnhanceRequest(
+        let request = WaGongRefineEnhanceRequest(
             requestID: UUID(),
             modelDirectoryPath: modelDirectory.path,
             systemPrompt: systemPrompt,
@@ -153,23 +153,23 @@ actor VoiceInkRefineXPCClient {
         )
         let requestData = try JSONEncoder().encode(request)
         let activeConnection = connectionForRequest()
-        let cancellationHandle = VoiceInkRefineXPCCancellationHandle(activeConnection)
+        let cancellationHandle = WaGongRefineXPCCancellationHandle(activeConnection)
 
         do {
             let responseData: Data = try await withTaskCancellationHandler {
                 try await withCheckedThrowingContinuation { continuation in
-                    let reply = VoiceInkRefineXPCReply<Data>(continuation)
+                    let reply = WaGongRefineXPCReply<Data>(continuation)
                     guard
                         let proxy = activeConnection.remoteObjectProxyWithErrorHandler({
                             error in
                             reply.resolve(.failure(error))
-                        }) as? VoiceInkRefineXPCProtocol
+                        }) as? WaGongRefineXPCProtocol
                     else {
                         reply.resolve(
                             .failure(
-                                makeVoiceInkRefineXPCError(
+                                makeWaGongRefineXPCError(
                                     .connectionFailed,
-                                    description: "Could not create the VoiceInk Refine XPC proxy."
+                                    description: "Could not create the Wa-Gong Refine XPC proxy."
                                 )
                             )
                         )
@@ -184,10 +184,10 @@ actor VoiceInkRefineXPCClient {
                         } else {
                             reply.resolve(
                                 .failure(
-                                    makeVoiceInkRefineXPCError(
+                                    makeWaGongRefineXPCError(
                                         .invalidResponse,
                                         description:
-                                            "VoiceInk Refine returned an empty response."
+                                            "Wa-Gong Refine returned an empty response."
                                     )
                                 )
                             )
@@ -200,13 +200,13 @@ actor VoiceInkRefineXPCClient {
             try Task.checkCancellation()
 
             let response = try JSONDecoder().decode(
-                VoiceInkRefineEnhanceResponse.self,
+                WaGongRefineEnhanceResponse.self,
                 from: responseData
             )
             guard response.requestID == request.requestID else {
-                throw makeVoiceInkRefineXPCError(
+                throw makeWaGongRefineXPCError(
                     .invalidResponse,
-                    description: "VoiceInk Refine returned a mismatched response."
+                    description: "Wa-Gong Refine returned a mismatched response."
                 )
             }
 
@@ -258,9 +258,9 @@ actor VoiceInkRefineXPCClient {
         }
 
         let identifier = UUID()
-        let connection = NSXPCConnection(serviceName: voiceInkRefineXPCServiceName)
+        let connection = NSXPCConnection(serviceName: waGongRefineXPCServiceName)
         connection.remoteObjectInterface = NSXPCInterface(
-            with: VoiceInkRefineXPCProtocol.self
+            with: WaGongRefineXPCProtocol.self
         )
         connection.interruptionHandler = { [weak self, weak connection] in
             guard let self, let connection else { return }
@@ -388,13 +388,13 @@ actor VoiceInkRefineXPCClient {
 
     private func requestShutdown(of activeConnection: NSXPCConnection) async {
         _ = try? await withCheckedThrowingContinuation { continuation in
-            let reply = VoiceInkRefineXPCReply<Void>(continuation)
+            let reply = WaGongRefineXPCReply<Void>(continuation)
             guard
                 let proxy = activeConnection.remoteObjectProxyWithErrorHandler({
                     _ in
                     reply.resolve(.success(()))
                     activeConnection.invalidate()
-                }) as? VoiceInkRefineXPCProtocol
+                }) as? WaGongRefineXPCProtocol
             else {
                 activeConnection.invalidate()
                 reply.resolve(.success(()))
@@ -419,11 +419,11 @@ actor VoiceInkRefineXPCClient {
 
     private func localizedError(
         _ error: Error,
-        operation: VoiceInkRefineXPCOperation
+        operation: WaGongRefineXPCOperation
     ) -> Error {
         let nsError = error as NSError
-        guard nsError.domain == voiceInkRefineXPCErrorDomain,
-            let code = VoiceInkRefineXPCErrorCode(rawValue: nsError.code)
+        guard nsError.domain == waGongRefineXPCErrorDomain,
+            let code = WaGongRefineXPCErrorCode(rawValue: nsError.code)
         else {
             return error
         }
@@ -431,28 +431,28 @@ actor VoiceInkRefineXPCClient {
         let description: String
         switch code {
         case .invalidRequest:
-            description = String(localized: "VoiceInk Refine received an invalid request.")
+            description = String(localized: "Wa-Gong Refine received an invalid request.")
         case .inferenceFailed:
             switch operation {
             case .prepare:
-                description = String(localized: "VoiceInk Refine could not prepare the model.")
+            description = String(localized: "Wa-Gong Refine could not prepare the model.")
             case .enhance:
                 description = String(
-                    localized: "VoiceInk Refine could not complete the enhancement."
+                    localized: "Wa-Gong Refine could not complete the enhancement."
                 )
             }
         case .invalidResponse:
-            description = String(localized: "VoiceInk Refine returned an invalid response.")
+            description = String(localized: "Wa-Gong Refine returned an invalid response.")
         case .connectionFailed:
-            description = String(localized: "Could not communicate with VoiceInk Refine.")
+            description = String(localized: "Could not communicate with Wa-Gong Refine.")
         }
 
-        return makeVoiceInkRefineXPCError(code, description: description)
+        return makeWaGongRefineXPCError(code, description: description)
     }
 
     private func logFailure(
         _ error: Error,
-        operation: VoiceInkRefineXPCOperation
+        operation: WaGongRefineXPCOperation
     ) {
         let nsError = error as NSError
         let operationName: String
@@ -463,7 +463,7 @@ actor VoiceInkRefineXPCClient {
             operationName = "enhance"
         }
         logger.error(
-            "VoiceInk Refine XPC \(operationName, privacy: .public) failed domain=\(nsError.domain, privacy: .public) code=\(nsError.code, privacy: .public) description=\(nsError.localizedDescription, privacy: .public)"
+            "Wa-Gong Refine XPC \(operationName, privacy: .public) failed domain=\(nsError.domain, privacy: .public) code=\(nsError.code, privacy: .public) description=\(nsError.localizedDescription, privacy: .public)"
         )
     }
 
@@ -478,7 +478,7 @@ actor VoiceInkRefineXPCClient {
         connectionID = nil
         cancelIdleShutdown()
         logger.error(
-            "VoiceInk Refine XPC connection interrupted id=\(identifier.uuidString, privacy: .public)"
+            "Wa-Gong Refine XPC connection interrupted id=\(identifier.uuidString, privacy: .public)"
         )
     }
 

@@ -16,7 +16,7 @@ class AudioTranscriptionService: ObservableObject {
 
     private let modelContext: ModelContext
     private let enhancementService: AIEnhancementService?
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "AudioTranscriptionService")
+    private let logger = Logger(subsystem: "com.jackie-yeh.wagong", category: "AudioTranscriptionService")
     private let serviceRegistry: TranscriptionServiceRegistry
 
     enum TranscriptionError: Error {
@@ -26,7 +26,7 @@ class AudioTranscriptionService: ObservableObject {
         case invalidAudioFormat
     }
 
-    init(modelContext: ModelContext, engine: VoiceInkEngine) {
+    init(modelContext: ModelContext, engine: WaGongEngine) {
         self.modelContext = modelContext
         self.enhancementService = engine.enhancementService
         self.serviceRegistry = TranscriptionServiceRegistry(

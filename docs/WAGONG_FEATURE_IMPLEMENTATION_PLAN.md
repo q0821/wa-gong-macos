@@ -1,6 +1,6 @@
 # 聲筆 Wa-Gong 功能實作計畫
 
-更新日期：2026-08-25
+更新日期：2026-08-26
 
 本文件是本輪功能開發的執行依據。每個功能都必須先建立測試，再實作程式碼，驗證通過後獨立建立一個 Git commit。
 
@@ -10,7 +10,7 @@
 - 功能參考：`opass/VoiceTwInk`。
 - App 名稱：`聲筆 Wa-Gong`。
 - Bundle ID：`com.jackie-yeh.wagong`。
-- Swift module name：`VoiceInk`，暫時保留以維持既有測試與內部程式碼相容性。
+- Swift module name：`VoiceInk`，暫時保留以維持 Xcode target 與既有測試的結構相容性；主要 Swift 型別識別字已改為 Wa-Gong 名稱。
 - 品牌基準 commit：`7549938 chore: establish Wa-Gong app identity`。
 - 不整批合併 `VoiceTwInk`，只依目前 VoiceInk 架構逐項移植需要的功能。
 
@@ -87,7 +87,7 @@
 
 ### 待人工決定或驗證
 
-- 預設本機模型目前仍是 Parakeet V3。它支援英文與部分歐洲語言，不包含中文。是否改成 Whisper 多語言模型作為中文優先的本機預設，需要依照「即時速度」與「中文準確度」取捨後決定。
+- 預設本機模型已改為 Whisper Base（`ggml-base`），支援中文與多語言；首次設定流程也會下載 Whisper Base。
 - 需要實際下載模型，使用純中文、純英文與中英混合語音驗證辨識品質。
 - 需要在具備麥克風與 Accessibility 權限的實機確認語言設定變更後的錄音與插入流程。
 
@@ -119,8 +119,9 @@
 - [x] 自訂指令日誌不再記錄 stdout、stderr 或錯誤訊息內容，只保留狀態、錯誤類型與位元組數。
 - [x] 完成本輪程式碼的日誌靜態掃描，未發現新增的完整語音、完整文字、剪貼簿或 API Key 記錄；實際 Log Export 仍待人工確認。
 - [x] `xcodebuild build-for-testing` 通過。
-- [x] `xcodebuild build` 通過，並從產物確認 App 版本為 `2.11.0`。
+- [x] `xcodebuild build` 重新驗證通過；`/Users/hd/Downloads/Wa-Gong.app` 已確認顯示名稱為「聲筆 Wa-Gong」、版本為 `0.0.1`、Build 為 `1`，並使用 `com.jackie-yeh.wagong`。
 - [x] `VoiceInkTests` 22 項單元測試已取得 assertion 結果，22 通過、0 失敗、0 跳過。
+- [x] 本輪未執行端到端測試；新增的模型語言標示與舊 Provider 名稱遷移測試已隨 `build-for-testing` 編譯。
 - [ ] Privacy HUD 目前是送出前提醒，不阻擋 Request；是否要改成需要人工允許後才送出，待醒來後決定。
 - [ ] 需要實際取消錄音、取消整理、取消串流與跨 App 插入測試。
 - 日誌不得記錄完整語音、完整文字、剪貼簿、選取文字、OCR 或 API Key。

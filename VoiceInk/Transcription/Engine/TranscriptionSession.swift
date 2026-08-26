@@ -40,7 +40,7 @@ final class FileTranscriptionSession: TranscriptionSession {
 
     func transcribe(audioURL: URL) async throws -> String {
         guard let model = model else {
-            throw VoiceInkEngineError.transcriptionFailed
+            throw WaGongEngineError.transcriptionFailed
         }
         return try await service.transcribe(audioURL: audioURL, model: model, context: context)
     }
@@ -63,7 +63,7 @@ final class StreamingTranscriptionSession: TranscriptionSession {
     private var streamingFailed = false
     private var startupTask: Task<Void, Never>?
     private var startupTaskID: UUID?
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "StreamingTranscriptionSession")
+    private let logger = Logger(subsystem: "com.jackie-yeh.wagong", category: "StreamingTranscriptionSession")
 
     init(
         streamingService: StreamingTranscriptionService,
@@ -130,7 +130,7 @@ final class StreamingTranscriptionSession: TranscriptionSession {
 
     func transcribe(audioURL: URL) async throws -> String {
         guard let model = model else {
-            throw VoiceInkEngineError.transcriptionFailed
+            throw WaGongEngineError.transcriptionFailed
         }
 
         if !streamingFailed {

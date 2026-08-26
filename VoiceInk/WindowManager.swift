@@ -45,8 +45,8 @@ enum AppPresentationPolicy {
 class WindowManager: NSObject {
     static let shared = WindowManager()
 
-    private static let mainWindowIdentifier = NSUserInterfaceItemIdentifier("com.prakashjoshipax.voiceink.mainWindow")
-    private static let mainWindowAutosaveName = NSWindow.FrameAutosaveName("VoiceInkMainWindowFrame")
+    private static let mainWindowIdentifier = NSUserInterfaceItemIdentifier("com.jackie-yeh.wagong.mainWindow")
+    private static let mainWindowAutosaveName = NSWindow.FrameAutosaveName("WaGongMainWindowFrame")
 
     private weak var mainWindow: NSWindow?
     private var didApplyInitialPlacement = false

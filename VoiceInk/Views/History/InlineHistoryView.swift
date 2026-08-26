@@ -16,7 +16,7 @@ struct InlineHistoryView: View {
     @State private var lastTimestamp: Date?
     @State private var isViewCurrentlyVisible = false
 
-    private let exportService = VoiceInkCSVExportService()
+    private let exportService = WaGongCSVExportService()
     private let pageSize = 20
 
     @Query(Self.createLatestTranscriptionIndicatorDescriptor()) private var latestTranscriptionIndicator:

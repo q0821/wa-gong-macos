@@ -33,7 +33,7 @@ final class CohereTranscriptionService: TranscriptionService, @unchecked Sendabl
     private var memoryPressureSource: DispatchSourceMemoryPressure?
     private let audioConverter = AudioConverter()
     private let logger = Logger(
-        subsystem: "com.prakashjoshipax.voiceink",
+        subsystem: "com.jackie-yeh.wagong",
         category: "CohereTranscriptionService"
     )
 

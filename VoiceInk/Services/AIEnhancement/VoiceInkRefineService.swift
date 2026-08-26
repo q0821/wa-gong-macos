@@ -2,31 +2,31 @@ import Combine
 import Foundation
 import OSLog
 
-enum VoiceInkRefineAvailability: Equatable {
+enum WaGongRefineAvailability: Equatable {
     case available
     case unsupportedIntel
     case insufficientMemory
 }
 
-enum VoiceInkRefineError: LocalizedError {
+enum WaGongRefineError: LocalizedError {
     case unavailable
     case modelNotDownloaded
 
     var errorDescription: String? {
         switch self {
         case .unavailable:
-            return String(localized: "VoiceInk Refine requires an Apple silicon Mac with at least 16 GB of memory.")
+            return String(localized: "Wa-Gong Refine requires an Apple silicon Mac with at least 16 GB of memory.")
         case .modelNotDownloaded:
-            return String(localized: "VoiceInk Refine is not downloaded.")
+            return String(localized: "Wa-Gong Refine is not downloaded.")
         }
     }
 }
 
-final class VoiceInkRefineService: ObservableObject {
-    static let shared = VoiceInkRefineService()
+final class WaGongRefineService: ObservableObject {
+    static let shared = WaGongRefineService()
 
-    static let providerName = "VoiceInk Refine"
-    static let modelName = "VoiceInk Refine V1"
+    static let providerName = "Wa-Gong Refine"
+    static let modelName = "Wa-Gong Refine V1"
     static let systemPrompt = """
         Transform raw ASR input into polished text. Preserve the original meaning and tone. Handle punctuation, capitalization, and spoken formatting cues properly. Remove fillers, repetitions, false starts, and discarded self-corrections. Output only the final text.
         """
@@ -35,7 +35,7 @@ final class VoiceInkRefineService: ObservableObject {
     static let minimumMemoryBytes: UInt64 = 16 * 1_024 * 1_024 * 1_024
     static var downloadSizeDescription: String {
         ByteCountFormatter.string(
-            fromByteCount: VoiceInkRefineModelDownloader.totalBytes,
+            fromByteCount: WaGongRefineModelDownloader.totalBytes,
             countStyle: .file
         )
     }
@@ -44,11 +44,11 @@ final class VoiceInkRefineService: ObservableObject {
     @Published private(set) var isDownloading = false
     @Published private(set) var downloadProgress = 0.0
     private(set) var downloadedBytes: Int64 = 0
-    private(set) var totalDownloadBytes = VoiceInkRefineModelDownloader.totalBytes
+    private(set) var totalDownloadBytes = WaGongRefineModelDownloader.totalBytes
     private(set) var isFinalizingDownload = false
     @Published private(set) var downloadError: String?
 
-    let availability: VoiceInkRefineAvailability
+    let availability: WaGongRefineAvailability
 
     var isAvailableInModes: Bool {
         availability == .available && isDownloaded
@@ -70,11 +70,11 @@ final class VoiceInkRefineService: ObservableObject {
     }
 
     private let logger = Logger(
-        subsystem: "com.prakashjoshipax.voiceink",
-        category: "VoiceInkRefineService"
+        subsystem: "com.jackie-yeh.wagong",
+        category: "WaGongRefineService"
     )
     private let modelRootDirectory: URL
-    private let inferenceClient = VoiceInkRefineXPCClient()
+    private let inferenceClient = WaGongRefineXPCClient()
     private var downloadTask: Task<Void, Never>?
 
     private init(
@@ -93,9 +93,20 @@ final class VoiceInkRefineService: ObservableObject {
             for: .applicationSupportDirectory,
             in: .userDomainMask
         )[0]
-        modelRootDirectory = appSupportDirectory
+        let currentModelRootDirectory = appSupportDirectory
             .appendingPathComponent(AppIdentity.bundleIdentifier)
-            .appendingPathComponent("VoiceInkRefine")
+            .appendingPathComponent("WaGongRefine", isDirectory: true)
+        let legacyModelRootDirectory = appSupportDirectory
+            .appendingPathComponent(AppIdentity.bundleIdentifier)
+            .appendingPathComponent("WaGongRefine", isDirectory: true)
+
+        if !FileManager.default.fileExists(atPath: currentModelRootDirectory.path),
+            FileManager.default.fileExists(atPath: legacyModelRootDirectory.path)
+        {
+            try? FileManager.default.moveItem(at: legacyModelRootDirectory, to: currentModelRootDirectory)
+        }
+
+        modelRootDirectory = currentModelRootDirectory
 
         refreshDownloadedState()
     }
@@ -133,16 +144,16 @@ final class VoiceInkRefineService: ObservableObject {
             NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
         } catch {
             downloadError = error.localizedDescription
-            logger.error("Failed to delete VoiceInk Refine: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to delete Wa-Gong Refine: \(error.localizedDescription, privacy: .public)")
         }
     }
 
     func enhance(transcript: String) async throws -> String {
         guard availability == .available else {
-            throw VoiceInkRefineError.unavailable
+            throw WaGongRefineError.unavailable
         }
         guard isDownloaded, let snapshotURL else {
-            throw VoiceInkRefineError.modelNotDownloaded
+            throw WaGongRefineError.modelNotDownloaded
         }
 
         return try await inferenceClient.enhance(
@@ -182,7 +193,7 @@ final class VoiceInkRefineService: ObservableObject {
     private func downloadModel() async {
         downloadProgress = 0
         downloadedBytes = 0
-        totalDownloadBytes = VoiceInkRefineModelDownloader.totalBytes
+        totalDownloadBytes = WaGongRefineModelDownloader.totalBytes
         isFinalizingDownload = false
         downloadError = nil
         isDownloading = true
@@ -194,7 +205,7 @@ final class VoiceInkRefineService: ObservableObject {
         }
 
         #if arch(arm64)
-            let downloader = VoiceInkRefineModelDownloader(
+            let downloader = WaGongRefineModelDownloader(
                 repositoryID: Self.repositoryID,
                 revision: Self.pinnedRevision,
                 modelRootDirectory: modelRootDirectory
@@ -231,16 +242,16 @@ final class VoiceInkRefineService: ObservableObject {
                 downloadError = nil
             } catch {
                 downloadError = error.localizedDescription
-                logger.error("Failed to download VoiceInk Refine: \(error.localizedDescription, privacy: .public)")
+                logger.error("Failed to download Wa-Gong Refine: \(error.localizedDescription, privacy: .public)")
             }
         #else
-            downloadError = VoiceInkRefineError.unavailable.localizedDescription
+            downloadError = WaGongRefineError.unavailable.localizedDescription
         #endif
     }
 
     private var snapshotURL: URL? {
         #if arch(arm64)
-            return VoiceInkRefineModelDownloader.snapshotDirectory(
+            return WaGongRefineModelDownloader.snapshotDirectory(
                 in: modelRootDirectory,
                 repositoryID: Self.repositoryID,
                 revision: Self.pinnedRevision
@@ -256,14 +267,14 @@ final class VoiceInkRefineService: ObservableObject {
             return
         }
 
-        isDownloaded = VoiceInkRefineModelDownloader.isSnapshotComplete(
+        isDownloaded = WaGongRefineModelDownloader.isSnapshotComplete(
             at: snapshotURL
         )
     }
 
     @MainActor
     private func applyDownloadProgress(
-        _ progress: VoiceInkRefineDownloadProgress
+        _ progress: WaGongRefineDownloadProgress
     ) {
         downloadedBytes = progress.downloadedBytes
         totalDownloadBytes = progress.totalBytes

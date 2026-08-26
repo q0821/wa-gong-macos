@@ -11,6 +11,8 @@ struct CustomCommandDeliveryContext {
 
     var environment: [String: String] {
         [
+            "WAGONG_TRANSCRIPT": transcript,
+            // Keep the previous variable available for existing user-authored commands.
             "VOICEINK_TRANSCRIPT": transcript
         ]
     }
@@ -53,7 +55,7 @@ enum CustomCommandDeliveryError: Error, LocalizedError {
 
 enum CustomCommandDeliveryRunner {
     private static let logger = Logger(
-        subsystem: "com.prakashjoshipax.voiceink", category: "CustomCommandDeliveryRunner")
+        subsystem: "com.jackie-yeh.wagong", category: "CustomCommandDeliveryRunner")
 
     static func run(
         command: String,

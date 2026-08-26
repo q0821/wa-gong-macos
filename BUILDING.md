@@ -9,15 +9,15 @@
 ## Local Build
 
 ```bash
-git clone https://github.com/Beingpax/VoiceInk.git
-cd VoiceInk
+git clone https://github.com/q0821/wa-gong-macos.git
+cd wa-gong-macos
 make local
 open ~/Downloads/Wa-Gong.app
 ```
 
 `make local` prepares `whisper.xcframework` in `~/VoiceInk-Dependencies`, builds in `.local-build`, and copies `Wa-Gong.app` to `~/Downloads`.
 
-It uses `LocalBuild.xcconfig`, `VoiceInk.local.entitlements`, and the `LOCAL_BUILD` Swift flag. Without an override, it uses the only available Apple Development identity or falls back to ad-hoc signing when none or multiple are found.
+It uses `LocalBuild.xcconfig`, `VoiceInk.local.entitlements`, and the `LOCAL_BUILD` Swift flag. Without an override, it uses the first available Apple Development identity or falls back to ad-hoc signing when none is available.
 
 The Makefile passes `-skipPackagePluginValidation -skipMacroValidation` to `xcodebuild`. This is required for the current Xcode 26.6 package graph, which otherwise stops at package plug-in or macro validation before compiling. Override the flags when using a different Xcode toolchain:
 
@@ -68,4 +68,4 @@ Select the `VoiceInk` scheme and use the Debug configuration. Xcode uses the pro
 - Run `make whisper` if the framework is missing.
 - If several Apple Development identities exist, set `LOCAL_CODESIGN_IDENTITY` explicitly.
 - If Xcode reports an XCFramework path from an old checkout, run `make local` to recreate the ignored `.local-build` directory.
-- For additional help, open a [GitHub issue](https://github.com/Beingpax/VoiceInk/issues).
+- For additional help, open a [GitHub issue](https://github.com/q0821/wa-gong-macos/issues).

@@ -6,14 +6,14 @@ class HistoryWindowController: NSObject, NSWindowDelegate {
     static let shared = HistoryWindowController()
 
     private var historyWindow: NSWindow?
-    private let windowIdentifier = NSUserInterfaceItemIdentifier("com.prakashjoshipax.voiceink.historyWindow")
-    private let windowAutosaveName = NSWindow.FrameAutosaveName("VoiceInkHistoryWindowFrame")
+    private let windowIdentifier = NSUserInterfaceItemIdentifier("com.jackie-yeh.wagong.historyWindow")
+    private let windowAutosaveName = NSWindow.FrameAutosaveName("WaGongHistoryWindowFrame")
 
     private override init() {
         super.init()
     }
 
-    func showHistoryWindow(modelContainer: ModelContainer, engine: VoiceInkEngine) {
+    func showHistoryWindow(modelContainer: ModelContainer, engine: WaGongEngine) {
         AppPresentationPolicy.activateForUserFacingWindow()
 
         if let existingWindow = historyWindow {
@@ -31,7 +31,7 @@ class HistoryWindowController: NSObject, NSWindowDelegate {
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
-    private func createHistoryWindow(modelContainer: ModelContainer, engine: VoiceInkEngine) -> NSWindow {
+    private func createHistoryWindow(modelContainer: ModelContainer, engine: WaGongEngine) -> NSWindow {
         let historyView = TranscriptionHistoryView()
             .modelContainer(modelContainer)
             .environmentObject(engine)

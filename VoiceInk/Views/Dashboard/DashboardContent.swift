@@ -4,21 +4,17 @@ import SwiftUI
 import os
 
 struct DashboardContent: View {
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "DashboardContent")
+    private let logger = Logger(subsystem: "com.jackie-yeh.wagong", category: "DashboardContent")
     private static let fallbackDisplayName = String(localized: "there")
     private static let displayNameFontSize: CGFloat = 28
     private static let displayNameFontWeight: NSFont.Weight = .bold
     private static let displayNameMinWidth: CGFloat = 72
     private static let displayNameMaxWidth: CGFloat = 280
     private static let displayNameHorizontalPadding: CGFloat = 8
-    private static let insightsUnlockDuration: TimeInterval = 30 * 60
-    private static let peakHoursUnlockDuration: TimeInterval = 30 * 60
     // Above this count, skip live auto-refresh (full reload is expensive); tab reopen still refreshes.
     private static let automaticStatsRefreshMetricLimit = 2_000
     private static let statsRefreshDebounceNanoseconds: UInt64 = 750_000_000
     let modelContext: ModelContext
-    let licenseState: LicenseViewModel.LicenseState
-    let onAddLicenseKey: () -> Void
 
     @State private var statsSummary: DashboardStatsSummary = .empty
     @State private var hasLoadedStatsSnapshot: Bool = false
@@ -50,13 +46,9 @@ struct DashboardContent: View {
     }
 
     init(
-        modelContext: ModelContext,
-        licenseState: LicenseViewModel.LicenseState,
-        onAddLicenseKey: @escaping () -> Void
+        modelContext: ModelContext
     ) {
         self.modelContext = modelContext
-        self.licenseState = licenseState
-        self.onAddLicenseKey = onAddLicenseKey
 
         let cachedSummary = DashboardStatsCache.shared.currentSummary()
         let cachedMetadata = DashboardStatsCache.shared.currentMetadata()
@@ -74,7 +66,7 @@ struct DashboardContent: View {
 
                 ScrollView {
                     Group {
-                        if isInsightsViewPresented && canViewInsights {
+                        if isInsightsViewPresented {
                             dashboardInsightsView
                         } else {
                             dashboardMainContent(availableWidth: contentWidth)
@@ -131,8 +123,6 @@ struct DashboardContent: View {
 
     private func dashboardMainContent(availableWidth: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: DashboardLayout.sectionSpacing) {
-            licenseStatusMessage
-
             greetingHeader
 
             nameEditorDismissArea {
@@ -232,44 +222,8 @@ struct DashboardContent: View {
         return String(format: String(localized: "Updated at %@"), formattedDate)
     }
 
-    private var canViewInsights: Bool {
-        hasLoadedStatsSnapshot && statsSummary.totalDuration >= Self.insightsUnlockDuration
-    }
-
-    private var shouldShowLockedInsightsState: Bool {
-        hasLoadedStatsSnapshot && !canViewInsights
-    }
-
-    private var canViewPeakHours: Bool {
-        hasLoadedStatsSnapshot && selectedTotals.duration >= Self.peakHoursUnlockDuration && selectedPeakHours.hasData
-    }
-
-    private var shouldLockPeakHours: Bool {
-        hasLoadedStatsSnapshot && !canViewPeakHours
-    }
-
     private var shouldRefreshStatsAfterMetricChange: Bool {
         !hasLoadedStatsSnapshot || statsSummary.totalCount < Self.automaticStatsRefreshMetricLimit
-    }
-
-    private var insightsActionTitle: LocalizedStringKey {
-        canViewInsights ? "View Insights" : "Insights Locked"
-    }
-
-    private var insightsActionIcon: String {
-        canViewInsights ? "chart.line.uptrend.xyaxis" : "lock.fill"
-    }
-
-    private var insightsActionHelp: String {
-        if canViewInsights {
-            return String(localized: "View dashboard insights")
-        }
-
-        return String(localized: "Continue using VoiceInk to unlock these stats.")
-    }
-
-    private var insightsActionAccessibilityLabel: String {
-        canViewInsights ? "View insights" : "Insights locked"
     }
 
     private var accessibilityReminder: some View {
@@ -370,11 +324,7 @@ struct DashboardContent: View {
         }
     }
 
-    private func openInsightsIfAvailable() {
-        guard canViewInsights else {
-            return
-        }
-
+    private func openInsights() {
         isInsightsViewPresented = true
     }
 
@@ -490,40 +440,11 @@ struct DashboardContent: View {
         }
     }
 
-    // MARK: - Sections
-
-    @ViewBuilder
-    private var licenseStatusMessage: some View {
-        switch licenseState {
-        case .unlicensed:
-            TrialMessageView(
-                message: Text("Activate a license to continue using VoiceInk."),
-                type: .licenseRequired,
-                onAddLicenseKey: onAddLicenseKey
-            )
-        case .trial(let daysRemaining):
-            TrialMessageView(
-                message: Text(String(localized: "You have \(daysRemaining) days left in your trial")),
-                type: daysRemaining <= 2 ? .warning : .info,
-                onAddLicenseKey: onAddLicenseKey
-            )
-        case .trialExpired:
-            TrialMessageView(
-                message: nil,
-                type: .expired,
-                onAddLicenseKey: onAddLicenseKey
-            )
-        case .licensed:
-            EmptyView()
-        }
-    }
-
     private var dashboardInsightsView: some View {
         DashboardInsightsView(
             selectedPeriod: $selectedInsightPeriod,
             productivityPoints: selectedProductivityPoints,
             peakHoursSummary: selectedPeakHours,
-            isPeakHoursLocked: shouldLockPeakHours,
             timeSavedSummary: selectedTimeSavedSummary,
             modelUsage: selectedModelUsage,
             modelPerformanceSummaries: selectedModelPerformance,
@@ -538,15 +459,9 @@ struct DashboardContent: View {
 
     private var heroSection: some View {
         DashboardHeroCard(
-            isLocked: shouldShowLockedInsightsState,
             headline: momentumHeadline,
             subtext: momentumSubtext,
-            actionTitle: insightsActionTitle,
-            actionIcon: insightsActionIcon,
-            canViewInsights: canViewInsights,
-            actionHelp: insightsActionHelp,
-            actionAccessibilityLabel: insightsActionAccessibilityLabel,
-            onViewInsights: openInsightsIfAvailable
+            onViewInsights: openInsights
         )
     }
 
@@ -557,7 +472,7 @@ struct DashboardContent: View {
         } else {
             switch starPrompt.completionState {
             case .starred:
-                footerActionLabel(icon: "checkmark", title: "Starred — thank you!", color: AppTheme.Sidebar.license)
+                footerActionLabel(icon: "checkmark", title: "Starred — thank you!", color: AppTheme.Status.positive)
             case .opened:
                 footerActionLabel(icon: "arrow.up.right", title: "GitHub opened", color: AppTheme.Sidebar.fallback)
             case .none:
@@ -589,7 +504,7 @@ struct DashboardContent: View {
                 .buttonStyle(.plain)
                 .fixedSize(horizontal: true, vertical: true)
                 .disabled(!updaterViewModel.canCheckForUpdates)
-                .help("Open the VoiceInk \(availableUpdate.displayVersion) update")
+                .help("Open the Wa-Gong \(availableUpdate.displayVersion) update")
                 .accessibilityLabel("Update Available")
                 .accessibilityValue(Text(verbatim: availableUpdate.displayVersion))
                 .accessibilityHint("Opens the update window")
@@ -600,7 +515,7 @@ struct DashboardContent: View {
                 footerActionLabel(
                     icon: isSystemInfoCopied ? "checkmark" : "doc.on.doc",
                     title: isSystemInfoCopied ? "Copied!" : "Copy System Info",
-                    color: isSystemInfoCopied ? AppTheme.Sidebar.license : AppTheme.Sidebar.fallback
+                    color: isSystemInfoCopied ? AppTheme.Status.positive : AppTheme.Sidebar.fallback
                 )
             }
             .buttonStyle(.plain)
@@ -764,7 +679,7 @@ struct DashboardContent: View {
 
     private var headerSubtitle: String {
         guard hasLoadedStatsSnapshot else {
-            return String(localized: "Pulling together your VoiceInk activity.")
+            return String(localized: "Pulling together your Wa-Gong activity.")
         }
 
         guard statsSummary.totalCount > 0 else {
@@ -871,7 +786,7 @@ private struct DashboardAccessibilityReminder: View {
                     .foregroundStyle(.primary)
                     .lineLimit(1)
 
-                Text("Required for VoiceInk shortcuts and app-wide controls to work properly.")
+                Text("Required for Wa-Gong shortcuts and app-wide controls to work properly.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -911,7 +826,7 @@ private struct DashboardNoModesReminder: View {
                     .foregroundStyle(.primary)
                     .lineLimit(1)
 
-                Text("VoiceInk needs at least one mode to record. Create one to start dictating.")
+                Text("Wa-Gong needs at least one mode to record. Create one to start dictating.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)

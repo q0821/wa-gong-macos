@@ -11,11 +11,16 @@ final class UpdaterViewModel: NSObject, ObservableObject, SPUUpdaterDelegate {
     }
 
     private enum DefaultsKey {
-        // Keep the existing persisted key strings so current user preferences migrate automatically.
-        static let automaticUpdateChecks = "VoiceInkChecksForUpdatesOnLaunch"
-        static let interactedUpdateVersions = "VoiceInkInteractedUpdateVersions"
+        static let automaticUpdateChecks = "WaGongChecksForUpdatesOnLaunch"
+        static let interactedUpdateVersions = "WaGongInteractedUpdateVersions"
+        static let legacyAutomaticUpdateChecks = "VoiceInkChecksForUpdatesOnLaunch"
+        static let legacyInteractedUpdateVersions = "VoiceInkInteractedUpdateVersions"
         static let sparkleAutomaticChecks = "SUEnableAutomaticChecks"
     }
+
+    // Wa-Gong does not have a public Sparkle feed yet. Keep the updater package available,
+    // but do not probe or advertise the old upstream feed.
+    private static let hasConfiguredUpdateFeed = false
 
     private let defaults: UserDefaults
     private var isUserInitiatedUpdateCheck = false
@@ -37,14 +42,15 @@ final class UpdaterViewModel: NSObject, ObservableObject, SPUUpdaterDelegate {
 
         let updater = updaterController.updater
 
-        // VoiceInk owns automatic discovery through Sparkle's non-presenting probe.
+        // Wa-Gong owns automatic discovery through Sparkle's non-presenting probe.
         // Keeping Sparkle's scheduler disabled prevents it from showing an update
         // window independently of the Dashboard button.
         updater.automaticallyChecksForUpdates = false
         updaterController.startUpdater()
 
-        canCheckForUpdates = updater.canCheckForUpdates
+        canCheckForUpdates = Self.hasConfiguredUpdateFeed && updater.canCheckForUpdates
         updater.publisher(for: \.canCheckForUpdates)
+            .map { Self.hasConfiguredUpdateFeed && $0 }
             .assign(to: &$canCheckForUpdates)
     }
 
@@ -121,21 +127,28 @@ final class UpdaterViewModel: NSObject, ObservableObject, SPUUpdaterDelegate {
     }
 
     private func checkForUpdateInformationIfPossible() {
+        guard Self.hasConfiguredUpdateFeed else { return }
         let updater = updaterController.updater
         guard !updater.sessionInProgress else { return }
         updater.checkForUpdateInformation()
     }
 
     private func hasInteracted(with versionIdentifier: String) -> Bool {
-        defaults.stringArray(forKey: DefaultsKey.interactedUpdateVersions)?
+        interactedUpdateVersions
             .contains(versionIdentifier) == true
     }
 
     private func rememberInteraction(with versionIdentifier: String) {
-        var versions = defaults.stringArray(forKey: DefaultsKey.interactedUpdateVersions) ?? []
+        var versions = interactedUpdateVersions
         guard !versions.contains(versionIdentifier) else { return }
         versions.append(versionIdentifier)
         defaults.set(versions, forKey: DefaultsKey.interactedUpdateVersions)
+    }
+
+    private var interactedUpdateVersions: [String] {
+        let current = defaults.stringArray(forKey: DefaultsKey.interactedUpdateVersions) ?? []
+        let legacy = defaults.stringArray(forKey: DefaultsKey.legacyInteractedUpdateVersions) ?? []
+        return Array(Set(current + legacy)).sorted()
     }
 
     private static func initialAutomaticCheckPreference(in defaults: UserDefaults) -> Bool {
@@ -143,9 +156,10 @@ final class UpdaterViewModel: NSObject, ObservableObject, SPUUpdaterDelegate {
             return preference
         }
 
-        // Preserve an explicit choice made through VoiceInk's previous Sparkle-backed
-        // setting. With no saved choice, keep VoiceInk's existing opt-in default.
-        let preference = (defaults.object(forKey: DefaultsKey.sparkleAutomaticChecks) as? Bool) ?? true
+        let preference =
+            (defaults.object(forKey: DefaultsKey.legacyAutomaticUpdateChecks) as? Bool)
+            ?? (defaults.object(forKey: DefaultsKey.sparkleAutomaticChecks) as? Bool)
+            ?? true
 
         defaults.set(preference, forKey: DefaultsKey.automaticUpdateChecks)
         return preference

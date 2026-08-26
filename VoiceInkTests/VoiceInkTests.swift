@@ -63,13 +63,76 @@ struct VoiceInkTests {
         #expect(TranscriptionLanguageSupport.validLanguageOrFallback("zh-TW", for: model) == "en")
     }
 
-    @Test func defaultLocalTranscriptionModelIsMultilingual() {
+    @Test func defaultLocalTranscriptionModelIsChineseCapableWhisper() {
+        #expect(StarterModeFactory.defaultTranscriptionModelName == "ggml-base")
+
         let model = TranscriptionModelRegistry.models.first {
             $0.name == StarterModeFactory.defaultTranscriptionModelName
         }
 
         #expect(model != nil)
-        #expect(model?.isMultilingualModel == true)
+        #expect(model?.provider == .whisper)
+        #expect(model?.supportedLanguages["zh-TW"] == "Chinese (Taiwan)")
+    }
+
+    @Test func modelLanguageLabelsStateWhetherChineseIsSupported() {
+        let base = TranscriptionModelRegistry.models.first { $0.name == "ggml-base" }
+        let englishOnly = TranscriptionModelRegistry.models.first { $0.name == "ggml-base.en" }
+        let europeanMultilingual = TranscriptionModelRegistry.models.first {
+            $0.name == "parakeet-tdt-0.6b-v3"
+        }
+
+        #expect(base?.supportsChinese == true)
+        #expect(base?.language == "Multilingual, includes Chinese")
+        #expect(englishOnly?.supportsChinese == false)
+        #expect(englishOnly?.language == "English only")
+        #expect(europeanMultilingual?.supportsChinese == false)
+        #expect(europeanMultilingual?.language == "Multilingual, Chinese not supported")
+    }
+
+    @Test func legacyRefineProviderNameMigratesToWaGong() {
+        #expect(AIProvider(rawValue: "VoiceInk Refine") == .waGongRefine)
+        #expect(AIProvider.waGongRefine.rawValue == "Wa-Gong Refine")
+    }
+
+    @Test func trustIsFinalOnboardingStageWithoutLicenseStep() {
+        #expect(OnboardingStage.allCases.last == .trust)
+        #expect(!OnboardingStage.allCases.contains { $0.rawValue == "license" })
+    }
+
+    @Test @MainActor func removedLicenseStageResumesAtTrust() {
+        let suiteName = "WaGongOnboardingMigration-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set("license", forKey: OnboardingStorageKeys.stage)
+
+        let coordinator = OnboardingCoordinator(defaults: defaults)
+
+        #expect(coordinator.stage == .trust)
+    }
+
+    @Test func existingStarterModesMigrateToChineseCapableWhisper() {
+        let starterConfig = ModeConfig(
+            id: StarterModeCatalog.templates[0].id,
+            name: "Dictation",
+            isAIEnhancementEnabled: false,
+            selectedTranscriptionModelName: ModeDataMigration.legacyDefaultTranscriptionModelName
+        )
+        let customConfig = ModeConfig(
+            name: "Custom",
+            isAIEnhancementEnabled: false,
+            selectedTranscriptionModelName: ModeDataMigration.legacyDefaultTranscriptionModelName
+        )
+
+        #expect(
+            ModeDataMigration.migratedStarterTranscriptionModelName(for: starterConfig)
+                == StarterModeFactory.defaultTranscriptionModelName
+        )
+        #expect(
+            ModeDataMigration.migratedStarterTranscriptionModelName(for: customConfig)
+                == ModeDataMigration.legacyDefaultTranscriptionModelName
+        )
     }
 
     @Test func llmContextExcludesClipboardWhileKeepingEnabledContexts() {

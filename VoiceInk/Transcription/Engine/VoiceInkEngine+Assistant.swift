@@ -1,7 +1,7 @@
 import Foundation
 
 @MainActor
-extension VoiceInkEngine {
+extension WaGongEngine {
     func sendAssistantFollowUp(_ text: String, transcription: Transcription? = nil) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,

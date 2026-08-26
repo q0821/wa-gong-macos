@@ -1,10 +1,16 @@
 import SwiftUI
 
+struct OnboardingLocalDownloadStatus {
+    let fractionCompleted: Double
+    let message: String
+    let isIndeterminate: Bool
+}
+
 struct TranscriptionModelDownloadCard: View {
-    let model: FluidAudioModel
+    let model: any TranscriptionModel
     let isDownloaded: Bool
     let isDownloading: Bool
-    let status: FluidAudioDownloadStatus?
+    let status: OnboardingLocalDownloadStatus?
     let onDownload: () -> Void
 
     var body: some View {
@@ -30,7 +36,7 @@ struct TranscriptionModelDownloadCard: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(AppTheme.Text.primary)
 
-                    Text("Fast multilingual transcription that runs locally on Mac.")
+                    Text(model.languageSupportDescription)
                         .font(.system(size: 12))
                         .foregroundColor(AppTheme.Text.secondary)
                         .lineLimit(1)
@@ -59,20 +65,31 @@ struct TranscriptionModelDownloadCard: View {
     }
 
     private var modelLogo: some View {
-        Image("nvidia-logo")
-            .resizable()
-            .scaledToFit()
-            .frame(width: 34, height: 28)
+        Image(systemName: "waveform")
+            .font(.system(size: 20, weight: .semibold))
+            .foregroundColor(AppTheme.Accent.primary)
             .frame(width: 38, height: 38)
-            .accessibilityLabel(Text(verbatim: "NVIDIA"))
+            .accessibilityLabel(Text("Local transcription model"))
     }
 
     private var modelMetadata: some View {
         HStack(spacing: 6) {
-            metadataPill(model.size)
-            localizedMetadataPill("25+ languages")
+            metadataPill(modelSize)
+            metadataPill(model.language)
             localizedMetadataPill("Local")
         }
+    }
+
+    private var modelSize: String {
+        if let whisperModel = model as? WhisperModel {
+            return whisperModel.size
+        }
+
+        if let fluidAudioModel = model as? FluidAudioModel {
+            return fluidAudioModel.size
+        }
+
+        return "Local"
     }
 
     private func metadataPill(_ text: String) -> some View {
@@ -93,7 +110,7 @@ struct TranscriptionModelDownloadCard: View {
             .background(Capsule().fill(AppTheme.Surface.subtle))
     }
 
-    private func progressPanel(_ status: FluidAudioDownloadStatus) -> some View {
+    private func progressPanel(_ status: OnboardingLocalDownloadStatus) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(status.message)

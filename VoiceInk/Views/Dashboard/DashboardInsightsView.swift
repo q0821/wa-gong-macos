@@ -4,7 +4,6 @@ struct DashboardInsightsView: View {
     @Binding var selectedPeriod: DashboardInsightPeriod
     let productivityPoints: [DashboardProductivityPoint]
     let peakHoursSummary: DashboardPeakHoursSummary
-    let isPeakHoursLocked: Bool
     let timeSavedSummary: DashboardTimeSavedSummary
     let modelUsage: ModelUsageSummary
     let modelPerformanceSummaries: [ModelPerformanceSummary]
@@ -48,7 +47,7 @@ struct DashboardInsightsView: View {
 
     private var insightSummaryCards: some View {
         HStack(alignment: .top, spacing: DashboardLayout.columnSpacing) {
-            DashboardPeakHoursCard(summary: peakHoursSummary, isLocked: isPeakHoursLocked)
+            DashboardPeakHoursCard(summary: peakHoursSummary)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
 
             DashboardTimeSavedCard(summary: timeSavedSummary, period: selectedPeriod)
@@ -60,11 +59,11 @@ struct DashboardInsightsView: View {
     private var header: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("VoiceInk Insights")
+                Text("Wa-Gong Insights")
                     .font(.system(size: 26, weight: .bold, design: .rounded))
                     .foregroundStyle(AppTheme.Text.primary)
 
-                Text("A closer look at your VoiceInk usage.")
+                Text("A closer look at your Wa-Gong usage.")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(AppTheme.Text.secondary)
             }

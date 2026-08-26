@@ -1,5 +1,5 @@
 enum AIPrompts {
-    /// Wraps prompt-specific instructions with VoiceInk's transcription-editing rules.
+    /// Wraps prompt-specific instructions with Wa-Gong's transcription-editing rules.
     static let enhancementSystemTemplate = """
         # System Instructions
         These instructions always apply. Use them as the baseline behavior for every request.

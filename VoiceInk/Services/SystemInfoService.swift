@@ -10,13 +10,12 @@ final class SystemInfoService {
 
     func getSystemInfoString() -> String {
         let info = """
-            === VOICEINK SYSTEM INFORMATION ===
+            === WA-GONG SYSTEM INFORMATION ===
             Generated: \(Self.englishTimestamp())
 
             APP INFORMATION:
             App Version: \(getAppVersion())
             Build Version: \(getBuildVersion())
-            License Status: \(getLicenseStatus())
 
             OPERATING SYSTEM:
             macOS Version: \(ProcessInfo.processInfo.operatingSystemVersionString)
@@ -203,10 +202,6 @@ final class SystemInfoService {
         @unknown default:
             return "Unknown"
         }
-    }
-
-    private func getLicenseStatus() -> String {
-        LicenseViewModel.shared.diagnosticLicenseStatus
     }
 
     private func getCurrentLanguage() -> String {

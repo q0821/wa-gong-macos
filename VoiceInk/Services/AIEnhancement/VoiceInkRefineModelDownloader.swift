@@ -1,13 +1,13 @@
 import CryptoKit
 import Foundation
 
-struct VoiceInkRefineDownloadProgress: Sendable {
+struct WaGongRefineDownloadProgress: Sendable {
     let downloadedBytes: Int64
     let totalBytes: Int64
     let isFinalizing: Bool
 }
 
-enum VoiceInkRefineDownloadError: LocalizedError {
+enum WaGongRefineDownloadError: LocalizedError {
     case invalidDownloadURL(String)
     case invalidResponse(String)
     case unexpectedStatusCode(Int, String)
@@ -35,7 +35,7 @@ enum VoiceInkRefineDownloadError: LocalizedError {
     }
 }
 
-final class VoiceInkRefineModelDownloader: @unchecked Sendable {
+final class WaGongRefineModelDownloader: @unchecked Sendable {
     struct ModelFile: Sendable {
         let path: String
         let size: Int64
@@ -121,7 +121,7 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
     }
 
     private static let verificationRecordVersion = 1
-    private static let verificationRecordFilename = ".voiceink-integrity.json"
+    private static let verificationRecordFilename = ".wagong-integrity.json"
 
     static func snapshotDirectory(
         in modelRootDirectory: URL,
@@ -186,10 +186,10 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
             revision: revision
         )
         partialsDirectory = modelRootDirectory
-            .appendingPathComponent(".voiceink-download-\(revision)", isDirectory: true)
+            .appendingPathComponent(".wagong-download-\(revision)", isDirectory: true)
     }
 
-    var progress: VoiceInkRefineDownloadProgress {
+    var progress: WaGongRefineDownloadProgress {
         progressTracker.snapshot()
     }
 
@@ -312,12 +312,12 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
         }
 
         guard let url = downloadURL(for: file) else {
-            throw VoiceInkRefineDownloadError.invalidDownloadURL(file.path)
+            throw WaGongRefineDownloadError.invalidDownloadURL(file.path)
         }
 
         var request = URLRequest(url: url)
         request.timeoutInterval = 24 * 60 * 60
-        request.setValue("VoiceInk", forHTTPHeaderField: "User-Agent")
+        request.setValue("Wa-Gong", forHTTPHeaderField: "User-Agent")
 
         var resumeOffset: Int64 = 0
         let validator = (
@@ -359,11 +359,11 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
         if response.statusCode == 416 {
             clearPartialDownload(for: file)
             progressTracker.update(identifier: file.path, downloadedBytes: 0)
-            throw VoiceInkRefineDownloadError.invalidContentRange(file.path)
+            throw WaGongRefineDownloadError.invalidContentRange(file.path)
         }
 
         guard response.statusCode == 200 || response.statusCode == 206 else {
-            throw VoiceInkRefineDownloadError.unexpectedStatusCode(
+            throw WaGongRefineDownloadError.unexpectedStatusCode(
                 response.statusCode,
                 file.path
             )
@@ -408,7 +408,7 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
         configuration.waitsForConnectivity = true
 
         let delegateQueue = OperationQueue()
-        delegateQueue.name = "com.prakashjoshipax.voiceink.refine-download"
+        delegateQueue.name = "com.jackie-yeh.wagong.refine-download"
         delegateQueue.qualityOfService = .utility
         delegateQueue.maxConcurrentOperationCount = 1
 
@@ -464,7 +464,7 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
             at: snapshotDirectory,
             files: Self.files
         ) else {
-            throw VoiceInkRefineDownloadError.invalidResponse(
+            throw WaGongRefineDownloadError.invalidResponse(
                 Self.verificationRecordFilename
             )
         }
@@ -525,7 +525,7 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
     ) throws {
         let actualSize = fileSize(at: url) ?? 0
         guard actualSize == file.size else {
-            throw VoiceInkRefineDownloadError.invalidFileSize(
+            throw WaGongRefineDownloadError.invalidFileSize(
                 file.path,
                 expected: file.size,
                 actual: actualSize
@@ -538,7 +538,7 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
 
         let actualSHA256 = try sha256(of: url)
         guard actualSHA256 == expectedSHA256 else {
-            throw VoiceInkRefineDownloadError.invalidChecksum(file.path)
+            throw WaGongRefineDownloadError.invalidChecksum(file.path)
         }
     }
 
@@ -641,11 +641,11 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
         }
 
         switch error {
-        case VoiceInkRefineDownloadError.invalidContentRange,
-             VoiceInkRefineDownloadError.invalidFileSize,
-             VoiceInkRefineDownloadError.invalidChecksum:
+        case WaGongRefineDownloadError.invalidContentRange,
+             WaGongRefineDownloadError.invalidFileSize,
+             WaGongRefineDownloadError.invalidChecksum:
             return true
-        case let VoiceInkRefineDownloadError.unexpectedStatusCode(statusCode, _):
+        case let WaGongRefineDownloadError.unexpectedStatusCode(statusCode, _):
             return statusCode == 408 || statusCode == 429 || (500...599).contains(statusCode)
         default:
             return false
@@ -724,7 +724,7 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
             completionHandler: @escaping (URLRequest?) -> Void
         ) {
             var redirectedRequest = request
-            redirectedRequest.setValue("VoiceInk", forHTTPHeaderField: "User-Agent")
+            redirectedRequest.setValue("Wa-Gong", forHTTPHeaderField: "User-Agent")
             if let rangeHeader {
                 redirectedRequest.setValue(rangeHeader, forHTTPHeaderField: "Range")
             }
@@ -742,7 +742,7 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
         ) {
             guard let httpResponse = response as? HTTPURLResponse else {
                 withState {
-                    $0.responseError = VoiceInkRefineDownloadError.invalidResponse(
+                    $0.responseError = WaGongRefineDownloadError.invalidResponse(
                         file.path
                     )
                 }
@@ -848,7 +848,7 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
                         continuation.resume(returning: response)
                     } else {
                         continuation.resume(
-                            throwing: VoiceInkRefineDownloadError.invalidResponse(
+                            throwing: WaGongRefineDownloadError.invalidResponse(
                                 self.file.path
                             )
                         )
@@ -871,7 +871,7 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
                   range.end < file.size,
                   range.total == file.size
             else {
-                throw VoiceInkRefineDownloadError.invalidContentRange(file.path)
+                throw WaGongRefineDownloadError.invalidContentRange(file.path)
             }
         }
 
@@ -933,13 +933,13 @@ private final class ProgressTracker: @unchecked Sendable {
         lock.unlock()
     }
 
-    func snapshot() -> VoiceInkRefineDownloadProgress {
+    func snapshot() -> WaGongRefineDownloadProgress {
         lock.lock()
         let downloadedBytes = min(
             totalBytes,
             bytesByFile.values.reduce(Int64(0), +)
         )
-        let snapshot = VoiceInkRefineDownloadProgress(
+        let snapshot = WaGongRefineDownloadProgress(
             downloadedBytes: downloadedBytes,
             totalBytes: totalBytes,
             isFinalizing: isFinalizing

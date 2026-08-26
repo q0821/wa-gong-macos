@@ -15,15 +15,29 @@ enum AIProvider: String, CaseIterable {
     case soniox = "Soniox"
     case speechmatics = "Speechmatics"
     case assemblyAI = "AssemblyAI"
-    case voiceInkRefine = "VoiceInk Refine"
+    case waGongRefine = "Wa-Gong Refine"
     case ollama = "Ollama"
     case localCLI = "Local CLI"
     case custom = "Custom"
+
+    init?(rawValue: String) {
+        if rawValue == "VoiceInk Refine" || rawValue == "Wa-Gong Refine" {
+            self = .waGongRefine
+            return
+        }
+
+        guard let provider = Self.allCases.first(where: { $0.rawValue == rawValue }) else {
+            return nil
+        }
+        self = provider
+    }
 
     var displayName: String {
         switch self {
         case .anthropic:
             return "Claude"
+        case .waGongRefine:
+            return "Wa-Gong Refine"
         default:
             return rawValue
         }
@@ -59,7 +73,7 @@ enum AIProvider: String, CaseIterable {
             return "https://asr.api.speechmatics.com/v2"
         case .assemblyAI:
             return "https://api.assemblyai.com/v2/transcript"
-        case .voiceInkRefine:
+        case .waGongRefine:
             return ""
         case .ollama:
             return UserDefaults.standard.string(forKey: "ollamaBaseURL") ?? "http://localhost:11434"
@@ -94,8 +108,8 @@ enum AIProvider: String, CaseIterable {
             return "speechmatics-enhanced"
         case .assemblyAI:
             return "universal-3-5-pro"
-        case .voiceInkRefine:
-            return VoiceInkRefineService.modelName
+        case .waGongRefine:
+            return WaGongRefineService.modelName
         case .ollama:
             return UserDefaults.standard.string(forKey: "ollamaSelectedModel") ?? "mistral"
         case .localCLI:
@@ -164,8 +178,8 @@ enum AIProvider: String, CaseIterable {
             return ["speechmatics-enhanced"]
         case .assemblyAI:
             return ["universal-3-5-pro"]
-        case .voiceInkRefine:
-            return [VoiceInkRefineService.modelName]
+        case .waGongRefine:
+            return [WaGongRefineService.modelName]
         case .ollama:
             return []
         case .localCLI:
@@ -179,7 +193,7 @@ enum AIProvider: String, CaseIterable {
 
     var requiresAPIKey: Bool {
         switch self {
-        case .voiceInkRefine, .ollama, .localCLI:
+        case .waGongRefine, .ollama, .localCLI:
             return false
         default:
             return true
@@ -229,8 +243,8 @@ class AIService: ObservableObject {
                 self.apiKey = ""
                 if selectedProvider == .localCLI {
                     self.isAPIKeyValid = localCLIService.isConfigured
-                } else if selectedProvider == .voiceInkRefine {
-                    self.isAPIKeyValid = voiceInkRefineService.isAvailableInModes
+                } else if selectedProvider == .waGongRefine {
+                    self.isAPIKeyValid = waGongRefineService.isAvailableInModes
                 } else {
                     self.isAPIKeyValid = true
                 }
@@ -246,11 +260,11 @@ class AIService: ObservableObject {
 
     @Published private var selectedModels: [AIProvider: String] = [:]
     private let userDefaults = UserDefaults.standard
-    let voiceInkRefineService = VoiceInkRefineService.shared
+    let waGongRefineService = WaGongRefineService.shared
     private lazy var ollamaService = OllamaService()
     private lazy var localCLIService = LocalCLIService()
     private var apiKeyChangeObserver: NSObjectProtocol?
-    private var voiceInkRefineObserver: AnyCancellable?
+    private var waGongRefineObserver: AnyCancellable?
 
     @Published private var openRouterModels: [String] = []
     @Published private(set) var isOllamaRefreshing = false
@@ -263,8 +277,8 @@ class AIService: ObservableObject {
 
             if provider == .custom {
                 return CustomAIProviderManager.shared.hasConfiguredModels
-            } else if provider == .voiceInkRefine {
-                return voiceInkRefineService.isAvailableInModes
+            } else if provider == .waGongRefine {
+                return waGongRefineService.isAvailableInModes
             } else if provider == .ollama {
                 return ollamaService.isConnected
             } else if provider == .localCLI {
@@ -277,7 +291,7 @@ class AIService: ObservableObject {
     }
 
     var currentModel: String {
-        if selectedProvider == .voiceInkRefine {
+        if selectedProvider == .waGongRefine {
             return selectedProvider.defaultModel
         }
 
@@ -291,7 +305,7 @@ class AIService: ObservableObject {
     }
 
     func selectedModel(for provider: AIProvider) -> String {
-        if provider == .voiceInkRefine {
+        if provider == .waGongRefine {
             return provider.defaultModel
         }
 
@@ -349,8 +363,8 @@ class AIService: ObservableObject {
         } else {
             if selectedProvider == .localCLI {
                 self.isAPIKeyValid = localCLIService.isConfigured
-            } else if selectedProvider == .voiceInkRefine {
-                self.isAPIKeyValid = voiceInkRefineService.isAvailableInModes
+            } else if selectedProvider == .waGongRefine {
+                self.isAPIKeyValid = waGongRefineService.isAvailableInModes
             } else {
                 self.isAPIKeyValid = true
             }
@@ -359,12 +373,12 @@ class AIService: ObservableObject {
         loadSavedModelSelections()
         loadSavedOpenRouterModels()
 
-        voiceInkRefineObserver = voiceInkRefineService.objectWillChange.sink { [weak self] _ in
+        waGongRefineObserver = waGongRefineService.objectWillChange.sink { [weak self] _ in
             DispatchQueue.main.async {
                 guard let self else { return }
 
-                if self.selectedProvider == .voiceInkRefine {
-                    let isAvailable = self.voiceInkRefineService.isAvailableInModes
+                if self.selectedProvider == .waGongRefine {
+                    let isAvailable = self.waGongRefineService.isAvailableInModes
                     if self.isAPIKeyValid != isAvailable {
                         self.isAPIKeyValid = isAvailable
                         return
@@ -390,7 +404,7 @@ class AIService: ObservableObject {
         if let apiKeyChangeObserver {
             NotificationCenter.default.removeObserver(apiKeyChangeObserver)
         }
-        voiceInkRefineObserver?.cancel()
+        waGongRefineObserver?.cancel()
     }
 
     private func reloadSelectedProviderConfiguration() {
@@ -400,7 +414,7 @@ class AIService: ObservableObject {
         }
 
         let selectedModelKey = "\(selectedProvider.rawValue)SelectedModel"
-        if selectedProvider == .voiceInkRefine {
+        if selectedProvider == .waGongRefine {
             selectedModels[selectedProvider] = selectedProvider.defaultModel
         } else if let savedModel = userDefaults.string(forKey: selectedModelKey), !savedModel.isEmpty {
             selectedModels[selectedProvider] = savedModel
@@ -418,8 +432,8 @@ class AIService: ObservableObject {
             apiKey = ""
             if selectedProvider == .localCLI {
                 isAPIKeyValid = localCLIService.isConfigured
-            } else if selectedProvider == .voiceInkRefine {
-                isAPIKeyValid = voiceInkRefineService.isAvailableInModes
+            } else if selectedProvider == .waGongRefine {
+                isAPIKeyValid = waGongRefineService.isAvailableInModes
             } else {
                 isAPIKeyValid = true
             }
@@ -428,7 +442,7 @@ class AIService: ObservableObject {
 
     private func loadSavedModelSelections() {
         for provider in AIProvider.allCases {
-            if provider == .voiceInkRefine {
+            if provider == .waGongRefine {
                 selectedModels[provider] = provider.defaultModel
                 continue
             }
@@ -461,7 +475,7 @@ class AIService: ObservableObject {
             guard CustomAIProviderManager.shared.applyConfiguration(forModel: model) else { return }
         }
 
-        let resolvedModel = provider == .voiceInkRefine ? provider.defaultModel : model
+        let resolvedModel = provider == .waGongRefine ? provider.defaultModel : model
         selectedModels[provider] = resolvedModel
         let key = "\(provider.rawValue)SelectedModel"
         userDefaults.set(resolvedModel, forKey: key)
@@ -671,8 +685,8 @@ class AIService: ObservableObject {
         try await ollamaService.enhance(text, withSystemPrompt: systemPrompt, model: model, timeout: timeout)
     }
 
-    func enhanceWithVoiceInkRefine(transcript: String) async throws -> String {
-        try await voiceInkRefineService.enhance(transcript: transcript)
+    func enhanceWithWaGongRefine(transcript: String) async throws -> String {
+        try await waGongRefineService.enhance(transcript: transcript)
     }
 
     func updateOllamaBaseURL(_ newURL: String) {

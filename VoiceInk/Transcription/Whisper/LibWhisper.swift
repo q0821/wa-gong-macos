@@ -15,7 +15,7 @@ actor WhisperContext {
     private var prompt: String?
     private var promptCString: [CChar]?
     private var vadModelPath: String?
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "WhisperContext")
+    private let logger = Logger(subsystem: "com.jackie-yeh.wagong", category: "WhisperContext")
 
     private init() {}
 
@@ -136,7 +136,7 @@ actor WhisperContext {
             self.context = context
         } else {
             logger.error("❌ Couldn't load model at \(path, privacy: .public)")
-            throw VoiceInkEngineError.modelLoadFailed
+            throw WaGongEngineError.modelLoadFailed
         }
     }
 

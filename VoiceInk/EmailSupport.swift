@@ -4,8 +4,8 @@ import SwiftUI
 
 @MainActor
 struct EmailSupport {
-    private static let supportEmailAddress = "support@tryvoiceink.com"
-    private static let supportEmailSubject = "VoiceInk Support Request"
+    private static let supportEmailAddress = "jackie@tellustek.com"
+    private static let supportEmailSubject = "Wa-Gong Support Request"
 
     static func generateSupportEmailBody() -> String {
         let systemInfo = SystemInfoService.shared.getSystemInfoString()
@@ -23,8 +23,8 @@ struct EmailSupport {
             - What actually happened instead?
 
 
-            ## 📋 COMMON ISSUES:
-            Check out our Common Issues page before sending an email: https://tryvoiceink.com/common-issues
+            ## 📋 常見問題：
+            寄出郵件前，可先檢視 Wa-Gong 的 GitHub Issues： https://github.com/q0821/wa-gong-macos/issues
             ------------------------
 
             System Information:

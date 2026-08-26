@@ -160,9 +160,6 @@ private struct ConfettiCelebrationPresenter: ViewModifier {
                 .zIndex(Metrics.overlayZIndex)
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .licenseCelebrationRequested)) { _ in
-            showCelebration()
-        }
         .onDisappear {
             dismissalWorkItem?.cancel()
             dismissalWorkItem = nil

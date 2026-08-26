@@ -357,7 +357,7 @@ struct AudioPlayerView: View {
     @State private var operationFeedback: OperationFeedback?
     @State private var showModePopover = false
     @State private var showPromptPopover = false
-    @EnvironmentObject private var engine: VoiceInkEngine
+    @EnvironmentObject private var engine: WaGongEngine
     @EnvironmentObject private var enhancementService: AIEnhancementService
     @ObservedObject private var modeManager = ModeManager.shared
     @Environment(\.modelContext) private var modelContext
@@ -536,11 +536,11 @@ struct AudioPlayerView: View {
             ScrollView {
                 let prompts = enhancementService.allPrompts
                 let customPromptsUnavailable =
-                    currentEnhancementConfiguration?.provider == .voiceInkRefine
+                    currentEnhancementConfiguration?.provider == .waGongRefine
                 VStack(alignment: .leading, spacing: 4) {
                     if customPromptsUnavailable {
                         Text(
-                            "Custom prompts aren't available with VoiceInk Refine. Select a Mode that uses another AI provider."
+                            "Custom prompts aren't available with Wa-Gong Refine. Select a Mode that uses another AI provider."
                         )
                         .foregroundColor(AppTheme.Text.secondary)
                         .font(.system(size: 12))

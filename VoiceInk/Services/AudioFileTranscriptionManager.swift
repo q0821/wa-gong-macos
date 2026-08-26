@@ -19,7 +19,7 @@ class AudioTranscriptionManager: ObservableObject {
     private var processingTask: Task<Void, Never>?
     private var processingGeneration: UInt64 = 0
     private let audioProcessor = AudioProcessor()
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "AudioTranscriptionManager")
+    private let logger = Logger(subsystem: "com.jackie-yeh.wagong", category: "AudioTranscriptionManager")
 
     private init() {}
 
@@ -70,7 +70,7 @@ class AudioTranscriptionManager: ObservableObject {
     }
 
     /// Start processing pending items in the queue sequentially.
-    func startProcessing(modelContext: ModelContext, engine: VoiceInkEngine, mode: ModeConfig) {
+    func startProcessing(modelContext: ModelContext, engine: WaGongEngine, mode: ModeConfig) {
         guard !isProcessingQueue else { return }
         isProcessingQueue = true
         processingGeneration &+= 1
@@ -120,7 +120,7 @@ class AudioTranscriptionManager: ObservableObject {
     }
 
     private func processItem(
-        _ item: AudioFileQueueItem, modelContext: ModelContext, engine: VoiceInkEngine, mode: ModeConfig
+        _ item: AudioFileQueueItem, modelContext: ModelContext, engine: WaGongEngine, mode: ModeConfig
     ) async {
         let serviceRegistry = TranscriptionServiceRegistry(
             modelProvider: engine.whisperModelManager,

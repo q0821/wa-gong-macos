@@ -2,7 +2,7 @@ import SwiftUI
 
 struct MenuBarView: View {
     @Environment(\.openWindow) private var openWindow
-    @EnvironmentObject var engine: VoiceInkEngine
+    @EnvironmentObject var engine: WaGongEngine
     @EnvironmentObject var recorderUIManager: RecorderUIManager
     @EnvironmentObject var transcriptionModelManager: TranscriptionModelManager
     @EnvironmentObject var whisperModelManager: WhisperModelManager
@@ -35,7 +35,7 @@ struct MenuBarView: View {
 
             Divider()
 
-            Button("Quit VoiceInk") {
+            Button("Quit Wa-Gong") {
                 NSApplication.shared.terminate(nil)
             }
         }
@@ -160,7 +160,7 @@ struct MenuBarView: View {
             }
             .disabled(!updaterViewModel.canCheckForUpdates)
 
-            Button("Quit VoiceInk") {
+            Button("Quit Wa-Gong") {
                 NSApplication.shared.terminate(nil)
             }
         }

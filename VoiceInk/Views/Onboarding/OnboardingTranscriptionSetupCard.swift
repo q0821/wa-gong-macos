@@ -2,15 +2,15 @@ import AppKit
 import SwiftUI
 
 struct OnboardingTranscriptionSetupCard: View {
-    let localModel: FluidAudioModel?
+    let localModel: (any TranscriptionModel)?
     let setupKind: OnboardingTranscriptionSetupKind
     let providerOptions: [any CloudProvider]
     @Binding var selectedProviderKey: String
     let isLocalDownloaded: Bool
     let isLocalDownloading: Bool
-    let localDownloadStatus: FluidAudioDownloadStatus?
+    let localDownloadStatus: OnboardingLocalDownloadStatus?
     let onSelectSetupKind: (OnboardingTranscriptionSetupKind) -> Void
-    let onDownloadLocalModel: (FluidAudioModel) -> Void
+    let onDownloadLocalModel: (any TranscriptionModel) -> Void
     let onVerificationChanged: () -> Void
 
     @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
@@ -128,7 +128,7 @@ struct OnboardingTranscriptionSetupCard: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(AppTheme.Status.error)
 
-            Text("Parakeet V3 is not available.")
+            Text("Whisper Base is not available.")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(AppTheme.Text.secondary)
 
@@ -383,7 +383,7 @@ struct OnboardingTranscriptionSetupCard: View {
                     guard APIKeyManager.shared.saveAPIKey(key, forProvider: providerKey) else {
                         verificationSucceeded = false
                         verificationMessage = String(
-                            localized: "The key worked, but VoiceInk could not save it securely.")
+                            localized: "The key worked, but Wa-Gong could not save it securely.")
                         verificationDetailMessage = nil
                         onVerificationChanged()
                         return

@@ -1,5 +1,19 @@
 import Foundation
 
+enum ModeDataMigration {
+    static let legacyDefaultTranscriptionModelName = "parakeet-tdt-0.6b-v3"
+
+    static func migratedStarterTranscriptionModelName(for config: ModeConfig) -> String? {
+        guard StarterModeCatalog.ids.contains(config.id),
+            config.selectedTranscriptionModelName == legacyDefaultTranscriptionModelName
+        else {
+            return config.selectedTranscriptionModelName
+        }
+
+        return StarterModeFactory.defaultTranscriptionModelName
+    }
+}
+
 extension ModeManager {
     func migratedModeConfigurationData(for configKey: String) -> Data? {
         let defaults = UserDefaults.standard
@@ -25,6 +39,13 @@ extension ModeManager {
             if config.selectedTranscriptionModelName == nil {
                 config.selectedTranscriptionModelName = UserDefaults.standard.string(
                     forKey: "CurrentTranscriptionModel")
+                changedConfig = true
+            }
+
+            if let migratedModelName = ModeDataMigration.migratedStarterTranscriptionModelName(for: config),
+                migratedModelName != config.selectedTranscriptionModelName
+            {
+                config.selectedTranscriptionModelName = migratedModelName
                 changedConfig = true
             }
 
@@ -60,6 +81,15 @@ extension ModeManager {
 
         if didChange {
             saveConfigurations()
+        }
+
+        if UserDefaults.standard.string(forKey: "CurrentTranscriptionModel")
+            == ModeDataMigration.legacyDefaultTranscriptionModelName
+        {
+            UserDefaults.standard.set(
+                StarterModeFactory.defaultTranscriptionModelName,
+                forKey: "CurrentTranscriptionModel"
+            )
         }
 
         migrateLegacyShortcutStorageIfNeeded()

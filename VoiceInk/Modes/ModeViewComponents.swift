@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct VoiceInkButton: View {
+struct WaGongButton: View {
     let title: LocalizedStringKey
     let action: () -> Void
     var isDisabled: Bool = false
@@ -39,7 +39,7 @@ struct ModeEmptyStateView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
 
-            VoiceInkButton(
+            WaGongButton(
                 title: "Add New Mode",
                 action: action
             )
@@ -386,8 +386,8 @@ struct ConfigurationRow: View {
                         Image(systemName: "sparkles")
                             .font(.system(size: 10))
                         Text(
-                            config.selectedAIProvider == AIProvider.voiceInkRefine.rawValue
-                                ? VoiceInkRefineService.providerName
+                            config.selectedAIProvider == AIProvider.waGongRefine.rawValue
+                                ? WaGongRefineService.providerName
                                 : selectedPrompt?.title ?? "AI"
                         )
                             .font(.caption)

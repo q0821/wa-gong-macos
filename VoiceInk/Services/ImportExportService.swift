@@ -209,8 +209,8 @@ class ImportExportService {
 
             let savePanel = NSSavePanel()
             savePanel.allowedContentTypes = [UTType.json]
-            savePanel.nameFieldStringValue = "VoiceInk_Settings_Backup.json"
-            savePanel.title = String(localized: "Export VoiceInk Settings")
+            savePanel.nameFieldStringValue = "Wa-Gong_Settings_Backup.json"
+            savePanel.title = String(localized: "Export Wa-Gong Settings")
             savePanel.message = String(localized: "Choose a location to save your settings.")
 
             DispatchQueue.main.async {
@@ -257,7 +257,7 @@ class ImportExportService {
         openPanel.canChooseFiles = true
         openPanel.canChooseDirectories = false
         openPanel.allowsMultipleSelection = false
-        openPanel.title = String(localized: "Import VoiceInk Settings")
+        openPanel.title = String(localized: "Import Wa-Gong Settings")
         openPanel.message = String(localized: "Choose a settings backup, then select what you want to import.")
 
         guard openPanel.runModal() == .OK else {
@@ -391,7 +391,7 @@ class ImportExportService {
                     )
             }
             informativeText +=
-                "\n\n" + String(localized: "It is recommended to restart VoiceInk for all changes to take full effect.")
+                "\n\n" + String(localized: "It is recommended to restart Wa-Gong for all changes to take full effect.")
             alert.informativeText = informativeText
             alert.alertStyle = .informational
             alert.addButton(withTitle: String(localized: "OK"))

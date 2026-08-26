@@ -70,7 +70,7 @@ struct ModeConfigFormView: View {
             footer
         }
         .onAppear {
-            applyVoiceInkRefineRulesIfNeeded()
+            applyWaGongRefineRulesIfNeeded()
             applyOutputRules()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isNameFieldFocused = true
@@ -341,7 +341,7 @@ struct ModeConfigFormView: View {
                         {
                             draft.selectedAIModel = warmupSnapshot.selectedModel(for: provider)
                         }
-                        if configuredSelectedAIProvider != .voiceInkRefine,
+                        if configuredSelectedAIProvider != .waGongRefine,
                             draft.selectedPromptId == nil
                         {
                             draft.selectedPromptId = warmupSnapshot.firstPromptId
@@ -382,8 +382,8 @@ struct ModeConfigFormView: View {
                             switch provider {
                             case .localCLI:
                                 draft.selectedAIModel = nil
-                            case .voiceInkRefine:
-                                applyVoiceInkRefineRules()
+                            case .waGongRefine:
+                                applyWaGongRefineRules()
                             case .ollama:
                                 if draft.selectedAIModel == nil || draft.selectedAIModel?.isEmpty == true {
                                     draft.selectedAIModel = warmupSnapshot.selectedModel(for: provider)
@@ -393,7 +393,7 @@ struct ModeConfigFormView: View {
                                 draft.selectedAIModel = provider.defaultModel
                             }
 
-                            if provider != .voiceInkRefine,
+                            if provider != .waGongRefine,
                                 draft.selectedPromptId == nil
                             {
                                 draft.selectedPromptId = warmupSnapshot.firstPromptId
@@ -404,7 +404,7 @@ struct ModeConfigFormView: View {
 
                 if let provider = configuredSelectedAIProvider {
                     aiModelPicker(for: provider)
-                    if provider != .voiceInkRefine {
+                    if provider != .waGongRefine {
                         promptPicker
                         contextAwarenessRow
                     }
@@ -423,13 +423,13 @@ struct ModeConfigFormView: View {
             .onAppear {
                 draft.selectedAIModel = nil
             }
-        } else if provider == .voiceInkRefine {
+        } else if provider == .waGongRefine {
             LabeledContent("AI Model") {
-                Text(VoiceInkRefineService.modelName)
+                Text(WaGongRefineService.modelName)
                     .foregroundColor(.secondary)
             }
             .onAppear {
-                applyVoiceInkRefineRules()
+                applyWaGongRefineRules()
             }
         } else {
             let models = aiModelOptions(for: provider)
@@ -561,20 +561,20 @@ struct ModeConfigFormView: View {
         draft.isAIEnhancementEnabled
             && selectedPrompt != nil
             && configuredSelectedAIProvider != nil
-            && configuredSelectedAIProvider != .voiceInkRefine
+            && configuredSelectedAIProvider != .waGongRefine
     }
 
     private func applyOutputRules() {
         draft.applyOutputRules(canRespond: canRespond)
     }
 
-    private func applyVoiceInkRefineRulesIfNeeded() {
-        guard configuredSelectedAIProvider == .voiceInkRefine else { return }
-        applyVoiceInkRefineRules()
+    private func applyWaGongRefineRulesIfNeeded() {
+        guard configuredSelectedAIProvider == .waGongRefine else { return }
+        applyWaGongRefineRules()
     }
 
-    private func applyVoiceInkRefineRules() {
-        draft.selectedAIModel = VoiceInkRefineService.modelName
+    private func applyWaGongRefineRules() {
+        draft.selectedAIModel = WaGongRefineService.modelName
         applyOutputRules()
     }
 
@@ -626,7 +626,7 @@ struct ModeConfigFormView: View {
                 Text("Command")
                 InfoTip(
                     LocalizedStringKey(
-                        "Runs locally with your user permissions. The final transcript is sent on stdin and exposed as VOICEINK_TRANSCRIPT."
+                        "Runs locally with your user permissions. The final transcript is sent on stdin and exposed as WAGONG_TRANSCRIPT."
                     ))
                 Spacer()
                 Menu {

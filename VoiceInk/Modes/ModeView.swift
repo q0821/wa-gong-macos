@@ -98,8 +98,8 @@ struct ModeView: View {
         VStack(spacing: 0) {
             AppScreenHeader(
                 title: "Modes",
-                infoMessage: "Modes help you set up VoiceInk for different writing tasks, workflows, and scenarios.",
-                infoURL: "https://tryvoiceink.com/docs/modes"
+                infoMessage: "Modes help you set up Wa-Gong for different writing tasks, workflows, and scenarios.",
+                infoURL: "https://github.com/q0821/wa-gong-macos"
             ) {
                 headerControls
             }
@@ -124,7 +124,7 @@ struct ModeView: View {
                                                 .foregroundColor(.primary)
 
                                             Text(
-                                                "Set how VoiceInk transcribes and formats your speech, then start dictating in any app."
+                                                "Set how Wa-Gong transcribes and formats your speech, then start dictating in any app."
                                             )
                                             .font(.system(size: 14))
                                             .foregroundColor(.secondary)

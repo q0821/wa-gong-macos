@@ -1,34 +1,34 @@
 import Foundation
 
-let voiceInkRefineXPCServiceName = "com.jackie-yeh.wagong.RefineXPC"
-let voiceInkRefineXPCErrorDomain = "com.jackie-yeh.wagong.RefineXPC"
+let waGongRefineXPCServiceName = "com.jackie-yeh.wagong.RefineXPC"
+let waGongRefineXPCErrorDomain = "com.jackie-yeh.wagong.RefineXPC"
 
-struct VoiceInkRefinePrepareRequest: Codable, Sendable {
+struct WaGongRefinePrepareRequest: Codable, Sendable {
     let requestID: UUID
     let modelDirectoryPath: String
     let systemPrompt: String
 }
 
-struct VoiceInkRefineEnhanceRequest: Codable, Sendable {
+struct WaGongRefineEnhanceRequest: Codable, Sendable {
     let requestID: UUID
     let modelDirectoryPath: String
     let systemPrompt: String
     let transcript: String
 }
 
-struct VoiceInkRefineEnhanceResponse: Codable, Sendable {
+struct WaGongRefineEnhanceResponse: Codable, Sendable {
     let requestID: UUID
     let output: String
 }
 
-enum VoiceInkRefineXPCErrorCode: Int {
+enum WaGongRefineXPCErrorCode: Int {
     case invalidRequest = 1
     case inferenceFailed = 2
     case invalidResponse = 3
     case connectionFailed = 4
 }
 
-@objc protocol VoiceInkRefineXPCProtocol {
+@objc protocol WaGongRefineXPCProtocol {
     func prepare(
         _ requestData: NSData,
         withReply reply: @escaping (NSError?) -> Void
@@ -42,12 +42,12 @@ enum VoiceInkRefineXPCErrorCode: Int {
     func shutdown(withReply reply: @escaping () -> Void)
 }
 
-func makeVoiceInkRefineXPCError(
-    _ code: VoiceInkRefineXPCErrorCode,
+func makeWaGongRefineXPCError(
+    _ code: WaGongRefineXPCErrorCode,
     description: String
 ) -> NSError {
     NSError(
-        domain: voiceInkRefineXPCErrorDomain,
+        domain: waGongRefineXPCErrorDomain,
         code: code.rawValue,
         userInfo: [NSLocalizedDescriptionKey: description]
     )

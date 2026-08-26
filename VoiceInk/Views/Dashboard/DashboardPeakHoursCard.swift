@@ -2,14 +2,13 @@ import SwiftUI
 
 struct DashboardPeakHoursCard: View {
     let summary: DashboardPeakHoursSummary
-    var isLocked = false
 
     private var maxHourlyWords: Int {
         max(summary.hourlyActivity.map(\.wordCount).max() ?? 0, 1)
     }
 
     private var canShowPattern: Bool {
-        !isLocked && summary.hasData
+        summary.hasData
     }
 
     var body: some View {
@@ -23,12 +22,6 @@ struct DashboardPeakHoursCard: View {
                     peakStartHour: summary.startHour,
                     hasData: canShowPattern
                 )
-            }
-            .blur(radius: isLocked ? 2 : 0)
-            .opacity(isLocked ? 0.42 : 1)
-
-            if isLocked {
-                lockedOverlay
             }
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -69,35 +62,11 @@ struct DashboardPeakHoursCard: View {
     }
 
     private var accessibilityValue: String {
-        if isLocked {
-            return String(localized: "Continue using VoiceInk to unlock peak hours.")
-        }
-
         guard summary.hasData else {
             return String(localized: "No hourly pattern yet.")
         }
 
         return windowText
-    }
-
-    private var lockedOverlay: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "lock.fill")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(AppTheme.Accent.primary)
-                .frame(width: 34, height: 34)
-                .background(AppTheme.Accent.fill)
-                .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-
-            Text("Continue using VoiceInk to unlock peak hours.")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(AppTheme.Text.primary)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .frame(maxWidth: 260)
-        }
-        .padding(.horizontal, 18)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
     private func formattedHourRange(from startHour: Int, to endHour: Int) -> String {

@@ -23,13 +23,13 @@ final class KeychainService {
         case unavailable(OSStatus)
     }
 
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "KeychainService")
+    private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "KeychainService")
     #if LOCAL_BUILD
-        private let service = "com.prakashjoshipax.VoiceInk.Local"
+        private let service = "\(AppIdentity.bundleIdentifier).Local"
         private let defaults = UserDefaults.standard
         private let legacyLocalPrefix = "LocalKeychain_"
     #else
-        private let service = "com.prakashjoshipax.VoiceInk"
+        private let service = AppIdentity.bundleIdentifier
     #endif
 
     private init() {}
@@ -59,7 +59,7 @@ final class KeychainService {
         syncable: Bool = true,
         accessibility: Accessibility? = nil
     ) -> Bool {
-        let query = baseQuery(forKey: key, syncable: syncable)
+        let query = baseQuery(forKey: key, syncable: syncable, service: service)
         var attributes: [String: Any] = [kSecValueData as String: data]
         applyAccessibility(accessibility, to: &attributes)
         let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
@@ -142,7 +142,7 @@ final class KeychainService {
 
     /// Retrieves data while preserving the Security framework status.
     func readData(forKey key: String, syncable: Bool = true) -> ReadResult<Data> {
-        var query = baseQuery(forKey: key, syncable: syncable)
+        var query = baseQuery(forKey: key, syncable: syncable, service: service)
         query[kSecReturnData as String] = kCFBooleanTrue
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
@@ -177,29 +177,30 @@ final class KeychainService {
     /// Deletes an item from Keychain.
     @discardableResult
     func delete(forKey key: String, syncable: Bool = true) -> Bool {
-        let query = baseQuery(forKey: key, syncable: syncable)
+        let query = baseQuery(forKey: key, syncable: syncable, service: service)
         let status = SecItemDelete(query as CFDictionary)
 
-        if status == errSecSuccess || status == errSecItemNotFound {
-            removeLegacyLocalFallback(forKey: key)
-            if status == errSecSuccess {
-                logger.info("Successfully deleted keychain item for key: \(key, privacy: .public)")
-            }
-            return true
-        } else {
+        guard status == errSecSuccess || status == errSecItemNotFound else {
             logger.error(
                 "Failed to delete keychain item for key: \(key, privacy: .public), status: \(status, privacy: .public)"
             )
             return false
         }
+
+        removeLegacyLocalFallback(forKey: key)
+        if status == errSecSuccess {
+            logger.info("Successfully deleted keychain item for key: \(key, privacy: .public)")
+        }
+        return true
     }
 
     /// Checks if a key exists in Keychain.
     func exists(forKey key: String, syncable: Bool = true) -> Bool {
-        var query = baseQuery(forKey: key, syncable: syncable)
-        query[kSecReturnData as String] = kCFBooleanFalse
+        let status = findStatus(forKey: key, syncable: syncable, service: service)
+        if status == errSecSuccess {
+            return true
+        }
 
-        let status = SecItemCopyMatching(query as CFDictionary, nil)
         #if LOCAL_BUILD
             if status == errSecItemNotFound {
                 return defaults.data(forKey: legacyLocalPrefix + key) != nil
@@ -212,7 +213,7 @@ final class KeychainService {
     // MARK: - Private Helpers
 
     /// Creates a base Keychain query.
-    private func baseQuery(forKey key: String, syncable: Bool) -> [String: Any] {
+    private func baseQuery(forKey key: String, syncable: Bool, service: String) -> [String: Any] {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -228,6 +229,12 @@ final class KeychainService {
         #endif
 
         return query
+    }
+
+    private func findStatus(forKey key: String, syncable: Bool, service: String) -> OSStatus {
+        var query = baseQuery(forKey: key, syncable: syncable, service: service)
+        query[kSecReturnData as String] = kCFBooleanFalse
+        return SecItemCopyMatching(query as CFDictionary, nil)
     }
 
     private func applyAccessibility(_ accessibility: Accessibility?, to attributes: inout [String: Any]) {

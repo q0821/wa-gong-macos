@@ -9,8 +9,8 @@ final class AnnouncementsService {
 
     // MARK: - Configuration
 
-    // Hosted via GitHub Pages for this repo
-    private let announcementsURL = URL(string: "https://beingpax.github.io/VoiceInk/announcements.json")!
+    // Hosted in this repository until a dedicated Wa-Gong website is available.
+    private let announcementsURL = URL(string: "https://raw.githubusercontent.com/q0821/wa-gong-macos/main/announcements.json")!
 
     // Fetch every 4 hours
     private let refreshInterval: TimeInterval = 4 * 60 * 60

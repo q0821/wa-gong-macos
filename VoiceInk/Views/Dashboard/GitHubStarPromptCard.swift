@@ -33,11 +33,11 @@ struct GitHubStarPromptCard: View {
     private var askContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Help people discover VoiceInk")
+                Text("Help people discover Wa-Gong")
                     .font(.system(size: 14.5, weight: .bold))
                     .foregroundStyle(.primary)
 
-                Text("If VoiceInk has been useful, a star on GitHub helps others find it.")
+                Text("If Wa-Gong has been useful, a star on GitHub helps others find it.")
                     .font(.system(size: 11.5, weight: .regular))
                     .foregroundStyle(.secondary)
                     .lineSpacing(2)
@@ -88,7 +88,7 @@ struct GitHubStarPromptCard: View {
         HStack(spacing: 8) {
             Image(systemName: completionState == .starred ? "checkmark.circle.fill" : "arrow.up.right.circle.fill")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(completionState == .starred ? AppTheme.Sidebar.license : .secondary)
+                .foregroundStyle(completionState == .starred ? AppTheme.Status.positive : .secondary)
 
             Text(completionState == .starred ? "Starred — thank you!" : "GitHub opened")
                 .font(.system(size: 13, weight: .semibold))

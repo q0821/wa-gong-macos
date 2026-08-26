@@ -11,7 +11,7 @@ class MenuBarManager: ObservableObject {
     }
 
     private var modelContainer: ModelContainer?
-    private var engine: VoiceInkEngine?
+    private var engine: WaGongEngine?
     private var configuredActivationPolicy: NSApplication.ActivationPolicy {
         isMenuBarOnly ? .accessory : .regular
     }
@@ -44,7 +44,7 @@ class MenuBarManager: ObservableObject {
         AppPresentationPolicy.restoreAccessoryIfNeededAfterUserFacingWindowClosed()
     }
 
-    func configure(modelContainer: ModelContainer, engine: VoiceInkEngine) {
+    func configure(modelContainer: ModelContainer, engine: WaGongEngine) {
         self.modelContainer = modelContainer
         self.engine = engine
     }

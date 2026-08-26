@@ -13,17 +13,17 @@ DMG_ASSET_DIR="$REPO_ROOT/release/dmg"
 DMG_LAYOUT="$DMG_ASSET_DIR/layout.conf"
 DMG_BACKGROUND="$DMG_ASSET_DIR/background.tiff"
 DMG_VOLUME_ICON="$DMG_ASSET_DIR/volume-icon.icns"
-WHISPER_FRAMEWORK="${VOICEINK_WHISPER_FRAMEWORK:-$HOME/VoiceInk-Dependencies/whisper.cpp/build-apple/whisper.xcframework}"
+WHISPER_FRAMEWORK="${WAGONG_WHISPER_FRAMEWORK:-$HOME/VoiceInk-Dependencies/whisper.cpp/build-apple/whisper.xcframework}"
 
-DEVELOPER_IDENTITY="${VOICEINK_DEVELOPER_IDENTITY:-Developer ID Application: Prakash Joshi (V6J6A3VWY2)}"
-NOTARY_PROFILE="${VOICEINK_NOTARY_PROFILE:-VoiceInk-Notarization}"
-SPARKLE_ACCOUNT="${VOICEINK_SPARKLE_ACCOUNT:-VoiceInk}"
-RELEASE_BASE_URL="${VOICEINK_RELEASE_BASE_URL:-https://github.com/Beingpax/VoiceInk/releases/download}"
-EXPECTED_FEED_URL="https://beingpax.github.io/VoiceInk/appcast.xml"
+DEVELOPER_IDENTITY="${WAGONG_DEVELOPER_IDENTITY:-}"
+NOTARY_PROFILE="${WAGONG_NOTARY_PROFILE:-Wa-Gong-Notarization}"
+SPARKLE_ACCOUNT="${WAGONG_SPARKLE_ACCOUNT:-Wa-Gong}"
+RELEASE_BASE_URL="${WAGONG_RELEASE_BASE_URL:-https://github.com/q0821/wa-gong-macos/releases/download}"
+EXPECTED_FEED_URL="${WAGONG_FEED_URL:-}"
 EXPECTED_BUNDLE_ID="com.jackie-yeh.wagong"
 EXPECTED_MINIMUM_SYSTEM_VERSION="14.4"
 
-XCODE_DEVELOPER_DIR="${VOICEINK_XCODE_DEVELOPER_DIR:-${DEVELOPER_DIR:-}}"
+XCODE_DEVELOPER_DIR="${WAGONG_XCODE_DEVELOPER_DIR:-${DEVELOPER_DIR:-}}"
 if [[ -z "$XCODE_DEVELOPER_DIR" && -d "/Applications/Xcode.app/Contents/Developer" ]]; then
     XCODE_DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
 fi
@@ -35,7 +35,7 @@ INPUT_APP=""
 INPUT_ARCHIVE=""
 NOTES_PATH=""
 RELEASE_TIMESTAMP="$(date '+%Y-%m-%d_%H-%M-%S')"
-RELEASE_OUTPUT_ROOT="${VOICEINK_RELEASE_OUTPUT_ROOT:-$HOME/Downloads/Wa-Gong Builds}"
+RELEASE_OUTPUT_ROOT="${WAGONG_RELEASE_OUTPUT_ROOT:-$HOME/Downloads/Wa-Gong Builds}"
 OUTPUT_DIR="$RELEASE_OUTPUT_ROOT/Wa-Gong-$RELEASE_TIMESTAMP"
 APPCAST_OUTPUT="$REPO_ROOT/appcast.xml"
 SKIP_NOTARIZATION=0
@@ -98,14 +98,14 @@ find_sparkle_tools() {
 
     local candidate
     candidate="$(find "$HOME/Library/Developer/Xcode/DerivedData" \
-        -path '*/VoiceInk-*/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast' \
+        -path '*/Wa-Gong-*/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast' \
         -type f -perm -111 -print -quit 2>/dev/null || true)"
     if [[ -z "$candidate" ]]; then
         candidate="$(find "$HOME/Library/Developer/Xcode/DerivedData" \
             -path '*/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast' \
             -type f -perm -111 -print -quit 2>/dev/null || true)"
     fi
-    [[ -n "$candidate" ]] || fail "Sparkle tools not found. Resolve VoiceInk's Swift packages first."
+    [[ -n "$candidate" ]] || fail "Sparkle tools not found. Resolve Wa-Gong's Swift packages first."
     SPARKLE_BIN_DIR="$(dirname "$candidate")"
 }
 
@@ -177,6 +177,8 @@ fi
 [[ -f "$DMG_LAYOUT" ]] || fail "DMG layout not found: $DMG_LAYOUT"
 [[ -f "$DMG_BACKGROUND" ]] || fail "DMG background not found: $DMG_BACKGROUND"
 [[ -f "$DMG_VOLUME_ICON" ]] || fail "DMG volume icon not found: $DMG_VOLUME_ICON"
+[[ -n "$DEVELOPER_IDENTITY" ]] || fail "Set WAGONG_DEVELOPER_IDENTITY before creating a signed release"
+[[ -n "$EXPECTED_FEED_URL" ]] || fail "Set WAGONG_FEED_URL after configuring Wa-Gong's own Sparkle feed"
 
 # shellcheck source=../release/dmg/layout.conf
 source "$DMG_LAYOUT"
@@ -276,8 +278,8 @@ SHORT_VERSION="$(read_plist_value "$INFO_PLIST" CFBundleShortVersionString)"
 BUILD_VERSION="$(read_plist_value "$INFO_PLIST" CFBundleVersion)"
 MINIMUM_SYSTEM_VERSION="$(read_plist_value "$INFO_PLIST" LSMinimumSystemVersion)"
 BUNDLE_ID="$(read_plist_value "$INFO_PLIST" CFBundleIdentifier)"
-FEED_URL="$(read_plist_value "$INFO_PLIST" SUFeedURL)"
-APP_PUBLIC_KEY="$(read_plist_value "$INFO_PLIST" SUPublicEDKey)"
+FEED_URL="$(read_plist_value "$INFO_PLIST" SUFeedURL 2>/dev/null || true)"
+APP_PUBLIC_KEY="$(read_plist_value "$INFO_PLIST" SUPublicEDKey 2>/dev/null || true)"
 RELEASE_TAG="v$SHORT_VERSION"
 DOWNLOAD_URL="$RELEASE_BASE_URL/$RELEASE_TAG/Wa-Gong.dmg"
 
@@ -356,7 +358,7 @@ fi
 
 log "Validating DMG contents"
 hdiutil verify "$DMG_PATH"
-DMG_MOUNT_DIR="$(mktemp -d /tmp/voiceink-release-mount.XXXXXX)"
+DMG_MOUNT_DIR="$(mktemp -d /tmp/wagong-release-mount.XXXXXX)"
 hdiutil attach -readonly -nobrowse -mountpoint "$DMG_MOUNT_DIR" "$DMG_PATH"
 DMG_MOUNTED=1
 

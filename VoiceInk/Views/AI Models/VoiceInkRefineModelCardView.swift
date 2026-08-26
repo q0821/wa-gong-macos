@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-struct VoiceInkRefineModelCardView: View {
-    @ObservedObject var service: VoiceInkRefineService
+struct WaGongRefineModelCardView: View {
+    @ObservedObject var service: WaGongRefineService
     let deleteAction: () -> Void
 
     var body: some View {
@@ -23,7 +23,7 @@ struct VoiceInkRefineModelCardView: View {
 
     private var headerSection: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(VoiceInkRefineService.modelName)
+            Text(WaGongRefineService.modelName)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Color(.labelColor))
 
@@ -43,7 +43,7 @@ struct VoiceInkRefineModelCardView: View {
             Label("Enhancement Model", systemImage: "sparkles")
             Label("On-Device", systemImage: "checkmark.shield")
             Label {
-                Text(verbatim: VoiceInkRefineService.downloadSizeDescription)
+                Text(verbatim: WaGongRefineService.downloadSizeDescription)
             } icon: {
                 Image(systemName: "internaldrive")
             }

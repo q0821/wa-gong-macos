@@ -41,12 +41,13 @@ class RecordingShortcutManager: ObservableObject {
         }
     }
 
-    private var engine: VoiceInkEngine
+    private var engine: WaGongEngine
     private var recorderUIManager: RecorderUIManager
     private var recorderPanelShortcutManager: RecorderPanelShortcutManager
     private let modeShortcutManager: ModeShortcutManager
     private let shortcutMonitor = ShortcutMonitor()
     private var shortcutChangeObserver: NSObjectProtocol?
+    private var applicationActivationObserver: NSObjectProtocol?
     private let shortcutModeHandler: RecordingShortcutModeHandler
     private let primaryRecordingShortcutModeSource: RecordingShortcutModeSource
 
@@ -89,7 +90,7 @@ class RecordingShortcutManager: ObservableObject {
         recordingState != .transcribing && recordingState != .enhancing && recordingState != .busy
     }
 
-    init(engine: VoiceInkEngine, recorderUIManager: RecorderUIManager) {
+    init(engine: WaGongEngine, recorderUIManager: RecorderUIManager) {
         ShortcutMigration.migrateLegacyShortcutsIfNeeded()
 
         self.primaryRecordingShortcut = ShortcutMigration.migrateShortcutSelection(
@@ -146,6 +147,16 @@ class RecordingShortcutManager: ObservableObject {
             shortcutModeHandler: shortcutModeHandler
         )
 
+        applicationActivationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.refreshShortcutMonitoring()
+            }
+        }
+
         shortcutChangeObserver = NotificationCenter.default.addObserver(
             forName: ShortcutStore.shortcutDidChange,
             object: nil,
@@ -164,6 +175,10 @@ class RecordingShortcutManager: ObservableObject {
 
     private func refreshShortcutMonitoring() {
         removeAllMonitoring()
+
+        guard AXIsProcessTrusted() else {
+            return
+        }
 
         refreshShortcutMonitor()
         setupMiddleClickMonitoring()
@@ -323,6 +338,9 @@ class RecordingShortcutManager: ObservableObject {
     deinit {
         if let shortcutChangeObserver {
             NotificationCenter.default.removeObserver(shortcutChangeObserver)
+        }
+        if let applicationActivationObserver {
+            NotificationCenter.default.removeObserver(applicationActivationObserver)
         }
 
         MainActor.assumeIsolated {

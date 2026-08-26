@@ -17,7 +17,7 @@ struct TranscriptionHistoryView: View {
     @State private var hasMoreContent = true
     @State private var lastTimestamp: Date?
 
-    private let exportService = VoiceInkCSVExportService()
+    private let exportService = WaGongCSVExportService()
     private let pageSize = 20
 
     @Query(Self.createLatestTranscriptionIndicatorDescriptor()) private var latestTranscriptionIndicator:

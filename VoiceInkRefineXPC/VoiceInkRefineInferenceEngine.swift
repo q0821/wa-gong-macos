@@ -8,7 +8,7 @@ import Foundation
     import Tokenizers
 #endif
 
-enum VoiceInkRefineInferenceError: LocalizedError {
+enum WaGongRefineInferenceError: LocalizedError {
     case unavailable
     case modelNotLoaded
     case emptyOutput
@@ -16,16 +16,16 @@ enum VoiceInkRefineInferenceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unavailable:
-            return "VoiceInk Refine requires Apple silicon."
+            return "Wa-Gong Refine requires Apple silicon."
         case .modelNotLoaded:
-            return "VoiceInk Refine could not load the selected model."
+            return "Wa-Gong Refine could not load the selected model."
         case .emptyOutput:
-            return "VoiceInk Refine returned an empty response."
+            return "Wa-Gong Refine returned an empty response."
         }
     }
 }
 
-actor VoiceInkRefineInferenceEngine {
+actor WaGongRefineInferenceEngine {
     #if arch(arm64)
         private struct PreparationIdentity: Equatable {
             let modelDirectoryPath: String
@@ -84,7 +84,7 @@ actor VoiceInkRefineInferenceEngine {
                 throw error
             }
         #else
-            throw VoiceInkRefineInferenceError.unavailable
+            throw WaGongRefineInferenceError.unavailable
         #endif
     }
 
@@ -104,7 +104,7 @@ actor VoiceInkRefineInferenceEngine {
             )
 
             guard let modelContainer else {
-                throw VoiceInkRefineInferenceError.modelNotLoaded
+                throw WaGongRefineInferenceError.modelNotLoaded
             }
 
             let inputTokenCount = await modelContainer.encode(transcript).count
@@ -138,12 +138,12 @@ actor VoiceInkRefineInferenceEngine {
             }
 
             guard !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                throw VoiceInkRefineInferenceError.emptyOutput
+                throw WaGongRefineInferenceError.emptyOutput
             }
 
             return output
         #else
-            throw VoiceInkRefineInferenceError.unavailable
+            throw WaGongRefineInferenceError.unavailable
         #endif
     }
 

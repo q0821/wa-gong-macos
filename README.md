@@ -11,7 +11,7 @@
 
 本專案目前處於早期開發階段，尚未發布可供一般使用者下載的穩定版本。
 
-現階段程式碼以 [Beingpax/VoiceInk](https://github.com/Beingpax/VoiceInk) 最新版為基底，App 顯示名稱、Bundle Identifier 與本機產物名稱已完成第一階段的 Wa-Gong 品牌遷移。內部 target 名稱、部分上游元件名稱與既有本地化文案仍保留 VoiceInk，方便持續同步上游程式碼。
+現階段程式碼以 [Beingpax/VoiceInk](https://github.com/Beingpax/VoiceInk) 最新版為基底，App 顯示名稱、Bundle Identifier、本機產物名稱、主要執行期識別字與繁體中文資源已完成 Wa-Gong 品牌遷移。Xcode target、Swift module、部分上游元件名稱與必要的相容性識別字仍予以保留，方便持續同步上游程式碼與搬遷既有設定。
 
 本專案是獨立社群 Fork，不是 VoiceInk 官方版本，也不由 VoiceInk 原作者提供支援。
 
@@ -45,12 +45,12 @@
 ### 語音轉錄
 
 - 優先驗證 Apple `SpeechAnalyzer` 與 `SpeechTranscriber`。
-- 保留 VoiceInk 既有 Whisper、FluidAudio 與雲端 Provider 作為比較及降級方案。
+- 保留上游既有的 Whisper、FluidAudio 與雲端 Provider 作為比較及降級方案。
 - 量測停止錄音、Partial Transcript、Final Transcript 與文字插入時間。
 
 ### 文字整理
 
-- 先驗證 VoiceInk 既有的 `VoiceInk Refine V1` 本機模型。
+- 先驗證上游既有的 `VoiceInk Refine V1` 本機模型，App 內顯示為 `Wa-Gong Refine`。
 - 評估 Apple Foundation Models 作為另一個本機文字整理 Provider。
 - Private Cloud Compute 暫列後續研究，不作為第一版必要條件。
 
@@ -71,12 +71,12 @@
 
 - [專案方向](docs/PROJECT_DIRECTION.md)
 - [實作計畫與 Preflight Checklist](docs/IMPLEMENTATION_PLAN.md)
-- [上游建置說明](BUILDING.md)
-- [上游貢獻說明](CONTRIBUTING.md)
+- [建置說明](BUILDING.md)
+- [貢獻說明](CONTRIBUTING.md)
 
 ## 目前建置方式
 
-目前仍沿用 VoiceInk 的建置流程。開始前請先閱讀 [BUILDING.md](BUILDING.md)。
+目前沿用上游的建置流程。開始前請先閱讀 [BUILDING.md](BUILDING.md)。
 
 基本需求：
 

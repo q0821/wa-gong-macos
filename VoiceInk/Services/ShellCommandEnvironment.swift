@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 
 enum ShellCommandEnvironment {
-    private static let shellPathQueue = DispatchQueue(label: "com.prakashjoshipax.voiceink.shell.path")
+    private static let shellPathQueue = DispatchQueue(label: "com.jackie-yeh.wagong.shell.path")
     private static var cachedPreferredPATH: String?
     private static let inheritedEnvironmentKeys = [
         "HOME",
@@ -75,7 +75,7 @@ enum ShellCommandEnvironment {
 
     private static let defaultPATH = "/usr/bin:/bin:/usr/sbin:/sbin"
     private static let pathDiscoveryCommand =
-        "echo __VOICEINK_PATH_START__; print -r -- $PATH; echo __VOICEINK_PATH_END__"
+        "echo __WAGONG_PATH_START__; print -r -- $PATH; echo __WAGONG_PATH_END__"
 
     private static func discoverPATHFromShell(arguments: [String]) -> String? {
         let process = Process()
@@ -115,8 +115,8 @@ enum ShellCommandEnvironment {
 
         _ = drainGroup.wait(timeout: .now() + 1)
         let output = stdoutBuffer.stringValue()
-        let startMarker = "__VOICEINK_PATH_START__"
-        let endMarker = "__VOICEINK_PATH_END__"
+        let startMarker = "__WAGONG_PATH_START__"
+        let endMarker = "__WAGONG_PATH_END__"
 
         guard let startRange = output.range(of: startMarker),
             let endRange = output.range(of: endMarker, range: startRange.upperBound..<output.endIndex)

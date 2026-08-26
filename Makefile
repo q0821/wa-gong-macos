@@ -54,12 +54,13 @@ local: check setup
 	@rm -rf "$(LOCAL_DERIVED_DATA)"
 	@SIGNING_IDENTITY="$(LOCAL_CODESIGN_IDENTITY)"; \
 	if [ -z "$$SIGNING_IDENTITY" ]; then \
-		SIGNING_IDENTITIES=$$(security find-identity -v -p codesigning 2>/dev/null | awk '/"Apple Development: / { print $$2 }'); \
-		SIGNING_IDENTITY_COUNT=$$(printf '%s\n' "$$SIGNING_IDENTITIES" | awk 'NF { count++ } END { print count + 0 }'); \
-		if [ "$$SIGNING_IDENTITY_COUNT" -eq 1 ]; then \
+	SIGNING_IDENTITIES=$$(security find-identity -v -p codesigning 2>/dev/null | awk '/"Apple Development: / { print $$2 }'); \
+	SIGNING_IDENTITY_COUNT=$$(printf '%s\n' "$$SIGNING_IDENTITIES" | awk 'NF { count++ } END { print count + 0 }'); \
+		if [ "$$SIGNING_IDENTITY_COUNT" -ge 1 ]; then \
 			SIGNING_IDENTITY=$$(printf '%s\n' "$$SIGNING_IDENTITIES" | awk 'NF { print; exit }'); \
-		elif [ "$$SIGNING_IDENTITY_COUNT" -gt 1 ]; then \
-			echo "Multiple Apple Development identities found; set LOCAL_CODESIGN_IDENTITY to choose one; using ad-hoc signing"; \
+			if [ "$$SIGNING_IDENTITY_COUNT" -gt 1 ]; then \
+				echo "Multiple Apple Development identities found; using the first valid identity. Set LOCAL_CODESIGN_IDENTITY to override"; \
+			fi; \
 		fi; \
 	fi; \
 	if [ -n "$$SIGNING_IDENTITY" ] && [ "$$SIGNING_IDENTITY" != "-" ]; then \

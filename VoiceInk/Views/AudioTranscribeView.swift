@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 struct AudioTranscribeView: View {
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var engine: VoiceInkEngine
+    @EnvironmentObject private var engine: WaGongEngine
     @ObservedObject private var modeManager = ModeManager.shared
     @StateObject private var transcriptionManager = AudioTranscriptionManager.shared
     @State private var isDropTargeted = false

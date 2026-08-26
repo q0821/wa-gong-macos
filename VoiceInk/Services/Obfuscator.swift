@@ -28,7 +28,7 @@ struct Obfuscator {
     }
 
     /// Gets a device-specific identifier to use as salt
-    /// Uses the same logic as PolarService for consistency
+    /// Uses the same logic as the server-side obfuscation implementation for consistency.
     static func getDeviceIdentifier() -> String {
         // Try to get Mac serial number first
         if let serialNumber = getMacSerialNumber() {
@@ -37,13 +37,18 @@ struct Obfuscator {
 
         // Fallback to stored UUID
         let defaults = UserDefaults.standard
-        if let storedId = defaults.string(forKey: "VoiceInkDeviceIdentifier") {
+        if let storedId = defaults.string(forKey: "WaGongDeviceIdentifier") {
             return storedId
+        }
+
+        if let legacyId = defaults.string(forKey: "VoiceInkDeviceIdentifier") {
+            defaults.set(legacyId, forKey: "WaGongDeviceIdentifier")
+            return legacyId
         }
 
         // Create and store new UUID
         let newId = UUID().uuidString
-        defaults.set(newId, forKey: "VoiceInkDeviceIdentifier")
+        defaults.set(newId, forKey: "WaGongDeviceIdentifier")
         return newId
     }
 

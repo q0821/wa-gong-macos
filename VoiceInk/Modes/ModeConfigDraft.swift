@@ -104,7 +104,7 @@ struct ModeConfigDraft {
             return
         }
 
-        if provider == .voiceInkRefine {
+        if provider == .waGongRefine {
             selectedAIModel = provider.defaultModel
             return
         }
@@ -131,7 +131,7 @@ struct ModeConfigDraft {
     }
 
     mutating func ensurePromptSelection(firstPromptId: UUID?) {
-        guard selectedAIProvider != AIProvider.voiceInkRefine.rawValue else {
+        guard selectedAIProvider != AIProvider.waGongRefine.rawValue else {
             return
         }
 

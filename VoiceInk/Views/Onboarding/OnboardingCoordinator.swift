@@ -2,9 +2,6 @@ import SwiftUI
 
 @MainActor
 final class OnboardingCoordinator: ObservableObject {
-    let licenseViewModel = LicenseViewModel.shared
-    @Published var licenseKeyDraft = ""
-
     @Published var storedStage: String {
         didSet {
             defaults.set(storedStage, forKey: OnboardingStorageKeys.stage)
@@ -94,11 +91,10 @@ final class OnboardingCoordinator: ObservableObject {
     }
 
     var stage: OnboardingStage {
-        #if LOCAL_BUILD
-            if storedStage == OnboardingStage.license.rawValue {
-                return .trust
-            }
-        #endif
+        // Existing installations may have stopped at the removed license stage.
+        if storedStage == "license" {
+            return .trust
+        }
 
         if let stage = OnboardingStage(rawValue: storedStage) {
             return stage
@@ -136,19 +132,11 @@ final class OnboardingCoordinator: ObservableObject {
             return OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 1
         }
 
-        if stage == .license {
-            return OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 2
-        }
-
         return stage.stepNumber
     }
 
     var totalStepCount: Int {
-        #if LOCAL_BUILD
-            OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 1
-        #else
-            OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 2
-        #endif
+        OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 1
     }
 
     var experienceStep: OnboardingExperienceStep {
@@ -366,10 +354,10 @@ final class OnboardingCoordinator: ObservableObject {
         return onboardingProviderOptions.first ?? .groq
     }
 
-    var requiredTranscriptionModel: FluidAudioModel? {
+    var requiredTranscriptionModel: WhisperModel? {
         TranscriptionModelRegistry.models
-            .compactMap { $0 as? FluidAudioModel }
-            .first { $0.name == "parakeet-tdt-0.6b-v3" }
+            .compactMap { $0 as? WhisperModel }
+            .first { $0.name == StarterModeFactory.defaultTranscriptionModelName }
     }
 
     func selectedOnboardingTranscriptionProviderKeyBinding() -> Binding<String> {
@@ -398,9 +386,36 @@ final class OnboardingCoordinator: ObservableObject {
         )
     }
 
-    func isTranscriptionModelDownloaded(using modelManager: FluidAudioModelManager) -> Bool {
+    func isTranscriptionModelDownloaded(using modelManager: WhisperModelManager) -> Bool {
         guard let requiredTranscriptionModel else { return false }
-        return modelManager.isFluidAudioModelDownloaded(requiredTranscriptionModel)
+        return modelManager.availableModels.contains { $0.name == requiredTranscriptionModel.name }
+    }
+
+    func isTranscriptionModelDownloading(using modelManager: WhisperModelManager) -> Bool {
+        guard let requiredTranscriptionModel else { return false }
+        return modelManager.downloadProgress.keys.contains {
+            $0 == requiredTranscriptionModel.name + "_main"
+                || $0 == requiredTranscriptionModel.name + "_coreml"
+        }
+    }
+
+    func transcriptionModelDownloadStatus(using modelManager: WhisperModelManager) -> OnboardingLocalDownloadStatus? {
+        guard let requiredTranscriptionModel else { return nil }
+
+        let progressKeys = [
+            requiredTranscriptionModel.name + "_main",
+            requiredTranscriptionModel.name + "_coreml",
+        ]
+        let activeProgress = progressKeys.compactMap { modelManager.downloadProgress[$0] }.max()
+        guard let activeProgress else { return nil }
+
+        let isPreparing = modelManager.downloadProgress[requiredTranscriptionModel.name + "_coreml"] != nil
+            && modelManager.downloadProgress[requiredTranscriptionModel.name + "_main"] == nil
+        return OnboardingLocalDownloadStatus(
+            fractionCompleted: activeProgress,
+            message: String(localized: isPreparing ? "Preparing model..." : "Downloading model..."),
+            isIndeterminate: false
+        )
     }
 
     func isTranscriptionSetupReady(isTranscriptionModelDownloaded: Bool) -> Bool {

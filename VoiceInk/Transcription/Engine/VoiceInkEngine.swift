@@ -82,7 +82,7 @@ private final class RealtimeAudioChunkGate: @unchecked Sendable {
 }
 
 @MainActor
-class VoiceInkEngine: NSObject, ObservableObject {
+class WaGongEngine: NSObject, ObservableObject {
     private enum RecordingUseCase {
         case newSession
         case assistantFollowUp
@@ -104,7 +104,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
     private var activePipelineUseCase: RecordingUseCase = .newSession
     private var activeRecordingContextStore: RecordingContextSnapshotStore?
     private var activeRecordingContextTasks: [Task<Void, Never>] = []
-    private var voiceInkRefinePreparationTask: Task<Void, Never>?
+    private var waGongRefinePreparationTask: Task<Void, Never>?
 
     let recorder = Recorder()
     var recordedFile: URL? = nil
@@ -122,7 +122,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
     let assistantChat: AssistantChatService?
     private let pipeline: TranscriptionPipeline
 
-    let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "VoiceInkEngine")
+    let logger = Logger(subsystem: "com.jackie-yeh.wagong", category: "WaGongEngine")
 
     init(
         modelContext: ModelContext,
@@ -356,7 +356,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
                                 _ = realtimeAudioGate.reset()
                             }
 
-                            self.scheduleVoiceInkRefinePreparation(for: startID)
+                            self.scheduleWaGongRefinePreparation(for: startID)
 
                             Task { @MainActor [weak self] in
                                 guard let self else { return }
@@ -768,10 +768,10 @@ class VoiceInkEngine: NSObject, ObservableObject {
         return (mode.name, mode.icon.value)
     }
 
-    private func scheduleVoiceInkRefinePreparation(for recordingStartID: UUID) {
-        voiceInkRefinePreparationTask?.cancel()
+    private func scheduleWaGongRefinePreparation(for recordingStartID: UUID) {
+        waGongRefinePreparationTask?.cancel()
 
-        voiceInkRefinePreparationTask = Task { @MainActor [weak self] in
+        waGongRefinePreparationTask = Task { @MainActor [weak self] in
             guard let self,
                 self.recordingState == .recording,
                 self.activeRecordingStartID == recordingStartID,
@@ -787,14 +787,14 @@ class VoiceInkEngine: NSObject, ObservableObject {
                 aiService: aiService
             )
             guard initialConfiguration.isEnabled,
-                initialConfiguration.provider == .voiceInkRefine
+                initialConfiguration.provider == .waGongRefine
             else {
                 return
             }
 
             // Preserve an already-warm XPC model immediately, while retaining the
             // debounce below before any new model preparation begins.
-            await aiService.voiceInkRefineService.keepPreparedModelWarmForRecording()
+            await aiService.waGongRefineService.keepPreparedModelWarmForRecording()
 
             do {
                 try await Task.sleep(for: .milliseconds(450))
@@ -813,11 +813,11 @@ class VoiceInkEngine: NSObject, ObservableObject {
                 enhancementService: enhancementService,
                 aiService: aiService
             )
-            guard configuration.isEnabled, configuration.provider == .voiceInkRefine else {
+            guard configuration.isEnabled, configuration.provider == .waGongRefine else {
                 return
             }
 
-            await aiService.voiceInkRefineService.prepareForRecording()
+            await aiService.waGongRefineService.prepareForRecording()
         }
     }
 
@@ -842,15 +842,15 @@ class VoiceInkEngine: NSObject, ObservableObject {
     }
 
     private func finishRecorderSession() async {
-        let preparationTask = voiceInkRefinePreparationTask
-        voiceInkRefinePreparationTask = nil
+        let preparationTask = waGongRefinePreparationTask
+        waGongRefinePreparationTask = nil
         preparationTask?.cancel()
         await preparationTask?.value
 
         enhancementService?.clearCapturedContexts()
         await enhancementService?
             .getAIService()?
-            .voiceInkRefineService
+            .waGongRefineService
             .unloadPreparedModelIfNeeded()
     }
 

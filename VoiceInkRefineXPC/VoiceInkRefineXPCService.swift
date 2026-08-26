@@ -1,7 +1,7 @@
 import Foundation
 
-final class VoiceInkRefineXPCService: NSObject, VoiceInkRefineXPCProtocol {
-    private let engine = VoiceInkRefineInferenceEngine()
+final class WaGongRefineXPCService: NSObject, WaGongRefineXPCProtocol {
+    private let engine = WaGongRefineInferenceEngine()
     private let taskLock = NSLock()
     private var activeTasks: [UUID: Task<Void, Never>] = [:]
     private var shutdownTask: Task<Void, Never>?
@@ -11,17 +11,17 @@ final class VoiceInkRefineXPCService: NSObject, VoiceInkRefineXPCProtocol {
         _ requestData: NSData,
         withReply reply: @escaping (NSError?) -> Void
     ) {
-        let request: VoiceInkRefinePrepareRequest
+        let request: WaGongRefinePrepareRequest
         do {
             request = try JSONDecoder().decode(
-                VoiceInkRefinePrepareRequest.self,
+                WaGongRefinePrepareRequest.self,
                 from: requestData as Data
             )
         } catch {
             reply(
-                makeVoiceInkRefineXPCError(
+                makeWaGongRefineXPCError(
                     .invalidRequest,
-                    description: "VoiceInk Refine received an invalid prepare request."
+                    description: "Wa-Gong Refine received an invalid prepare request."
                 )
             )
             return
@@ -37,7 +37,7 @@ final class VoiceInkRefineXPCService: NSObject, VoiceInkRefineXPCProtocol {
                 reply(nil)
             } catch {
                 reply(
-                    makeVoiceInkRefineXPCError(
+                    makeWaGongRefineXPCError(
                         .inferenceFailed,
                         description: error.localizedDescription
                     )
@@ -46,9 +46,9 @@ final class VoiceInkRefineXPCService: NSObject, VoiceInkRefineXPCProtocol {
         }
         guard didStart else {
             reply(
-                makeVoiceInkRefineXPCError(
+                makeWaGongRefineXPCError(
                     .connectionFailed,
-                    description: "VoiceInk Refine is shutting down."
+                    description: "Wa-Gong Refine is shutting down."
                 )
             )
             return
@@ -59,18 +59,18 @@ final class VoiceInkRefineXPCService: NSObject, VoiceInkRefineXPCProtocol {
         _ requestData: NSData,
         withReply reply: @escaping (NSData?, NSError?) -> Void
     ) {
-        let request: VoiceInkRefineEnhanceRequest
+        let request: WaGongRefineEnhanceRequest
         do {
             request = try JSONDecoder().decode(
-                VoiceInkRefineEnhanceRequest.self,
+                WaGongRefineEnhanceRequest.self,
                 from: requestData as Data
             )
         } catch {
             reply(
                 nil,
-                makeVoiceInkRefineXPCError(
+                makeWaGongRefineXPCError(
                     .invalidRequest,
-                    description: "VoiceInk Refine received an invalid enhancement request."
+                    description: "Wa-Gong Refine received an invalid enhancement request."
                 )
             )
             return
@@ -84,7 +84,7 @@ final class VoiceInkRefineXPCService: NSObject, VoiceInkRefineXPCProtocol {
                     modelDirectory: URL(fileURLWithPath: request.modelDirectoryPath),
                     systemPrompt: request.systemPrompt
                 )
-                let response = VoiceInkRefineEnhanceResponse(
+                let response = WaGongRefineEnhanceResponse(
                     requestID: request.requestID,
                     output: output
                 )
@@ -93,7 +93,7 @@ final class VoiceInkRefineXPCService: NSObject, VoiceInkRefineXPCProtocol {
             } catch {
                 reply(
                     nil,
-                    makeVoiceInkRefineXPCError(
+                    makeWaGongRefineXPCError(
                         .inferenceFailed,
                         description: error.localizedDescription
                     )
@@ -103,9 +103,9 @@ final class VoiceInkRefineXPCService: NSObject, VoiceInkRefineXPCProtocol {
         guard didStart else {
             reply(
                 nil,
-                makeVoiceInkRefineXPCError(
+                makeWaGongRefineXPCError(
                     .connectionFailed,
-                    description: "VoiceInk Refine is shutting down."
+                    description: "Wa-Gong Refine is shutting down."
                 )
             )
             return

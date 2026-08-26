@@ -58,8 +58,32 @@ extension TranscriptionModel {
         hasher.combine(id)
     }
 
+    var supportsChinese: Bool {
+        supportedLanguages.keys.contains { code in
+            code == "zh" || code == "yue" || code.hasPrefix("zh-") || code.hasPrefix("yue-")
+        }
+    }
+
     var language: String {
-        isMultilingualModel ? String(localized: "Multilingual") : String(localized: "English")
+        if isMultilingualModel {
+            return supportsChinese
+                ? String(localized: "Multilingual, includes Chinese")
+                : String(localized: "Multilingual, Chinese not supported")
+        }
+
+        return supportsChinese ? String(localized: "Chinese only") : String(localized: "English only")
+    }
+
+    var languageSupportDescription: String {
+        if isMultilingualModel {
+            return supportsChinese
+                ? String(localized: "Multilingual transcription with Chinese support, runs locally on Mac.")
+                : String(localized: "Multilingual transcription without Chinese support, runs locally on Mac.")
+        }
+
+        return supportsChinese
+            ? String(localized: "Chinese transcription that runs locally on Mac.")
+            : String(localized: "English-only transcription that runs locally on Mac.")
     }
 
     var supportsStreaming: Bool { false }

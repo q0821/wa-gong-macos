@@ -20,14 +20,14 @@ enum LocalCLITemplate: String, CaseIterable, Identifiable {
     var commandTemplate: String {
         switch self {
         case .pi:
-            return "pi -ne -ns -p --no-tools --system-prompt \"$VOICEINK_SYSTEM_PROMPT\" \"$VOICEINK_USER_PROMPT\""
+            return "pi -ne -ns -p --no-tools --system-prompt \"$WAGONG_SYSTEM_PROMPT\" \"$WAGONG_USER_PROMPT\""
         case .claude:
-            return "claude -p \"$VOICEINK_FULL_PROMPT\""
+            return "claude -p \"$WAGONG_FULL_PROMPT\""
         case .codex:
             return
-                "TMPFILE=$(mktemp) && codex exec --skip-git-repo-check --output-last-message \"$TMPFILE\" \"$VOICEINK_FULL_PROMPT\" > /dev/null 2>&1 && cat \"$TMPFILE\" && rm \"$TMPFILE\""
+                "TMPFILE=$(mktemp) && codex exec --skip-git-repo-check --output-last-message \"$TMPFILE\" \"$WAGONG_FULL_PROMPT\" > /dev/null 2>&1 && cat \"$TMPFILE\" && rm \"$TMPFILE\""
         case .copilot:
-            return "copilot -p \"$VOICEINK_FULL_PROMPT\" -s --no-ask-user --available-tools=__none__ 2>/dev/null"
+            return "copilot -p \"$WAGONG_FULL_PROMPT\" -s --no-ask-user --available-tools=__none__ 2>/dev/null"
         }
     }
 }
@@ -124,6 +124,10 @@ final class LocalCLIService {
 
                 var environment = ProcessInfo.processInfo.environment
                 environment["PATH"] = ShellCommandEnvironment.preferredPATH(fallback: environment["PATH"])
+                environment["WAGONG_SYSTEM_PROMPT"] = systemPrompt
+                environment["WAGONG_USER_PROMPT"] = userPrompt
+                environment["WAGONG_FULL_PROMPT"] = fullPrompt
+                // Keep the previous names available for existing user-authored commands.
                 environment["VOICEINK_SYSTEM_PROMPT"] = systemPrompt
                 environment["VOICEINK_USER_PROMPT"] = userPrompt
                 environment["VOICEINK_FULL_PROMPT"] = fullPrompt

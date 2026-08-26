@@ -42,7 +42,7 @@ enum AIEnhancementContextPolicy {
 
 @MainActor
 class AIEnhancementService: ObservableObject {
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "AIEnhancementService")
+    private let logger = Logger(subsystem: "com.jackie-yeh.wagong", category: "AIEnhancementService")
 
     @Published var customPrompts: [CustomPrompt] {
         didSet {
@@ -116,8 +116,8 @@ class AIEnhancementService: ObservableObject {
     func isConfigured(for configuration: EnhancementRuntimeConfiguration) -> Bool {
         guard let provider = configuration.provider else { return false }
 
-        if provider == .voiceInkRefine {
-            return aiService.voiceInkRefineService.isAvailableInModes
+        if provider == .waGongRefine {
+            return aiService.waGongRefineService.isAvailableInModes
         }
 
         guard configuration.prompt != nil else { return false }
@@ -154,7 +154,7 @@ class AIEnhancementService: ObservableObject {
         contextSnapshot: RecordingContextSnapshot?,
         includesCustomVocabulary: Bool
     ) {
-        guard provider != .voiceInkRefine, provider != .ollama, provider != .localCLI else {
+        guard provider != .waGongRefine, provider != .ollama, provider != .localCLI else {
             return
         }
 
@@ -265,9 +265,9 @@ class AIEnhancementService: ObservableObject {
             return ("", nil, nil)
         }
 
-        if provider == .voiceInkRefine {
+        if provider == .waGongRefine {
             do {
-                let result = try await aiService.enhanceWithVoiceInkRefine(transcript: text)
+                let result = try await aiService.enhanceWithWaGongRefine(transcript: text)
                 let filteredResult = AIEnhancementOutputFilter.filter(
                     result.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
@@ -639,9 +639,9 @@ class AIEnhancementService: ObservableObject {
         var didUpdateModes = false
 
         for index in updatedConfigurations.indices {
-            if updatedConfigurations[index].selectedAIProvider == AIProvider.voiceInkRefine.rawValue {
-                if updatedConfigurations[index].selectedAIModel != VoiceInkRefineService.modelName {
-                    updatedConfigurations[index].selectedAIModel = VoiceInkRefineService.modelName
+            if updatedConfigurations[index].selectedAIProvider == AIProvider.waGongRefine.rawValue {
+                if updatedConfigurations[index].selectedAIModel != WaGongRefineService.modelName {
+                    updatedConfigurations[index].selectedAIModel = WaGongRefineService.modelName
                     didUpdateModes = true
                 }
             }

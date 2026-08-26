@@ -6,11 +6,11 @@ import SwiftData
 import SwiftUI
 
 @main
-struct VoiceInkApp: App {
+struct WaGongApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     let container: ModelContainer
 
-    @StateObject private var engine: VoiceInkEngine
+    @StateObject private var engine: WaGongEngine
     @StateObject private var whisperModelManager: WhisperModelManager
     @StateObject private var fluidAudioModelManager: FluidAudioModelManager
     @StateObject private var transcriptionModelManager: TranscriptionModelManager
@@ -21,7 +21,6 @@ struct VoiceInkApp: App {
     @StateObject private var mainWindowNavigation = MainWindowNavigation.shared
     @StateObject private var aiService = AIService()
     @StateObject private var enhancementService: AIEnhancementService
-    @StateObject private var licenseViewModel = LicenseViewModel.shared
     @StateObject private var activeWindowService = ActiveWindowService.shared
     @AppStorage("hasCompletedOnboardingV2") private var hasCompletedOnboardingV2 = false
     @AppStorage("enableAnnouncements") private var enableAnnouncements = true
@@ -47,7 +46,7 @@ struct VoiceInkApp: App {
         AppAppearancePreference.applyStored()
         OnboardingV2Migration.prepareIfNeeded()
 
-        let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "Initialization")
+        let logger = Logger(subsystem: "com.jackie-yeh.wagong", category: "Initialization")
         // Keep existing model order stable; append new models after synced entities.
         let schema = Schema([
             Transcription.self,
@@ -119,7 +118,7 @@ struct VoiceInkApp: App {
         let recorderUIManager = RecorderUIManager()
 
         // 4. Create engine
-        let engine = VoiceInkEngine(
+        let engine = WaGongEngine(
             modelContext: resolvedContainer.mainContext,
             whisperModelManager: whisperModelManager,
             transcriptionModelManager: transcriptionModelManager,
@@ -340,6 +339,7 @@ struct VoiceInkApp: App {
                         }
                 } else {
                     OnboardingView(hasCompletedOnboardingV2: $hasCompletedOnboardingV2)
+                        .environmentObject(whisperModelManager)
                         .environmentObject(fluidAudioModelManager)
                         .environmentObject(transcriptionModelManager)
                         .environmentObject(aiService)
@@ -353,12 +353,6 @@ struct VoiceInkApp: App {
                 }
             }
             .confettiCelebrationPresenter()
-            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-                licenseViewModel.refreshLicenseState()
-            }
-            .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)) { _ in
-                licenseViewModel.refreshLicenseState()
-            }
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: AppWindowLayout.width, height: AppWindowLayout.minimumHeight)

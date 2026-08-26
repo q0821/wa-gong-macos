@@ -29,7 +29,7 @@ struct ModelManagementView: View {
     @StateObject private var customModelManager = CustomCloudModelManager.shared
     @StateObject private var customAIProviderManager = CustomAIProviderManager.shared
     @ObservedObject private var warmupCoordinator = WhisperModelWarmupCoordinator.shared
-    @ObservedObject private var voiceInkRefineService = VoiceInkRefineService.shared
+    @ObservedObject private var waGongRefineService = WaGongRefineService.shared
 
     @State private var selectedFilter: ModelFilter = .local
     @State private var activePanel: ModelManagementPanel?
@@ -243,9 +243,9 @@ struct ModelManagementView: View {
 
     private var localModelsSection: some View {
         VStack(spacing: 12) {
-            VoiceInkRefineModelCardView(
-                service: voiceInkRefineService,
-                deleteAction: confirmDeleteVoiceInkRefineModel
+            WaGongRefineModelCardView(
+                service: waGongRefineService,
+                deleteAction: confirmDeleteWaGongRefineModel
             )
 
             ForEach(appleSpeechModels, id: \.id) { model in
@@ -303,8 +303,8 @@ struct ModelManagementView: View {
             .buttonStyle(.plain)
 
             InfoTip(
-                "Add a custom fine-tuned whisper model to use with VoiceInk. Select the downloaded .bin file.",
-                learnMoreURL: "https://tryvoiceink.com/docs/custom-local-whisper-models"
+                "Add a custom fine-tuned whisper model to use with Wa-Gong. Select the downloaded .bin file.",
+                learnMoreURL: "https://github.com/q0821/wa-gong-macos"
             )
             .help("Read more about custom local models")
         }
@@ -394,14 +394,14 @@ struct ModelManagementView: View {
         isShowingDeleteAlert = true
     }
 
-    private func confirmDeleteVoiceInkRefineModel() {
-        alertTitle = String(localized: "Delete VoiceInk Refine?")
+    private func confirmDeleteWaGongRefineModel() {
+        alertTitle = String(localized: "Delete Wa-Gong Refine?")
         alertMessage = String(
             localized: "The model will need to be downloaded again before a Mode can use it."
         )
         deleteActionClosure = {
             Task {
-                await voiceInkRefineService.deleteModel()
+                await waGongRefineService.deleteModel()
             }
         }
         isShowingDeleteAlert = true

@@ -9,7 +9,7 @@ class NotchWindowManager {
     private let makeView: () -> AnyView
 
     init(
-        engine: VoiceInkEngine,
+        engine: WaGongEngine,
         recorder: Recorder,
         assistantSession: AssistantSession,
         onRecordButtonTapped: @escaping () -> Void,

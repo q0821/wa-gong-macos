@@ -87,8 +87,11 @@
 
 ### 待人工決定或驗證
 
-- 預設本機模型已改為 Whisper Base（`ggml-base`），支援中文與多語言；首次設定流程也會下載 Whisper Base。
-- 需要實際下載模型，使用純中文、純英文與中英混合語音驗證辨識品質。
+- 預設轉錄設定已改為雲端 API，預設模型為 AssemblyAI `Universal-3.5 Pro`，不要求下載本機模型。
+- Apple `Native Apple` 轉錄仍可在模型目錄中選用；其語言資源由 macOS 管理，並非本機 Whisper 模型。
+- 本機 Whisper Base（`ggml-base`）保留為選用方案，既有 starter mode 的舊本機預設會遷移到雲端模型。
+- 本輪以 `LocalBuild.xcconfig` 完成建置，並以本機設定執行 `VoiceInkTests`，29 項測試全部通過。
+- 需要使用實際雲端 API Key，確認中文、中英混合與錯誤處理流程。
 - 需要在具備麥克風與 Accessibility 權限的實機確認語言設定變更後的錄音與插入流程。
 
 ## 5. 階段二：剪貼簿隔離與隱私透明度

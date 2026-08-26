@@ -44,8 +44,9 @@
 
 ### 語音轉錄
 
-- 優先驗證 Apple `SpeechAnalyzer` 與 `SpeechTranscriber`。
-- 保留上游既有的 Whisper、FluidAudio 與雲端 Provider 作為比較及降級方案。
+- 預設優先使用雲端語音轉錄 API，不要求下載本機模型。
+- 保留 Apple `SpeechAnalyzer` 與 `SpeechTranscriber` 作為系統原生選項。
+- 保留上游既有的 Whisper、FluidAudio 與其他雲端 Provider 作為選用方案。
 - 量測停止錄音、Partial Transcript、Final Transcript 與文字插入時間。
 
 ### 文字整理

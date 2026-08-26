@@ -64,15 +64,38 @@ struct VoiceInkTests {
     }
 
     @Test func defaultLocalTranscriptionModelIsChineseCapableWhisper() {
-        #expect(StarterModeFactory.defaultTranscriptionModelName == "ggml-base")
+        #expect(StarterModeFactory.defaultLocalTranscriptionModelName == "ggml-base")
 
         let model = TranscriptionModelRegistry.models.first {
-            $0.name == StarterModeFactory.defaultTranscriptionModelName
+            $0.name == StarterModeFactory.defaultLocalTranscriptionModelName
         }
 
         #expect(model != nil)
         #expect(model?.provider == .whisper)
         #expect(model?.supportedLanguages["zh-TW"] == "Chinese (Taiwan)")
+    }
+
+    @Test func defaultTranscriptionModelIsCloudFirst() {
+        #expect(StarterModeFactory.defaultCloudTranscriptionProviderKey == "AssemblyAI")
+        #expect(StarterModeFactory.defaultTranscriptionModelName == "universal-3-5-pro")
+
+        let model = TranscriptionModelRegistry.models.first {
+            $0.name == StarterModeFactory.defaultTranscriptionModelName
+        }
+
+        #expect(model?.provider == .assemblyAI)
+        #expect(model?.supportsChinese == true)
+    }
+
+    @Test @MainActor func onboardingDefaultsToCloudTranscriptionSetup() {
+        let suiteName = "WaGongCloudFirstOnboarding-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let coordinator = OnboardingCoordinator(defaults: defaults)
+
+        #expect(coordinator.transcriptionSetupKind == .cloud)
+        #expect(coordinator.selectedOnboardingTranscriptionModel?.provider == .assemblyAI)
     }
 
     @Test func modelLanguageLabelsStateWhetherChineseIsSupported() {
@@ -83,11 +106,13 @@ struct VoiceInkTests {
         }
 
         #expect(base?.supportsChinese == true)
-        #expect(base?.language == "Multilingual, includes Chinese")
+        #expect(base?.language == String(localized: "Multilingual, includes Chinese"))
         #expect(englishOnly?.supportsChinese == false)
-        #expect(englishOnly?.language == "English only")
+        #expect(englishOnly?.language == String(localized: "English only"))
         #expect(europeanMultilingual?.supportsChinese == false)
-        #expect(europeanMultilingual?.language == "Multilingual, Chinese not supported")
+        #expect(
+            europeanMultilingual?.language == String(localized: "Multilingual, Chinese not supported")
+        )
     }
 
     @Test func legacyRefineProviderNameMigratesToWaGong() {
@@ -112,7 +137,7 @@ struct VoiceInkTests {
         #expect(coordinator.stage == .trust)
     }
 
-    @Test func existingStarterModesMigrateToChineseCapableWhisper() {
+    @Test func existingStarterModesMigrateToCloudFirstTranscription() {
         let starterConfig = ModeConfig(
             id: StarterModeCatalog.templates[0].id,
             name: "Dictation",
@@ -127,6 +152,16 @@ struct VoiceInkTests {
 
         #expect(
             ModeDataMigration.migratedStarterTranscriptionModelName(for: starterConfig)
+                == StarterModeFactory.defaultTranscriptionModelName
+        )
+        let previousLocalDefaultConfig = ModeConfig(
+            id: StarterModeCatalog.templates[0].id,
+            name: "Dictation",
+            isAIEnhancementEnabled: false,
+            selectedTranscriptionModelName: StarterModeFactory.defaultLocalTranscriptionModelName
+        )
+        #expect(
+            ModeDataMigration.migratedStarterTranscriptionModelName(for: previousLocalDefaultConfig)
                 == StarterModeFactory.defaultTranscriptionModelName
         )
         #expect(

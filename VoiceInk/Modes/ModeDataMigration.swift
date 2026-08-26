@@ -2,10 +2,15 @@ import Foundation
 
 enum ModeDataMigration {
     static let legacyDefaultTranscriptionModelName = "parakeet-tdt-0.6b-v3"
+    static let legacyLocalDefaultTranscriptionModelNames = [
+        legacyDefaultTranscriptionModelName,
+        StarterModeFactory.defaultLocalTranscriptionModelName,
+    ]
 
     static func migratedStarterTranscriptionModelName(for config: ModeConfig) -> String? {
         guard StarterModeCatalog.ids.contains(config.id),
-            config.selectedTranscriptionModelName == legacyDefaultTranscriptionModelName
+            let selectedModelName = config.selectedTranscriptionModelName,
+            legacyLocalDefaultTranscriptionModelNames.contains(selectedModelName)
         else {
             return config.selectedTranscriptionModelName
         }
@@ -83,8 +88,8 @@ extension ModeManager {
             saveConfigurations()
         }
 
-        if UserDefaults.standard.string(forKey: "CurrentTranscriptionModel")
-            == ModeDataMigration.legacyDefaultTranscriptionModelName
+        if let currentModel = UserDefaults.standard.string(forKey: "CurrentTranscriptionModel"),
+            ModeDataMigration.legacyLocalDefaultTranscriptionModelNames.contains(currentModel)
         {
             UserDefaults.standard.set(
                 StarterModeFactory.defaultTranscriptionModelName,

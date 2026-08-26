@@ -78,7 +78,7 @@ final class OnboardingCoordinator: ObservableObject {
         self.storedTranscriptionSetupKind =
             defaults.string(
                 forKey: OnboardingStorageKeys.transcriptionSetupKind
-            ) ?? OnboardingTranscriptionSetupKind.local.rawValue
+            ) ?? OnboardingTranscriptionSetupKind.cloud.rawValue
         self.storedOnboardingTranscriptionProvider =
             defaults.string(
                 forKey: OnboardingStorageKeys.transcriptionProvider
@@ -248,7 +248,7 @@ final class OnboardingCoordinator: ObservableObject {
     }
 
     var transcriptionSetupKind: OnboardingTranscriptionSetupKind {
-        OnboardingTranscriptionSetupKind(rawValue: storedTranscriptionSetupKind) ?? .local
+        OnboardingTranscriptionSetupKind(rawValue: storedTranscriptionSetupKind) ?? .cloud
     }
 
     var onboardingTranscriptionProviderOptions: [any CloudProvider] {
@@ -301,7 +301,8 @@ final class OnboardingCoordinator: ObservableObject {
 
     var recommendedOnboardingTranscriptionProvider: (any CloudProvider)? {
         onboardingTranscriptionProviderOptions.first {
-            $0.providerKey.caseInsensitiveCompare("AssemblyAI") == .orderedSame
+            $0.providerKey.caseInsensitiveCompare(StarterModeFactory.defaultCloudTranscriptionProviderKey)
+                == .orderedSame
         }
     }
 
@@ -357,7 +358,7 @@ final class OnboardingCoordinator: ObservableObject {
     var requiredTranscriptionModel: WhisperModel? {
         TranscriptionModelRegistry.models
             .compactMap { $0 as? WhisperModel }
-            .first { $0.name == StarterModeFactory.defaultTranscriptionModelName }
+            .first { $0.name == StarterModeFactory.defaultLocalTranscriptionModelName }
     }
 
     func selectedOnboardingTranscriptionProviderKeyBinding() -> Binding<String> {

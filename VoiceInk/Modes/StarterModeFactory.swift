@@ -2,7 +2,10 @@ import AppKit
 import Foundation
 
 enum StarterModeFactory {
-    static let defaultTranscriptionModelName = "ggml-base"
+    static let defaultLocalTranscriptionModelName = "ggml-base"
+    static let defaultCloudTranscriptionProviderKey = "AssemblyAI"
+    static let defaultCloudTranscriptionModelName = "universal-3-5-pro"
+    static let defaultTranscriptionModelName = defaultCloudTranscriptionModelName
 
     static func install(
         kinds: [StarterModeKind],

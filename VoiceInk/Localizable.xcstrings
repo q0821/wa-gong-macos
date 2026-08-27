@@ -5265,6 +5265,16 @@
         }
       }
     },
+    "Chat" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "聊天訊息"
+          }
+        }
+      }
+    },
     "Changelog" : {
       "localizations" : {
         "de" : {
@@ -25963,6 +25973,166 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Whisper Base 無法使用。"
+          }
+        }
+      }
+    },
+    "'%@' is used by %lld modes. Deleting it will switch those modes to another available prompt. This action cannot be undone." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」已套用於 %lld 個模式。刪除後，這些模式會改用另一個可用的提示詞。此操作無法復原。"
+          }
+        }
+      }
+    },
+    "Built-in" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "內建"
+          }
+        }
+      }
+    },
+    "Built-in Prompts" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "內建提示詞"
+          }
+        }
+      }
+    },
+    "Clear search" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除搜尋"
+          }
+        }
+      }
+    },
+    "Copy of %@" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 的副本"
+          }
+        }
+      }
+    },
+    "Duplicate" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建立副本"
+          }
+        }
+      }
+    },
+    "Manage prompts" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理提示詞"
+          }
+        }
+      }
+    },
+    "No Matching Prompts" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找不到符合的提示詞"
+          }
+        }
+      }
+    },
+    "Prompt actions" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提示詞操作"
+          }
+        }
+      }
+    },
+    "Prompts" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提示詞"
+          }
+        }
+      }
+    },
+    "Prompts control how AI enhancement cleans up, rewrites, or responds to your transcription." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提示詞會控制 AI 潤飾如何整理、改寫或回應轉錄內容。"
+          }
+        }
+      }
+    },
+    "Restore Default" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還原預設值"
+          }
+        }
+      }
+    },
+    "Search prompts" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜尋提示詞"
+          }
+        }
+      }
+    },
+    "System Template" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系統範本"
+          }
+        }
+      }
+    },
+    "Try a different search term or create a new prompt." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請嘗試其他搜尋詞，或建立新的提示詞。"
+          }
+        }
+      }
+    },
+    "Used by %lld modes" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已套用於 %lld 個模式"
           }
         }
       }

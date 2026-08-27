@@ -19,8 +19,10 @@ enum StarterModePromptSeeder {
             return (prompts, false)
         }
 
-        var updatedPrompts = prompts
-        var didChange = false
+        var updatedPrompts = prompts.filter { prompt in
+            !PromptTemplates.retiredBuiltInPrompts.contains(prompt)
+        }
+        var didChange = updatedPrompts.count != prompts.count
 
         if let legacyDefaultIndex = updatedPrompts.firstIndex(where: {
             $0.id == PromptTemplates.defaultPromptId && $0.title == "Default"
@@ -33,6 +35,13 @@ enum StarterModePromptSeeder {
                 useSystemInstructions: legacyPrompt.useSystemInstructions
             )
             didChange = true
+        }
+
+        for index in updatedPrompts.indices {
+            if let migratedPrompt = PromptTemplates.migratedBuiltInPrompt(updatedPrompts[index]) {
+                updatedPrompts[index] = migratedPrompt
+                didChange = true
+            }
         }
 
         for promptId in requiredPromptIds where !updatedPrompts.contains(where: { $0.id == promptId }) {
@@ -50,9 +59,8 @@ enum StarterModePromptSeeder {
     private static func requiredPromptIds(for kinds: [StarterModeKind]) -> [UUID] {
         var seenPromptIds = Set<UUID>()
         var promptIds = [
-            PromptTemplates.fillerRemovalPromptId,
-            PromptTemplates.businessPolishPromptId,
             PromptTemplates.defaultPromptId,
+            PromptTemplates.chatPromptId,
         ]
         seenPromptIds.formUnion(promptIds)
 

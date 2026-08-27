@@ -196,32 +196,187 @@ struct VoiceInkTests {
         #expect(mode.useClipboardContext == false)
     }
 
-    @Test func openAITranscriptionProviderUsesOpenAIWhisperEndpointDefaults() {
+    @Test func openAITranscriptionProviderUsesOpenAIEndpointAndDefaultsToMiniTranscribe() {
         let provider = OpenAIProvider()
 
+        #expect(OpenAIProvider.apiBaseURL.absoluteString == "https://api.openai.com")
+        #expect(
+            OpenAIProvider.apiBaseURL.appendingPathComponent("v1/models").absoluteString
+                == "https://api.openai.com/v1/models"
+        )
+        #expect(
+            OpenAIProvider.apiBaseURL.appendingPathComponent("v1/audio/transcriptions").absoluteString
+                == "https://api.openai.com/v1/audio/transcriptions"
+        )
         #expect(provider.modelProvider == .openAI)
         #expect(provider.providerKey == "OpenAI")
-        #expect(provider.models.map(\.name) == ["whisper-1"])
+        #expect(
+            provider.models.map(\.name) == [
+                "gpt-4o-mini-transcribe",
+                "gpt-transcribe",
+                "gpt-4o-transcribe",
+                "gpt-4o-transcribe-diarize",
+                "whisper-1",
+            ]
+        )
+        #expect(provider.models.first?.name == "gpt-4o-mini-transcribe")
         #expect(provider.models.first?.isMultilingualModel == true)
+    }
+
+    @Test func openAIDiarizationUsesRequiredRequestFieldsAndReturnsSpeakerLabels() throws {
+        let request = try OpenAITranscriptionService.makeDiarizedRequest(
+            audioData: Data("audio".utf8),
+            fileName: "recording.wav",
+            apiKey: "test-key",
+            language: "zh"
+        )
+        let body = try #require(request.httpBody)
+        let multipart = try #require(String(data: body, encoding: .utf8))
+
+        #expect(request.url?.absoluteString == "https://api.openai.com/v1/audio/transcriptions")
+        #expect(multipart.contains("name=\"model\"\r\n\r\ngpt-4o-transcribe-diarize"))
+        #expect(multipart.contains("name=\"response_format\"\r\n\r\ndiarized_json"))
+        #expect(multipart.contains("name=\"chunking_strategy\"\r\n\r\nauto"))
+        #expect(multipart.contains("name=\"language\"\r\n\r\nzh"))
+
+        let response = Data(
+            """
+            {"segments":[
+              {"speaker":"A","text":"你好","start":0,"end":1},
+              {"speaker":"A","text":"歡迎使用聲筆","start":1,"end":2},
+              {"speaker":"B","text":"謝謝","start":2,"end":3}
+            ]}
+            """.utf8
+        )
+
+        #expect(
+            try OpenAITranscriptionService.speakerLabeledText(from: response)
+                == "A: 你好 歡迎使用聲筆\nB: 謝謝"
+        )
+    }
+
+    @Test func geminiDefaultsToWorkingGenerateContentModel() {
+        let provider = GeminiProvider()
+
+        #expect(provider.models.map(\.name) == ["gemini-3.5-flash-lite"])
+        #expect(AIProvider.gemini.defaultModel == "gemini-3.6-flash")
+        #expect(AIProvider.gemini.availableModels.first == "gemini-3.6-flash")
+        #expect(!AIProvider.gemini.availableModels.contains("gemini-3.7-flash"))
+    }
+
+    @Test func geminiTranscriptionRequestPreservesSpokenLanguageAndMinimizesThinking() throws {
+        let request = try GeminiTranscriptionService.makeRequest(
+            audioData: Data([0x52, 0x49, 0x46, 0x46]),
+            apiKey: "test-key",
+            model: "gemini-3.5-flash-lite",
+            language: nil,
+            customVocabulary: ["蓋婭科技"]
+        )
+        let body = try #require(request.httpBody)
+        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        let generationConfig = try #require(json["generationConfig"] as? [String: Any])
+        let thinkingConfig = try #require(generationConfig["thinkingConfig"] as? [String: Any])
+        let contents = try #require(json["contents"] as? [[String: Any]])
+        let parts = try #require(contents.first?["parts"] as? [[String: Any]])
+        let prompt = try #require(parts.first?["text"] as? String)
+
+        #expect(thinkingConfig["thinkingLevel"] as? String == "minimal")
+        #expect(prompt.contains("Do not translate"))
+        #expect(prompt.contains("Traditional Chinese as used in Taiwan"))
+        #expect(prompt.contains("蓋婭科技"))
+    }
+
+    @Test func unavailableGeminiModelSelectionsMigrateToWorkingModel() {
+        let suiteName = "WaGongGeminiModelMigration-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set("gemini-3.6-flash", forKey: "CurrentTranscriptionModel")
+        defaults.set("gemini-3.7-flash", forKey: "GeminiSelectedModel")
+
+        AppDefaults.migrateUnavailableGeminiModelIfNeeded(defaults: defaults)
+
+        #expect(defaults.string(forKey: "CurrentTranscriptionModel") == "gemini-3.5-flash-lite")
+        #expect(defaults.string(forKey: "GeminiSelectedModel") == "gemini-3.6-flash")
+    }
+
+    @Test func unavailableGeminiModelsMigrateInsideEveryModeConfiguration() {
+        var config = ModeConfig(
+            name: "Gemini Migration",
+            isAIEnhancementEnabled: true,
+            selectedTranscriptionModelName: "gemini-3.6-flash",
+            selectedAIProvider: AIProvider.gemini.rawValue,
+            selectedAIModel: "gemini-3.7-flash"
+        )
+
+        config.selectedTranscriptionModelName = AppDefaults.migratedGeminiTranscriptionModelName(
+            config.selectedTranscriptionModelName
+        )
+        config.selectedAIModel = AppDefaults.migratedGeminiAIModelName(config.selectedAIModel)
+
+        #expect(config.selectedTranscriptionModelName == "gemini-3.5-flash-lite")
+        #expect(config.selectedAIModel == "gemini-3.6-flash")
     }
 
     @Test func defaultRefinementPresetsHaveStableTitlesAndIDs() {
         let prompts = PromptTemplates.seedPrompts
         let titlesByID = Dictionary(uniqueKeysWithValues: prompts.map { ($0.id, $0.title) })
 
-        #expect(titlesByID[PromptTemplates.fillerRemovalPromptId] == "去除贅詞")
-        #expect(titlesByID[PromptTemplates.businessPolishPromptId] == "商業整理")
         #expect(titlesByID[PromptTemplates.defaultPromptId] == "智慧模式")
+        #expect(titlesByID[PromptTemplates.chatPromptId] == String(localized: "Chat"))
+        #expect(titlesByID[PromptTemplates.emailPromptId] == String(localized: "Email"))
+        #expect(titlesByID[PromptTemplates.rewritePromptId] == String(localized: "Rewrite"))
+        #expect(titlesByID[PromptTemplates.assistantPromptId] == String(localized: "Assistant"))
     }
 
-    @Test func seedingAnyStarterModeIncludesAllRefinementPresets() {
+    @Test func seedingStarterModesExcludesRetiredDuplicatePrompts() {
         let result = StarterModePromptSeeder.ensurePrompts(for: [.clean], in: [])
         let seededIDs = Set(result.prompts.map(\.id))
 
         #expect(result.didChange)
-        #expect(seededIDs.contains(PromptTemplates.fillerRemovalPromptId))
-        #expect(seededIDs.contains(PromptTemplates.businessPolishPromptId))
         #expect(seededIDs.contains(PromptTemplates.defaultPromptId))
+        #expect(seededIDs.contains(PromptTemplates.chatPromptId))
+        #expect(!seededIDs.contains(PromptTemplates.fillerRemovalPromptId))
+        #expect(!seededIDs.contains(PromptTemplates.businessPolishPromptId))
+    }
+
+    @Test func unchangedRetiredDuplicatePromptsAreRemovedButCustomizedOnesRemain() {
+        let unchanged = PromptTemplates.legacyFillerRemovalPrompt
+        let customized = CustomPrompt(
+            id: PromptTemplates.businessPolishPromptId,
+            title: "我的商業提示詞",
+            promptText: "保留這份自訂內容",
+            useSystemInstructions: true
+        )
+
+        let result = StarterModePromptSeeder.ensurePrompts(
+            for: [],
+            in: [unchanged, customized]
+        )
+
+        #expect(result.didChange)
+        #expect(!result.prompts.contains { $0.id == unchanged.id })
+        #expect(result.prompts.contains(customized))
+    }
+
+    @Test func legacyEnglishStarterModeNamesUseLocalizedTitlesWithoutRenamingCustomNames() {
+        let dictationTemplate = StarterModeCatalog.templates.first { $0.kind == .clean }!
+        let legacyStarter = ModeConfig(
+            id: dictationTemplate.id,
+            name: "Dictation",
+            isAIEnhancementEnabled: false
+        )
+        let renamedStarter = ModeConfig(
+            id: dictationTemplate.id,
+            name: "我的聽寫",
+            isAIEnhancementEnabled: false
+        )
+
+        #expect(
+            ModeDataMigration.migratedStarterModeName(for: legacyStarter)
+                == String(localized: "Dictation")
+        )
+        #expect(ModeDataMigration.migratedStarterModeName(for: renamedStarter) == "我的聽寫")
     }
 
     @Test func legacyDefaultPromptGetsSmartModeTitleWithoutLosingCustomText() {
@@ -238,6 +393,99 @@ struct VoiceInkTests {
         #expect(migratedPrompt?.title == "智慧模式")
         #expect(migratedPrompt?.promptText == "Keep this user text")
         #expect(migratedPrompt?.useSystemInstructions == false)
+    }
+
+    @Test func enhancementPromptsPreserveSourceLanguageAndTaiwanChinese() {
+        #expect(AIPrompts.enhancementSystemTemplate.contains("Keep the output in the same language"))
+        #expect(AIPrompts.enhancementSystemTemplate.contains("Traditional Chinese as used in Taiwan"))
+
+        let directPrompts = PromptTemplates.seedPrompts.filter { !$0.useSystemInstructions }
+        #expect(!directPrompts.isEmpty)
+        #expect(
+            directPrompts.allSatisfy {
+                $0.promptText.contains("Traditional Chinese as used in Taiwan")
+            }
+        )
+    }
+
+    @Test func unchangedLegacySmartPromptMigratesWithoutChangingItsStableID() {
+        let legacyPrompt = CustomPrompt(
+            id: PromptTemplates.defaultPromptId,
+            title: "智慧模式",
+            promptText: PromptTemplates.legacyDefaultPromptText,
+            useSystemInstructions: true
+        )
+
+        let result = StarterModePromptSeeder.ensurePrompts(for: [], in: [legacyPrompt])
+        let migratedPrompt = result.prompts.first { $0.id == PromptTemplates.defaultPromptId }
+
+        #expect(result.didChange)
+        #expect(migratedPrompt?.id == PromptTemplates.defaultPromptId)
+        #expect(migratedPrompt?.promptText == PromptTemplates.defaultPrompt.promptText)
+    }
+
+    @Test func olderGeneralPurposeSmartPromptAlsoMigratesSafely() {
+        let legacyPrompt = CustomPrompt(
+            id: PromptTemplates.defaultPromptId,
+            title: "智慧模式",
+            promptText: PromptTemplates.legacyGeneralPurposePromptText,
+            useSystemInstructions: true
+        )
+
+        let result = StarterModePromptSeeder.ensurePrompts(for: [], in: [legacyPrompt])
+        let migratedPrompt = result.prompts.first { $0.id == PromptTemplates.defaultPromptId }
+
+        #expect(result.didChange)
+        #expect(migratedPrompt?.promptText == PromptTemplates.defaultPrompt.promptText)
+    }
+
+    @Test func unchangedDirectPromptsGainTaiwanLanguageRules() {
+        let legacyRewrite = CustomPrompt(
+            id: PromptTemplates.rewritePromptId,
+            title: "Rewrite",
+            promptText: PromptTemplates.legacyRewritePromptText,
+            useSystemInstructions: false
+        )
+        let legacyAssistant = CustomPrompt(
+            id: PromptTemplates.assistantPromptId,
+            title: "Assistant",
+            promptText: PromptTemplates.legacyAssistantPromptText,
+            useSystemInstructions: false
+        )
+
+        let result = StarterModePromptSeeder.ensurePrompts(
+            for: [],
+            in: [legacyRewrite, legacyAssistant]
+        )
+
+        #expect(result.didChange)
+        #expect(
+            result.prompts.first { $0.id == PromptTemplates.rewritePromptId }?.promptText
+                == PromptTemplates.template(for: PromptTemplates.rewritePromptId)?.promptText
+        )
+        #expect(
+            result.prompts.first { $0.id == PromptTemplates.assistantPromptId }?.promptText
+                == PromptTemplates.template(for: PromptTemplates.assistantPromptId)?.promptText
+        )
+    }
+
+    @Test func customizedBuiltInPromptIsNotOverwrittenByMigration() {
+        let customizedPrompt = CustomPrompt(
+            id: PromptTemplates.defaultPromptId,
+            title: "我的智慧模式",
+            promptText: "保留我的自訂內容",
+            useSystemInstructions: false
+        )
+
+        let result = StarterModePromptSeeder.ensurePrompts(for: [], in: [customizedPrompt])
+        let preservedPrompt = result.prompts.first { $0.id == PromptTemplates.defaultPromptId }
+
+        #expect(preservedPrompt == customizedPrompt)
+    }
+
+    @Test func promptTemplatesIdentifyBuiltInPromptsForDeleteProtection() {
+        #expect(PromptTemplates.isBuiltInPrompt(id: PromptTemplates.defaultPromptId))
+        #expect(!PromptTemplates.isBuiltInPrompt(id: UUID()))
     }
 
     @Test func localWhisperContextIncludesCustomVocabularyWithoutReplacingPrompt() {

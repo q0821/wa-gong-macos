@@ -96,14 +96,46 @@ private struct ContextAwarenessCenterSlot: View {
 
 private struct ContextAwarenessModeVisual: View {
     private let modes: [ContextAwarenessModePill.Model] = [
-        ContextAwarenessModePill.Model(systemImage: "mic.fill", title: "Dictation", angle: -90),
-        ContextAwarenessModePill.Model(systemImage: "sparkles", title: "Enhance", angle: -45),
-        ContextAwarenessModePill.Model(systemImage: "envelope.fill", title: "Email", angle: 0),
-        ContextAwarenessModePill.Model(systemImage: "bubble.left.and.bubble.right.fill", title: "Ask", angle: 45),
-        ContextAwarenessModePill.Model(systemImage: "globe", title: "Translate", angle: 90),
-        ContextAwarenessModePill.Model(systemImage: "text.alignleft", title: "Summarize", angle: 135),
-        ContextAwarenessModePill.Model(systemImage: "quote.bubble.fill", title: "Rewrite", angle: 180),
-        ContextAwarenessModePill.Model(systemImage: "wand.and.stars", title: "Assistant", angle: -135),
+        ContextAwarenessModePill.Model(
+            systemImage: "mic.fill",
+            title: String(localized: "Dictation"),
+            angle: -90
+        ),
+        ContextAwarenessModePill.Model(
+            systemImage: "sparkles",
+            title: String(localized: "Enhance"),
+            angle: -45
+        ),
+        ContextAwarenessModePill.Model(
+            systemImage: "envelope.fill",
+            title: String(localized: "Email"),
+            angle: 0
+        ),
+        ContextAwarenessModePill.Model(
+            systemImage: "bubble.left.and.bubble.right.fill",
+            title: String(localized: "Ask"),
+            angle: 45
+        ),
+        ContextAwarenessModePill.Model(
+            systemImage: "globe",
+            title: String(localized: "Translate"),
+            angle: 90
+        ),
+        ContextAwarenessModePill.Model(
+            systemImage: "text.alignleft",
+            title: String(localized: "Summarize"),
+            angle: 135
+        ),
+        ContextAwarenessModePill.Model(
+            systemImage: "quote.bubble.fill",
+            title: String(localized: "Rewrite"),
+            angle: 180
+        ),
+        ContextAwarenessModePill.Model(
+            systemImage: "wand.and.stars",
+            title: String(localized: "Assistant"),
+            angle: -135
+        ),
     ]
 
     var body: some View {

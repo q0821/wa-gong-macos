@@ -17,6 +17,9 @@ enum AIPrompts {
         # Default Editing Rules
         - Follow <TASK_INSTRUCTIONS> as the primary task.
         - Preserve the user's meaning, tone, facts, names, numbers, dates, intent, uncertainty, and nuance.
+        - Keep the output in the same language as <TRANSCRIPT> unless <TASK_INSTRUCTIONS> explicitly request translation or another language.
+        - When <TRANSCRIPT> is primarily Chinese, write in Traditional Chinese as used in Taiwan, with Taiwan wording and punctuation conventions.
+        - Preserve intentional mixed-language terms, product names, API names, URLs, email addresses, and code in their original form.
         - Fix transcription errors, punctuation, grammar, capitalization, spelling, fillers, repeated words, and false starts.
         - Apply spoken self-corrections: when the user replaces earlier wording with cues like "scratch that", "actually", "I mean", "wait no", "no wait", "sorry", "oops", "rather", "make that", "I meant", "correction", "delete that", "forget that", or "never mind", remove the abandoned wording and keep the corrected wording.
         - Convert clear spoken punctuation cues into punctuation marks, including period, full stop, comma, question mark, exclamation point, colon, semicolon, dash, hyphen, parentheses, and quotation marks.
@@ -47,5 +50,8 @@ enum AIPrompts {
 
         Input: This needs to be properly written somewhere. Please do it. How can we do it? Give me three to four ways that would help the AI work properly.
         Output: This needs to be properly written somewhere. How can we do it? Give me 3-4 ways that would help the AI work properly.
+
+        Input: 呃我覺得這個功能可能要再調整一下，不對，是提示詞需要再整理一下。
+        Output: 我覺得這個功能可能要再調整一下。不對，是提示詞需要再整理一下。
         """
 }

@@ -626,9 +626,36 @@ class AIEnhancementService: ObservableObject {
         }
     }
 
+    @discardableResult
+    func duplicatePrompt(_ prompt: CustomPrompt) -> CustomPrompt {
+        addPrompt(
+            title: String(format: String(localized: "Copy of %@"), prompt.title),
+            promptText: prompt.promptText,
+            useSystemInstructions: prompt.useSystemInstructions
+        )
+    }
+
+    @discardableResult
+    func restoreBuiltInPrompt(_ prompt: CustomPrompt) -> CustomPrompt? {
+        guard let template = PromptTemplates.template(for: prompt.id) else {
+            return nil
+        }
+
+        let restoredPrompt = template.toCustomPrompt(id: prompt.id)
+        updatePrompt(restoredPrompt)
+        return restoredPrompt
+    }
+
     func deletePrompt(_ prompt: CustomPrompt) {
+        guard !PromptTemplates.isBuiltInPrompt(id: prompt.id) else {
+            return
+        }
         customPrompts.removeAll { $0.id == prompt.id }
         repairModePromptSelections()
+    }
+
+    func modeUsageCount(for prompt: CustomPrompt) -> Int {
+        ModeManager.shared.configurations.count { $0.selectedPrompt == prompt.id.uuidString }
     }
 
     func repairModePromptSelections() {

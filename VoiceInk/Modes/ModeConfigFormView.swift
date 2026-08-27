@@ -10,6 +10,7 @@ struct ModeConfigFormView: View {
     let onSave: () -> Void
     let onDelete: () -> ModeRemovalResult
     let openPromptEditor: (PromptEditorView.Mode) -> Void
+    let openPromptManager: () -> Void
 
     @EnvironmentObject private var aiService: AIService
     @EnvironmentObject private var modeWarmupStore: ModeFormWarmupStore
@@ -521,6 +522,16 @@ struct ModeConfigFormView: View {
             AddIconButton(helpText: "Add prompt") {
                 openPromptEditor(.add)
             }
+
+            Button(action: openPromptManager) {
+                Image(systemName: "list.bullet.rectangle")
+                    .font(.system(size: 16, weight: .medium))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Manage prompts")
+            .accessibilityLabel("Manage prompts")
         }
     }
 

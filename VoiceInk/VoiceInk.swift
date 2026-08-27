@@ -406,6 +406,11 @@ struct WaGongApp: App {
         didShowLaunchReminders = true
 
         if !AXIsProcessTrusted() {
+            let options: NSDictionary = [
+                kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true
+            ]
+            AXIsProcessTrustedWithOptions(options)
+
             NotificationManager.shared.showNotification(
                 title: String(localized: "Accessibility permission is not provided"),
                 type: .warning,

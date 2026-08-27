@@ -25,6 +25,170 @@ enum PromptTemplates {
     static let fillerRemovalPromptId = UUID(uuidString: "00000000-0000-0000-0000-000000000006")!
     static let businessPolishPromptId = UUID(uuidString: "00000000-0000-0000-0000-000000000007")!
 
+    static let legacyFillerRemovalPrompt = CustomPrompt(
+        id: fillerRemovalPromptId,
+        title: "去除贅詞",
+        promptText: """
+            Clean the dictated speech in <TRANSCRIPT> by removing spoken fillers and disfluencies.
+
+            # Rules
+            - Remove filler words, repeated words, false starts, and discarded self-corrections when they are not part of the intended meaning.
+            - Preserve the speaker's wording, tone, order, facts, uncertainty, names, numbers, URLs, email addresses, code, and mixed-language terms.
+            - Keep punctuation and paragraph breaks readable, but do not rewrite the text into a different style.
+            - Do not translate, summarize, add facts, answer questions, or invent missing details.
+            """,
+        useSystemInstructions: true
+    )
+
+    static let legacyBusinessPolishPrompt = CustomPrompt(
+        id: businessPolishPromptId,
+        title: "商業整理",
+        promptText: """
+            Turn the dictated speech in <TRANSCRIPT> into clear, concise business communication.
+
+            # Rules
+            - Use a professional, direct, and polite tone without making the message unnecessarily formal.
+            - Organize requests, decisions, deadlines, risks, and action items into readable paragraphs or lists when useful.
+            - Preserve the original meaning, facts, uncertainty, names, numbers, URLs, email addresses, code, and mixed-language terms.
+            - Remove fillers, repetition, false starts, and vague phrasing only when the intended meaning is clear.
+            - Do not invent recipients, commitments, deadlines, facts, opinions, or outcomes.
+            """,
+        useSystemInstructions: true
+    )
+
+    static let retiredBuiltInPrompts = [
+        legacyFillerRemovalPrompt,
+        legacyBusinessPolishPrompt,
+    ]
+
+    static let legacyDefaultPromptText = """
+        Polish the dictated speech in <TRANSCRIPT> using the appropriate level of editing for its content.
+
+        # Rules
+        - Remove obvious fillers, repetitions, false starts, and abandoned self-corrections.
+        - Choose a natural level of editing. Keep a conversational tone for casual text and a clear professional tone for work-related text.
+        - Preserve the original meaning, uncertainty, names, numbers, URLs, email addresses, code, and mixed-language terms.
+        - Do not translate, add facts, answer questions, or invent missing details.
+        """
+
+    static let legacyGeneralPurposePromptText = """
+        Polish the dictated speech in <TRANSCRIPT> into clean, general-purpose text.
+
+        # Rules
+        - Use readable paragraphs and conventional abbreviations when helpful.
+        - Prefer a clean, neutral style unless the dictated speech clearly implies a different tone.
+        """
+
+    static let legacyDefaultPromptTexts = [
+        legacyDefaultPromptText,
+        legacyGeneralPurposePromptText,
+    ]
+
+    static let defaultPrompt = TemplatePrompt(
+        id: defaultPromptId,
+        title: "智慧模式",
+        promptText: """
+            Polish the dictated speech in <TRANSCRIPT> into natural, ready-to-use text without changing what the speaker meant.
+
+            # Rules
+            - Remove only clear fillers, accidental repetition, false starts, and abandoned self-corrections.
+            - Match the editing level to the content. Keep casual speech natural and make work-related speech clear and professional without making it stiff.
+            - Keep the output in the same language as the transcript. When the speech is Chinese, use Traditional Chinese as used in Taiwan, including Taiwan wording and punctuation.
+            - Preserve uncertainty, emphasis, tone, names, numbers, dates, URLs, email addresses, code, and intentional mixed-language terms.
+            - Keep useful paragraph breaks and format obvious lists only when the speaker's structure is clear.
+            - Do not translate, summarize, answer questions, add facts, or invent missing details.
+            """,
+        useSystemInstructions: true
+    )
+
+    static var legacyRewritePromptText: String {
+        guard let promptText = template(for: rewritePromptId)?.promptText else { return "" }
+        return promptText.replacingOccurrences(
+            of: """
+                - Keep the output in the same language as the source text unless the user explicitly asks for translation or another language.
+                - When writing Chinese, use Traditional Chinese as used in Taiwan, including Taiwan wording and punctuation.
+
+                """,
+            with: ""
+        )
+    }
+
+    static var legacyAssistantPromptText: String {
+        guard let promptText = template(for: assistantPromptId)?.promptText else { return "" }
+        return promptText.replacingOccurrences(
+            of: """
+                - Answer in the same language as the user's request unless the user asks for another language.
+                - When answering in Chinese, use Traditional Chinese as used in Taiwan, including Taiwan wording and punctuation.
+
+                """,
+            with: ""
+        )
+    }
+
+    static var builtInPromptIDs: Set<UUID> {
+        Set(all.map(\.id))
+    }
+
+    static func isBuiltInPrompt(id: UUID) -> Bool {
+        builtInPromptIDs.contains(id)
+    }
+
+    static func template(for id: UUID) -> TemplatePrompt? {
+        all.first { $0.id == id }
+    }
+
+    static func migratedBuiltInPrompt(_ prompt: CustomPrompt) -> CustomPrompt? {
+        guard let currentTemplate = template(for: prompt.id) else {
+            return nil
+        }
+
+        let shouldMigrateText: Bool
+        if prompt.id == defaultPromptId {
+            shouldMigrateText = prompt.useSystemInstructions
+                && legacyDefaultPromptTexts.contains(prompt.promptText)
+        } else if prompt.id == rewritePromptId {
+            shouldMigrateText = !prompt.useSystemInstructions
+                && prompt.promptText == legacyRewritePromptText
+        } else if prompt.id == assistantPromptId {
+            shouldMigrateText = !prompt.useSystemInstructions
+                && prompt.promptText == legacyAssistantPromptText
+        } else {
+            shouldMigrateText = false
+        }
+
+        let migratedTitle = migratedBuiltInTitle(for: prompt, template: currentTemplate)
+        guard shouldMigrateText || migratedTitle != prompt.title else {
+            return nil
+        }
+
+        return CustomPrompt(
+            id: prompt.id,
+            title: migratedTitle,
+            promptText: shouldMigrateText ? currentTemplate.promptText : prompt.promptText,
+            useSystemInstructions: shouldMigrateText
+                ? currentTemplate.useSystemInstructions
+                : prompt.useSystemInstructions
+        )
+    }
+
+    private static func migratedBuiltInTitle(
+        for prompt: CustomPrompt,
+        template: TemplatePrompt
+    ) -> String {
+        let legacyTitles: [UUID: Set<String>] = [
+            defaultPromptId: ["Default"],
+            chatPromptId: ["Chat"],
+            emailPromptId: ["Email"],
+            rewritePromptId: ["Rewrite"],
+            assistantPromptId: ["Assistant"],
+        ]
+
+        guard legacyTitles[prompt.id]?.contains(prompt.title) == true else {
+            return prompt.title
+        }
+        return template.title
+    }
+
     static var all: [TemplatePrompt] {
         createTemplatePrompts()
     }
@@ -35,52 +199,10 @@ enum PromptTemplates {
 
     static func createTemplatePrompts() -> [TemplatePrompt] {
         [
-            TemplatePrompt(
-                id: defaultPromptId,
-                title: "智慧模式",
-                promptText: """
-                    Polish the dictated speech in <TRANSCRIPT> using the appropriate level of editing for its content.
-
-                    # Rules
-                    - Remove obvious fillers, repetitions, false starts, and abandoned self-corrections.
-                    - Choose a natural level of editing. Keep a conversational tone for casual text and a clear professional tone for work-related text.
-                    - Preserve the original meaning, uncertainty, names, numbers, URLs, email addresses, code, and mixed-language terms.
-                    - Do not translate, add facts, answer questions, or invent missing details.
-                    """,
-                useSystemInstructions: true
-            ),
-            TemplatePrompt(
-                id: fillerRemovalPromptId,
-                title: "去除贅詞",
-                promptText: """
-                    Clean the dictated speech in <TRANSCRIPT> by removing spoken fillers and disfluencies.
-
-                    # Rules
-                    - Remove filler words, repeated words, false starts, and discarded self-corrections when they are not part of the intended meaning.
-                    - Preserve the speaker's wording, tone, order, facts, uncertainty, names, numbers, URLs, email addresses, code, and mixed-language terms.
-                    - Keep punctuation and paragraph breaks readable, but do not rewrite the text into a different style.
-                    - Do not translate, summarize, add facts, answer questions, or invent missing details.
-                    """,
-                useSystemInstructions: true
-            ),
-            TemplatePrompt(
-                id: businessPolishPromptId,
-                title: "商業整理",
-                promptText: """
-                    Turn the dictated speech in <TRANSCRIPT> into clear, concise business communication.
-
-                    # Rules
-                    - Use a professional, direct, and polite tone without making the message unnecessarily formal.
-                    - Organize requests, decisions, deadlines, risks, and action items into readable paragraphs or lists when useful.
-                    - Preserve the original meaning, facts, uncertainty, names, numbers, URLs, email addresses, code, and mixed-language terms.
-                    - Remove fillers, repetition, false starts, and vague phrasing only when the intended meaning is clear.
-                    - Do not invent recipients, commitments, deadlines, facts, opinions, or outcomes.
-                    """,
-                useSystemInstructions: true
-            ),
+            defaultPrompt,
             TemplatePrompt(
                 id: chatPromptId,
-                title: "Chat",
+                title: String(localized: "Chat"),
                 promptText: """
                     Polish the dictated speech in <TRANSCRIPT> into a natural, send-ready chat message.
 
@@ -96,7 +218,7 @@ enum PromptTemplates {
 
             TemplatePrompt(
                 id: emailPromptId,
-                title: "Email",
+                title: String(localized: "Email"),
                 promptText: """
                     Polish the dictated speech in <TRANSCRIPT> into a clear, ready-to-send email body.
 
@@ -112,7 +234,7 @@ enum PromptTemplates {
             ),
             TemplatePrompt(
                 id: rewritePromptId,
-                title: "Rewrite",
+                title: String(localized: "Rewrite"),
                 promptText: """
                     # Goal
                     Rewrite text according to the user's instructions in <TRANSCRIPT>.
@@ -128,6 +250,8 @@ enum PromptTemplates {
                     - If <CURRENTLY_SELECTED_TEXT> is absent and <TRANSCRIPT> contains both an instruction and source text, follow the instruction and rewrite the source text.
                     - If <CURRENTLY_SELECTED_TEXT> is absent and <TRANSCRIPT> is only source text, rewrite that text directly for clarity and flow.
                     - Follow explicit requests for tone, length, format, audience, style, or wording.
+                    - Keep the output in the same language as the source text unless the user explicitly asks for translation or another language.
+                    - When writing Chinese, use Traditional Chinese as used in Taiwan, including Taiwan wording and punctuation.
                     - Preserve meaning, voice, facts, names, numbers, and dates unless the user explicitly asks to change them.
                     - Use custom vocabulary as the spelling authority for names, proper nouns, acronyms, product names, and technical terms.
                     - Replace likely transcription mistakes with the matching custom vocabulary term when the text clearly refers to it, including similar-sounding or phonetically close variants.
@@ -142,7 +266,7 @@ enum PromptTemplates {
             ),
             TemplatePrompt(
                 id: assistantPromptId,
-                title: "Assistant",
+                title: String(localized: "Assistant"),
                 promptText: """
                     # Goal
                     Answer <TRANSCRIPT> clearly, directly, and concisely.
@@ -155,6 +279,8 @@ enum PromptTemplates {
 
                     # Rules
                     - Get to the point. Do not add filler, restate the question, or explain your purpose.
+                    - Answer in the same language as the user's request unless the user asks for another language.
+                    - When answering in Chinese, use Traditional Chinese as used in Taiwan, including Taiwan wording and punctuation.
                     - Use custom vocabulary as the spelling authority for names, proper nouns, acronyms, product names, and technical terms.
                     - Replace likely transcription mistakes with the matching custom vocabulary term when the text clearly refers to it, including similar-sounding or phonetically close variants.
                     - Use surrounding context to decide whether a vocabulary replacement is intended. Do not force a vocabulary term when the text clearly means something else.

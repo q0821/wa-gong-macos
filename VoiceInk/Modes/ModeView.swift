@@ -57,6 +57,7 @@ struct ModeView: View {
     @EnvironmentObject private var enhancementService: AIEnhancementService
     @EnvironmentObject private var aiService: AIService
     @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
+    @EnvironmentObject private var navigation: MainWindowNavigation
     @State private var activePanel: PanelType?
     @State private var panelID = UUID()
 
@@ -166,7 +167,12 @@ struct ModeView: View {
         ) {
             switch activePanel {
             case .configuration(let mode)?:
-                ModeConfigEditorView(mode: mode, modeManager: modeManager, onDismiss: closePanel)
+                ModeConfigEditorView(
+                    mode: mode,
+                    modeManager: modeManager,
+                    onDismiss: closePanel,
+                    onManagePrompts: openPromptManagement
+                )
                     .environmentObject(modeWarmupStore)
                     .id(panelID)
             case .settings?:
@@ -195,6 +201,11 @@ struct ModeView: View {
 
     private func openSettingsPanel() {
         activePanel = .settings
+    }
+
+    private func openPromptManagement() {
+        closePanel()
+        navigation.navigate(to: .prompts)
     }
 }
 

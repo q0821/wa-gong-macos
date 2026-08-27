@@ -11,9 +11,9 @@ struct GeminiProvider: CloudProvider {
     var models: [CloudModel] {
         [
             CloudModel(
-                name: "gemini-3.7-flash",
-                displayName: "Gemini 3.7 Flash",
-                description: "Google's latest production model for high-quality transcription",
+                name: AppDefaults.workingGeminiTranscriptionModel,
+                displayName: "Gemini 3.5 Flash-Lite",
+                description: "Google's low-latency model for multilingual transcription",
                 provider: .gemini,
                 speed: 0.92,
                 accuracy: 0.96,
@@ -26,10 +26,12 @@ struct GeminiProvider: CloudProvider {
     func transcribe(
         audioData: Data, fileName: String, apiKey: String, model: String, language: String?, customVocabulary: [String]
     ) async throws -> String {
-        return try await GeminiTranscriptionClient.transcribe(
+        return try await GeminiTranscriptionService.transcribe(
             audioData: audioData,
             apiKey: apiKey,
-            model: model
+            model: model,
+            language: language,
+            customVocabulary: customVocabulary
         )
     }
 

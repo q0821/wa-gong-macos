@@ -22,6 +22,7 @@ struct PromptEditorView: View {
     let onDismiss: () -> Void
     let onSave: (CustomPrompt) -> Void
     let onDelete: ((CustomPrompt) -> Void)?
+    let onRestore: ((CustomPrompt) -> Void)?
     @State private var title: String
     @State private var promptText: String
     @State private var useSystemInstructions: Bool
@@ -39,7 +40,19 @@ struct PromptEditorView: View {
     }
 
     private var canDeletePrompt: Bool {
-        editingPrompt != nil && onDelete != nil
+        guard let editingPrompt else { return false }
+        return onDelete != nil && !PromptTemplates.isBuiltInPrompt(id: editingPrompt.id)
+    }
+
+    private var canRestorePrompt: Bool {
+        guard let editingPrompt,
+            let template = PromptTemplates.template(for: editingPrompt.id),
+            onRestore != nil
+        else { return false }
+
+        return editingPrompt.title != template.title
+            || editingPrompt.promptText != template.promptText
+            || editingPrompt.useSystemInstructions != template.useSystemInstructions
     }
 
     private var isSaveDisabled: Bool {
@@ -51,12 +64,14 @@ struct PromptEditorView: View {
         mode: Mode,
         onDismiss: @escaping () -> Void,
         onSave: @escaping (CustomPrompt) -> Void,
-        onDelete: ((CustomPrompt) -> Void)? = nil
+        onDelete: ((CustomPrompt) -> Void)? = nil,
+        onRestore: ((CustomPrompt) -> Void)? = nil
     ) {
         self.mode = mode
         self.onDismiss = onDismiss
         self.onSave = onSave
         self.onDelete = onDelete
+        self.onRestore = onRestore
         switch mode {
         case .add:
             _title = State(initialValue: "")
@@ -101,10 +116,7 @@ struct PromptEditorView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text(
-                String(
-                    format: String(localized: "Are you sure you want to delete '%@'? This action cannot be undone."),
-                    title))
+            Text(deleteConfirmationMessage)
         }
     }
 
@@ -146,6 +158,7 @@ struct PromptEditorView: View {
                 }
             }
             .toggleStyle(.switch)
+            .accessibilityLabel("Use System Template")
 
             Spacer(minLength: 12)
         }
@@ -204,6 +217,11 @@ struct PromptEditorView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AppTheme.Status.error)
+            } else if canRestorePrompt, let editingPrompt {
+                Button("Restore Default") {
+                    onRestore?(editingPrompt)
+                }
+                .buttonStyle(.bordered)
             } else {
                 Button("Cancel") {
                     dismissPanel()
@@ -240,19 +258,42 @@ struct PromptEditorView: View {
         dismissPanel()
     }
 
+    private var deleteConfirmationMessage: String {
+        guard let editingPrompt else { return "" }
+        let usageCount = enhancementService.modeUsageCount(for: editingPrompt)
+        if usageCount == 0 {
+            return String(
+                format: String(localized: "Are you sure you want to delete '%@'? This action cannot be undone."),
+                editingPrompt.title
+            )
+        }
+
+        return String(
+            format: String(
+                localized:
+                    "'%@' is used by %lld modes. Deleting it will switch those modes to another available prompt. This action cannot be undone."
+            ),
+            editingPrompt.title,
+            usageCount
+        )
+    }
+
     private func save() -> CustomPrompt? {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPromptText = promptText.trimmingCharacters(in: .whitespacesAndNewlines)
+
         switch mode {
         case .add:
             return enhancementService.addPrompt(
-                title: title,
-                promptText: promptText,
+                title: trimmedTitle,
+                promptText: trimmedPromptText,
                 useSystemInstructions: useSystemInstructions
             )
         case .edit(let prompt):
             let updatedPrompt = CustomPrompt(
                 id: prompt.id,
-                title: title,
-                promptText: promptText,
+                title: trimmedTitle,
+                promptText: trimmedPromptText,
                 useSystemInstructions: useSystemInstructions
             )
             enhancementService.updatePrompt(updatedPrompt)

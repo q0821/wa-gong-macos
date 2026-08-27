@@ -48,7 +48,7 @@ enum StarterModeCatalog {
         StarterModeTemplate(
             kind: .clean,
             id: UUID(uuidString: "10000000-0000-0000-0000-000000000001")!,
-            name: "Dictation",
+            name: String(localized: "Dictation"),
             icon: .symbol("mic.fill"),
             description: String(localized: "Fast transcription with no AI enhancement."),
             guidance: String(
@@ -65,7 +65,7 @@ enum StarterModeCatalog {
         StarterModeTemplate(
             kind: .enhance,
             id: UUID(uuidString: "10000000-0000-0000-0000-000000000002")!,
-            name: "Enhancement",
+            name: String(localized: "Enhancement"),
             icon: .symbol("sparkles"),
             description: "Clean up dictated text while preserving your meaning.",
             guidance:
@@ -80,7 +80,7 @@ enum StarterModeCatalog {
         StarterModeTemplate(
             kind: .email,
             id: UUID(uuidString: "10000000-0000-0000-0000-000000000003")!,
-            name: "Email",
+            name: String(localized: "Email"),
             icon: .symbol("envelope.fill"),
             description: "Turn a rough thought into a clean email.",
             guidance:
@@ -95,7 +95,7 @@ enum StarterModeCatalog {
         StarterModeTemplate(
             kind: .rewrite,
             id: UUID(uuidString: "10000000-0000-0000-0000-000000000004")!,
-            name: "Rewrite",
+            name: String(localized: "Rewrite"),
             icon: .symbol("quote.bubble.fill"),
             description: "Rewrite selected or dictated text with better clarity.",
             guidance:
@@ -110,7 +110,7 @@ enum StarterModeCatalog {
         StarterModeTemplate(
             kind: .assistant,
             id: UUID(uuidString: "10000000-0000-0000-0000-000000000005")!,
-            name: "Assistant",
+            name: String(localized: "Assistant"),
             icon: .symbol("bubble.left.and.bubble.right.fill"),
             description: "Ask a question and keep the answer in the recorder.",
             guidance:

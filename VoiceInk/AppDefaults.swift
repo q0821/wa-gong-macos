@@ -69,10 +69,18 @@ enum RecorderDisplaySettingsKeys {
 
 enum AppDefaults {
     static let defaultTranscriptionLanguage = "auto"
+    static let workingGeminiTranscriptionModel = "gemini-3.5-flash-lite"
+    static let workingGeminiAIModel = "gemini-3.6-flash"
     private static let transcriptionLanguageMigrationKey = "HasMigratedTranscriptionLanguageToAuto"
+    private static let unavailableGeminiAIModel = "gemini-3.7-flash"
+    private static let replacedGeminiTranscriptionModels: Set<String> = [
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+    ]
 
     static func registerDefaults() {
         migrateLegacyTranscriptionLanguageIfNeeded()
+        migrateUnavailableGeminiModelIfNeeded()
 
         UserDefaults.standard.register(defaults: [
             // Onboarding & General
@@ -138,5 +146,32 @@ enum AppDefaults {
         }
 
         defaults.set(true, forKey: transcriptionLanguageMigrationKey)
+    }
+
+    static func migrateUnavailableGeminiModelIfNeeded(defaults: UserDefaults = .standard) {
+        if let currentModel = defaults.string(forKey: "CurrentTranscriptionModel"),
+            let migratedModel = migratedGeminiTranscriptionModelName(currentModel),
+            migratedModel != currentModel
+        {
+            defaults.set(migratedModel, forKey: "CurrentTranscriptionModel")
+        }
+
+        if let selectedAIModel = defaults.string(forKey: "GeminiSelectedModel"),
+            let migratedModel = migratedGeminiAIModelName(selectedAIModel),
+            migratedModel != selectedAIModel
+        {
+            defaults.set(migratedModel, forKey: "GeminiSelectedModel")
+        }
+    }
+
+    static func migratedGeminiTranscriptionModelName(_ modelName: String?) -> String? {
+        guard let modelName, replacedGeminiTranscriptionModels.contains(modelName) else {
+            return modelName
+        }
+        return workingGeminiTranscriptionModel
+    }
+
+    static func migratedGeminiAIModelName(_ modelName: String?) -> String? {
+        modelName == unavailableGeminiAIModel ? workingGeminiAIModel : modelName
     }
 }

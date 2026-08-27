@@ -4,6 +4,7 @@ struct ModeConfigEditorView: View {
     let mode: ConfigurationMode
     let modeManager: ModeManager
     let onDismiss: () -> Void
+    let onManagePrompts: () -> Void
 
     @EnvironmentObject private var enhancementService: AIEnhancementService
     @EnvironmentObject private var aiService: AIService
@@ -17,10 +18,16 @@ struct ModeConfigEditorView: View {
     @State private var promptEditorID = UUID()
     @State private var didSaveConfiguration = false
 
-    init(mode: ConfigurationMode, modeManager: ModeManager, onDismiss: @escaping () -> Void) {
+    init(
+        mode: ConfigurationMode,
+        modeManager: ModeManager,
+        onDismiss: @escaping () -> Void,
+        onManagePrompts: @escaping () -> Void
+    ) {
         self.mode = mode
         self.modeManager = modeManager
         self.onDismiss = onDismiss
+        self.onManagePrompts = onManagePrompts
         _draft = State(initialValue: ModeConfigDraft(mode: mode, modeManager: modeManager))
     }
 
@@ -46,7 +53,8 @@ struct ModeConfigEditorView: View {
                     onDismiss: onDismiss,
                     onSave: saveConfiguration,
                     onDelete: deleteConfiguration,
-                    openPromptEditor: openPromptEditor
+                    openPromptEditor: openPromptEditor,
+                    openPromptManager: onManagePrompts
                 )
             }
         }

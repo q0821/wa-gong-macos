@@ -108,7 +108,7 @@ enum TriggerTemplateCatalog {
         ),
         TriggerTemplate(
             id: "email",
-            name: "Email",
+            name: String(localized: "Email"),
             systemImage: "envelope",
             apps: [
                 .init(bundleIdentifier: "com.apple.mail", names: ["Mail"]),

@@ -17,6 +17,26 @@ enum ModeDataMigration {
 
         return StarterModeFactory.defaultTranscriptionModelName
     }
+
+    static func migratedStarterModeName(for config: ModeConfig) -> String {
+        guard let template = StarterModeCatalog.templates.first(where: { $0.id == config.id }),
+            config.name == legacyEnglishName(for: template.kind)
+        else {
+            return config.name
+        }
+
+        return template.name
+    }
+
+    private static func legacyEnglishName(for kind: StarterModeKind) -> String {
+        switch kind {
+        case .clean: "Dictation"
+        case .enhance: "Enhancement"
+        case .email: "Email"
+        case .rewrite: "Rewrite"
+        case .assistant: "Assistant"
+        }
+    }
 }
 
 extension ModeManager {
@@ -40,6 +60,26 @@ extension ModeManager {
         for index in configurations.indices {
             var config = configurations[index]
             var changedConfig = false
+
+            let migratedName = ModeDataMigration.migratedStarterModeName(for: config)
+            if migratedName != config.name {
+                config.name = migratedName
+                changedConfig = true
+            }
+
+            let migratedTranscriptionModelName = AppDefaults.migratedGeminiTranscriptionModelName(
+                config.selectedTranscriptionModelName
+            )
+            if migratedTranscriptionModelName != config.selectedTranscriptionModelName {
+                config.selectedTranscriptionModelName = migratedTranscriptionModelName
+                changedConfig = true
+            }
+
+            let migratedAIModelName = AppDefaults.migratedGeminiAIModelName(config.selectedAIModel)
+            if migratedAIModelName != config.selectedAIModel {
+                config.selectedAIModel = migratedAIModelName
+                changedConfig = true
+            }
 
             if config.selectedTranscriptionModelName == nil {
                 config.selectedTranscriptionModelName = UserDefaults.standard.string(

@@ -16,6 +16,7 @@ struct WaGongApp: App {
     @StateObject private var transcriptionModelManager: TranscriptionModelManager
     @StateObject private var recorderUIManager: RecorderUIManager
     @StateObject private var recordingShortcutManager: RecordingShortcutManager
+    @StateObject private var keyboardDeviceMonitor: KeyboardDeviceMonitor
     @StateObject private var updaterViewModel: UpdaterViewModel
     @StateObject private var menuBarManager: MenuBarManager
     @StateObject private var mainWindowNavigation = MainWindowNavigation.shared
@@ -146,6 +147,7 @@ struct WaGongApp: App {
         // 7. Create other services that depend on engine
         let recordingShortcutManager = RecordingShortcutManager(engine: engine, recorderUIManager: recorderUIManager)
         _recordingShortcutManager = StateObject(wrappedValue: recordingShortcutManager)
+        _keyboardDeviceMonitor = StateObject(wrappedValue: KeyboardDeviceMonitor())
 
         let menuBarManager = MenuBarManager()
         _menuBarManager = StateObject(wrappedValue: menuBarManager)

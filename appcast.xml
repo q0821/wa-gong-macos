@@ -2,5 +2,24 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>Wa-Gong</title>
+        <item>
+            <title>1.0.0</title>
+            <pubDate>Fri, 28 Aug 2026 11:14:52 +0800</pubDate>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.4</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h3>聲筆 Wa-Gong 1.0.0</h3>
+<ul>
+  <li>新增 OpenAI 語音轉錄，預設使用 gpt-4o-mini-transcribe，並支援其他 OpenAI 轉錄模型。</li>
+  <li>完成 Gemini 文字整理流程，預設保留來源語言並輸出台灣繁體中文。</li>
+  <li>新增提示詞管理介面，並整理重複的內建提示詞。</li>
+  <li>錄音浮窗預設移至螢幕上方，可在設定中切換上方或下方。</li>
+  <li>轉錄與潤飾狀態改為繁體中文，並沿用 App 的語言設定。</li>
+  <li>加強外部 Request 的目的地與資料類型提示，讓雲端資料流更透明。</li>
+</ul>
+<p>使用 OpenAI、Gemini 或其他雲端服務前，請先在 App 中設定自己的 API Key。雲端服務可能依供應商方案產生費用。</p>
+]]></description>
+            <enclosure url="https://github.com/q0821/wa-gong-macos/releases/download/v1.0.0/Wa-Gong.dmg" length="51467153" type="application/octet-stream" sparkle:edSignature="DHFSx8kx0wm20mtx+gUN96S5Y6GUp8rphHJ5+WSOy3PdSOoKVRQVCaKCN2D56cVsfFYn1QbBChH35WypV9cRAQ=="/>
+        </item>
     </channel>
 </rss>

@@ -259,7 +259,9 @@ else
             -project "$PROJECT_PATH" \
             -scheme "$SCHEME" \
             -configuration Release \
-            -archivePath "$ARCHIVE_PATH"
+            -archivePath "$ARCHIVE_PATH" \
+            -skipPackagePluginValidation \
+            -skipMacroValidation
     fi
 
     log "Exporting Developer ID application"

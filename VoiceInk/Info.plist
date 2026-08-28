@@ -4,6 +4,10 @@
 <dict>
 	<key>SUEnableInstallerLauncherService</key>
 	<true/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/q0821/wa-gong-macos/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>dY+7EIxhcaABp+w7Ip5oOWLaiaFbcnq6+iA/1oW/9OI=</string>
 	<key>LSUIElement</key>
 	<false/>
 	<key>SUEnableAutomaticChecks</key>

@@ -1,15 +1,15 @@
 <div align="center">
   <h1>聲筆 Wa-Gong for macOS</h1>
-  <p>本機優先、繁體中文優先的 macOS 語音輸入工具</p>
+  <p>雲端優先、繁體中文優先的 macOS 語音輸入工具</p>
 
   [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-macOS-lightgrey.svg)](https://www.apple.com/macos/)
-  [![Status](https://img.shields.io/badge/status-early%20development-orange.svg)](docs/IMPLEMENTATION_PLAN.md)
+  [![Status](https://img.shields.io/badge/status-1.0.0%20candidate-yellow.svg)](CHANGELOG.md)
 </div>
 
 ## 專案狀態
 
-本專案目前處於早期開發階段，尚未發布可供一般使用者下載的穩定版本。
+本專案目前正在準備首個公開版本 `1.0.0`。OpenAI 語音轉錄、Gemini 文字整理、全域快速鍵與文字貼上已形成可用的核心流程。Developer ID 簽署、Sparkle 更新來源與 Apple 公證均已完成，正式 DMG 尚待建立 GitHub Release 後公開。
 
 現階段程式碼以 [Beingpax/VoiceInk](https://github.com/Beingpax/VoiceInk) 最新版為基底，App 顯示名稱、Bundle Identifier、本機產物名稱、主要執行期識別字與繁體中文資源已完成 Wa-Gong 品牌遷移。Xcode target、Swift module、部分上游元件名稱與必要的相容性識別字仍予以保留，方便持續同步上游程式碼與搬遷既有設定。
 
@@ -17,14 +17,14 @@
 
 ## 專案目標
 
-聲筆 Wa-Gong for macOS 希望提供一條快速、可稽核且能完全在本機執行的語音輸入流程：
+聲筆 Wa-Gong for macOS 提供一條快速、可稽核，並可自由選擇雲端或本機 Provider 的語音輸入流程：
 
 ```text
 全域快速鍵
 → 錄音
-→ 本機語音轉錄
-→ 繁體中文正規化
-→ 本機文字整理
+→ 雲端或本機語音轉錄
+→ 選用的文字整理
+→ 台灣繁體中文輸出
 → 插入目前使用中的 App
 ```
 
@@ -40,20 +40,21 @@
 
 5. 透過 GitHub 提供可重現、可稽核的原始碼與 Release。
 
-## 預計技術方向
+## 目前技術方向
 
 ### 語音轉錄
 
 - 預設優先使用雲端語音轉錄 API，不要求下載本機模型。
+- 支援 OpenAI `gpt-4o-mini-transcribe`、`gpt-4o-transcribe`、`gpt-transcribe`、說話者分離模型與 `whisper-1`。
 - 保留 Apple `SpeechAnalyzer` 與 `SpeechTranscriber` 作為系統原生選項。
 - 保留上游既有的 Whisper、FluidAudio 與其他雲端 Provider 作為選用方案。
 - 量測停止錄音、Partial Transcript、Final Transcript 與文字插入時間。
 
 ### 文字整理
 
-- 先驗證上游既有的 `VoiceInk Refine V1` 本機模型，App 內顯示為 `Wa-Gong Refine`。
-- 評估 Apple Foundation Models 作為另一個本機文字整理 Provider。
-- Private Cloud Compute 暫列後續研究，不作為第一版必要條件。
+- 已驗證 Gemini 可用於轉錄後的文字整理與台灣繁體中文調整。
+- 支援 OpenAI、Claude、Gemini 與其他可設定的雲端 AI Provider。
+- 保留 `Wa-Gong Refine`、Ollama 與 Local CLI 作為本機文字整理選項。
 
 ### 繁體中文
 
@@ -63,15 +64,17 @@
 
 ### 隱私
 
-- 本機模式不傳送語音或轉錄文字至外部服務。
+- 使用雲端轉錄模型時，錄音會送至使用者選定的語音轉錄服務。
+- 使用本機轉錄模型時，錄音不會送至雲端轉錄服務；若模式另行啟用雲端 AI 潤飾，轉錄文字仍會送至所選 AI Provider。
 - 外部 Request 必須讓使用者理解傳送目的地與資料類型。
-- 剪貼簿、選取文字、畫面 OCR 與自訂詞彙 Context 必須能獨立停用。
+- 剪貼簿內容不會傳送給 AI Provider；選取文字與畫面 OCR 只會在對應模式明確啟用時使用。
 - 日誌不記錄完整錄音、完整文字、剪貼簿內容或 API Key。
 
 ## 文件
 
 - [專案方向](docs/PROJECT_DIRECTION.md)
 - [實作計畫與 Preflight Checklist](docs/IMPLEMENTATION_PLAN.md)
+- [變更紀錄](CHANGELOG.md)
 - [建置說明](BUILDING.md)
 - [貢獻說明](CONTRIBUTING.md)
 
@@ -92,7 +95,7 @@ make check
 make local
 ```
 
-本機 Build 會輸出名為 `Wa-Gong.app` 的 App。正式 Wa-Gong Release 仍需另外完成 Apple Developer 能力、Sparkle 更新來源與簽署設定確認。
+本機 Build 會輸出名為 `Wa-Gong.app` 的 App。正式 Wa-Gong Release 需另外設定 Apple Developer 簽署、Apple 公證與 Sparkle 更新金鑰，詳情請參考 [建置說明](BUILDING.md)。
 
 ## Git Remote 建議
 
@@ -120,7 +123,7 @@ VoiceTwInk 與 VoiceInk 已有明顯架構差異，本專案不會整批 Cherry-
 - 對應明確的 Git Tag 與 Commit SHA。
 - 同步提供完全對應的原始碼與必要建置腳本。
 - 提供第三方套件、模型與字典資產的授權資訊。
-- 不包含 API Key、簽署憑證、Team ID 或開發者本機路徑。
+- 不包含 API Key、私密簽署金鑰、憑證匯出檔或開發者本機路徑。
 
 ## 授權
 

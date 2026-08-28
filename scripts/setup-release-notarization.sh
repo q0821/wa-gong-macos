@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PROFILE_NAME="${WAGONG_NOTARY_PROFILE:-Wa-Gong-Notarization}"
-TEAM_ID="V6J6A3VWY2"
+TEAM_ID="8N33V8XXTX"
 
 printf 'Apple Developer Apple ID: '
 read -r APPLE_ID || true

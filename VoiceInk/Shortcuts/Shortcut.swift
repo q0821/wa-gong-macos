@@ -1,8 +1,8 @@
 import AppKit
 import Carbon.HIToolbox
 
-struct Shortcut: Codable, Equatable {
-    enum Kind: String, Codable {
+struct Shortcut: Codable, Equatable, Sendable {
+    enum Kind: String, Codable, Sendable {
         case key
         case modifierOnly
     }

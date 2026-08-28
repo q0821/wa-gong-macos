@@ -54,6 +54,16 @@ struct ShortcutRecorder: View {
             .accessibilityLabel(accessibilityLabel)
             .help(accessibilityLabel)
 
+            if !recorder.isRecording, displayedShortcut != nil {
+                Button {
+                    clearShortcut()
+                } label: {
+                    Image(systemName: "minus.circle")
+                }
+                .buttonStyle(.plain)
+                .help("Clear shortcut")
+                .accessibilityLabel("Clear shortcut")
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: ShortcutStore.shortcutDidChange)) { notification in
             guard let changedAction = notification.object as? ShortcutAction, changedAction == action else { return }
@@ -86,10 +96,34 @@ struct ShortcutRecorder: View {
             return recorder.previewShortcut
         }
 
-        return shortcut ?? defaultShortcut
+        return ShortcutDisplayResolver.resolve(
+            storedShortcut: shortcut,
+            defaultShortcut: defaultShortcut,
+            isExplicitlyCleared: ShortcutStore.isShortcutCleared(for: action)
+        )
+    }
+
+    private func clearShortcut() {
+        recorder.cancel()
+        ShortcutStore.setShortcut(nil, for: action)
+        shortcut = nil
+        onShortcutChanged()
     }
 
     static let shortcutRecordingDidStart = Notification.Name("ShortcutRecorderRecordingDidStart")
+}
+
+enum ShortcutDisplayResolver {
+    static func resolve(
+        storedShortcut: Shortcut?,
+        defaultShortcut: Shortcut?,
+        isExplicitlyCleared: Bool
+    ) -> Shortcut? {
+        if let storedShortcut {
+            return storedShortcut
+        }
+        return isExplicitlyCleared ? nil : defaultShortcut
+    }
 }
 
 struct ShortcutVisualization: View {

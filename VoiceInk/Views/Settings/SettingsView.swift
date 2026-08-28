@@ -110,8 +110,8 @@ struct SettingsView: View {
                         .controlSize(.small)
 
                         Button {
-                            ShortcutStore.setShortcut(nil, for: .cancelRecorder)
-                            hasCancelRecordingShortcut = false
+                            ShortcutStore.setShortcut(Self.defaultCancelRecordingShortcut, for: .cancelRecorder)
+                            hasCancelRecordingShortcut = true
                             cancelRecordingShortcutRecorderResetID += 1
                         } label: {
                             Image(systemName: "arrow.counterclockwise")

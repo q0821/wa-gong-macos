@@ -26263,6 +26263,16 @@
         }
       }
     },
+    "Clear shortcut" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除快速鍵"
+          }
+        }
+      }
+    },
     "Delete %@ shortcut" : {
       "localizations" : {
         "zh-Hant" : {

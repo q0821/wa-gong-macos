@@ -33,6 +33,17 @@ enum ShortcutMigration {
     static func migrateLegacyShortcutsIfNeeded() {
         discardLegacyCustomRecordingShortcutsIfNeeded()
         migrateLegacyKeyboardShortcutsIfNeeded()
+        migrateShortcutBindingsIfNeeded()
+    }
+
+    private static func migrateShortcutBindingsIfNeeded() {
+        for action in ShortcutAction.legacyKeyboardShortcutActions {
+            _ = ShortcutStore.migrateBindingsIfNeeded(for: action)
+        }
+
+        for config in ModeManager.shared.configurations {
+            _ = ShortcutStore.migrateBindingsIfNeeded(for: .mode(config.id))
+        }
     }
 
     static func migrateLegacyKeyboardShortcutsIfNeeded() {

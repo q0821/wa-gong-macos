@@ -17,6 +17,14 @@ enum ShortcutAction: Hashable {
         "Shortcut_\(storageName)"
     }
 
+    var bindingsUserDefaultsKey: String {
+        "ShortcutBindings_v1_\(storageName)"
+    }
+
+    var bindingsMigrationUserDefaultsKey: String {
+        "ShortcutBindings_v1_Migrated_\(storageName)"
+    }
+
     var isStored: Bool {
         switch self {
         case .recorderPanelEscape, .recorderPanelMode:

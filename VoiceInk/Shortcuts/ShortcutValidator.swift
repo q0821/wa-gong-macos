@@ -23,6 +23,29 @@ enum ShortcutValidationError: Equatable {
 
 enum ShortcutValidator {
     static func validationError(for shortcut: Shortcut, action: ShortcutAction) -> ShortcutValidationError? {
+        validationError(
+            for: ShortcutBinding(shortcut: shortcut, scope: .allKeyboards),
+            action: action
+        )
+    }
+
+    static func validationError(
+        for candidate: ShortcutBinding,
+        action: ShortcutAction
+    ) -> ShortcutValidationError? {
+        validationError(
+            for: candidate,
+            action: action,
+            existingBindings: storedBindingEntries
+        )
+    }
+
+    static func validationError(
+        for candidate: ShortcutBinding,
+        action: ShortcutAction,
+        existingBindings: [(action: ShortcutAction, binding: ShortcutBinding)]
+    ) -> ShortcutValidationError? {
+        let shortcut = candidate.shortcut
         if let error = userRecordingShortcutError(for: shortcut) {
             return error
         }
@@ -35,7 +58,11 @@ enum ShortcutValidator {
             return .reservedBySystem
         }
 
-        if let existingAction = storedActionConflicting(with: shortcut, excluding: action) {
+        if let existingAction = storedActionConflicting(
+            with: candidate,
+            excluding: action,
+            existingBindings: existingBindings
+        ) {
             return .alreadyUsedBy(existingAction.displayName)
         }
 
@@ -65,16 +92,16 @@ enum ShortcutValidator {
         }
     }
 
-    private static func storedActionConflicting(with candidate: Shortcut, excluding actionToIgnore: ShortcutAction)
-        -> ShortcutAction?
-    {
-        for action in allStoredActions where action != actionToIgnore {
-            guard let existingShortcut = ShortcutStore.shortcut(for: action) else {
-                continue
-            }
-
-            if existingShortcut.conflicts(with: candidate) {
-                return action
+    private static func storedActionConflicting(
+        with candidate: ShortcutBinding,
+        excluding actionToIgnore: ShortcutAction,
+        existingBindings: [(action: ShortcutAction, binding: ShortcutBinding)]
+    ) -> ShortcutAction? {
+        for entry in existingBindings where entry.action != actionToIgnore {
+            if entry.binding.shortcut.conflicts(with: candidate.shortcut),
+                entry.binding.scope.overlaps(candidate.scope)
+            {
+                return entry.action
             }
         }
 
@@ -98,6 +125,14 @@ enum ShortcutValidator {
             + ModeManager.shared.configurations.map { ShortcutAction.mode($0.id) }
 
         return actions.filter { seenActions.insert($0).inserted }
+    }
+
+    private static var storedBindingEntries: [(action: ShortcutAction, binding: ShortcutBinding)] {
+        allStoredActions.flatMap { action in
+            ShortcutStore.bindings(for: action).map { binding in
+                (action: action, binding: binding)
+            }
+        }
     }
 
     private static var reservedRecorderPanelShortcuts: [(ShortcutAction, Shortcut)] {

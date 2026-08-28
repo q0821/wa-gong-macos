@@ -29,6 +29,7 @@ enum ShortcutStore {
     @discardableResult
     static func setBindings(_ bindings: [ShortcutBinding], for action: ShortcutAction) -> Bool {
         guard action.isStored,
+            bindings.allSatisfy({ ShortcutValidator.validationError(for: $0, action: action) == nil }),
             bindingStore.migrateLegacyShortcutIfNeeded(for: action),
             bindingStore.setBindings(bindings, for: action)
         else {
@@ -44,6 +45,7 @@ enum ShortcutStore {
     @discardableResult
     static func upsertBinding(_ binding: ShortcutBinding, for action: ShortcutAction) -> Bool {
         guard action.isStored,
+            ShortcutValidator.validationError(for: binding, action: action) == nil,
             bindingStore.upsertBinding(binding, for: action)
         else {
             return false

@@ -30,6 +30,5 @@
 
 ### 已知限制
 
-- `1.0.0` 正式 DMG 已完成 Developer ID 簽署、Sparkle 簽章與 Apple 公證，仍須建立 GitHub Release 後才會公開下載。
 - 使用 OpenAI、Gemini 或其他雲端 Provider 時，使用者必須自行提供有效的 API Key，相關費用由服務供應商計收。
 - 本機 Build 不包含 iCloud 詞典同步與自動更新。

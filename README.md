@@ -4,12 +4,12 @@
 
   [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-macOS-lightgrey.svg)](https://www.apple.com/macos/)
-  [![Status](https://img.shields.io/badge/status-1.0.0%20candidate-yellow.svg)](CHANGELOG.md)
+  [![Status](https://img.shields.io/badge/status-1.0.0%20released-brightgreen.svg)](https://github.com/q0821/wa-gong-macos/releases/tag/v1.0.0)
 </div>
 
 ## 專案狀態
 
-本專案目前正在準備首個公開版本 `1.0.0`。OpenAI 語音轉錄、Gemini 文字整理、全域快速鍵與文字貼上已形成可用的核心流程。Developer ID 簽署、Sparkle 更新來源與 Apple 公證均已完成，正式 DMG 尚待建立 GitHub Release 後公開。
+首個公開版本 `1.0.0` 已發布。OpenAI 語音轉錄、Gemini 文字整理、全域快速鍵與文字貼上已形成可用的核心流程。正式 DMG 已完成 Developer ID 簽署、Sparkle 更新簽章與 Apple 公證，可由 [GitHub Releases](https://github.com/q0821/wa-gong-macos/releases/latest) 下載。
 
 現階段程式碼以 [Beingpax/VoiceInk](https://github.com/Beingpax/VoiceInk) 最新版為基底，App 顯示名稱、Bundle Identifier、本機產物名稱、主要執行期識別字與繁體中文資源已完成 Wa-Gong 品牌遷移。Xcode target、Swift module、部分上游元件名稱與必要的相容性識別字仍予以保留，方便持續同步上游程式碼與搬遷既有設定。
 

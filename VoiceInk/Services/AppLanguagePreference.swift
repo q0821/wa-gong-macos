@@ -27,6 +27,16 @@ enum AppLanguagePreference {
         return normalizedRawValue(rawValue)
     }
 
+    static var locale: Locale {
+        locale(for: storedRawValue)
+    }
+
+    static func locale(for rawValue: String, systemLocale: Locale = .autoupdatingCurrent) -> Locale {
+        let normalizedValue = normalizedRawValue(rawValue)
+        guard normalizedValue != systemValue else { return systemLocale }
+        return Locale(identifier: normalizedValue)
+    }
+
     static func applyStored() {
         apply(rawValue: storedRawValue)
     }

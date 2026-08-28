@@ -65,6 +65,7 @@ enum CleanupSettingsKeys {
 
 enum RecorderDisplaySettingsKeys {
     static let showLiveTranscript = "ShowLiveTranscript"
+    static let miniRecorderPosition = "MiniRecorderPosition"
 }
 
 enum AppDefaults {
@@ -109,6 +110,7 @@ enum AppDefaults {
             "AppendTrailingSpace": true,
             "RecorderType": "mini",
             RecorderDisplaySettingsKeys.showLiveTranscript: true,
+            RecorderDisplaySettingsKeys.miniRecorderPosition: MiniRecorderPosition.top.rawValue,
 
             // Cleanup
             CleanupSettingsKeys.isTranscriptionCleanupEnabled: false,

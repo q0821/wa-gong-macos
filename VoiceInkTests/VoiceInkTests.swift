@@ -22,6 +22,59 @@ struct VoiceInkTests {
         #expect(AppDefaults.defaultTranscriptionLanguage == "auto")
     }
 
+    @Test func miniRecorderPositionDefaultsToTopAndPersistsBottomSelection() {
+        let suiteName = "WaGongMiniRecorderPosition-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        #expect(MiniRecorderPosition.stored(defaults: defaults) == .top)
+
+        defaults.set(MiniRecorderPosition.bottom.rawValue, forKey: RecorderDisplaySettingsKeys.miniRecorderPosition)
+
+        #expect(MiniRecorderPosition.stored(defaults: defaults) == .bottom)
+    }
+
+    @Test func miniRecorderCoordinatesRespectVisibleScreenEdges() {
+        let visibleFrame = NSRect(x: 0, y: 40, width: 1440, height: 860)
+        let windowHeight: CGFloat = 430
+        let padding: CGFloat = 24
+
+        #expect(
+            MiniRecorderPanel.yPosition(
+                in: visibleFrame,
+                windowHeight: windowHeight,
+                padding: padding,
+                position: .top
+            ) == 446
+        )
+        #expect(
+            MiniRecorderPanel.yPosition(
+                in: visibleFrame,
+                windowHeight: windowHeight,
+                padding: padding,
+                position: .bottom
+            ) == 64
+        )
+    }
+
+    @Test func explicitAppLanguageProvidesMatchingFloatingPanelLocale() {
+        let systemLocale = Locale(identifier: "en_US")
+        let traditionalChineseLocale = AppLanguagePreference.locale(
+            for: "zh-Hant",
+            systemLocale: systemLocale
+        )
+
+        #expect(traditionalChineseLocale.identifier == "zh-Hant")
+        #expect(String(localized: "Transcribing", locale: traditionalChineseLocale) == "正在轉錄")
+        #expect(String(localized: "Enhancing", locale: traditionalChineseLocale) == "正在潤飾")
+        #expect(
+            AppLanguagePreference.locale(
+                for: AppLanguagePreference.systemValue,
+                systemLocale: systemLocale
+            ).identifier == systemLocale.identifier
+        )
+    }
+
     @Test func legacyEnglishDefaultMigratesToAutomatic() {
         let suiteName = "WaGongLanguageMigration-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

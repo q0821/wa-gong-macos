@@ -4,6 +4,7 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     @ObservedObject var stateProvider: S
     @ObservedObject var recorder: Recorder
     @ObservedObject var assistantSession: AssistantSession
+    let position: MiniRecorderPosition
     let onRecordButtonTapped: () -> Void
     let onCloseTapped: () -> Void
     let onAssistantFollowUp: (String) -> Void
@@ -102,6 +103,10 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         )
         .animation(.easeInOut(duration: 0.3), value: hasLiveTranscript)
         .animation(.easeInOut(duration: 0.3), value: hasAssistantResponse)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: .infinity,
+            alignment: position == .top ? .top : .bottom
+        )
     }
 }

@@ -31,7 +31,7 @@ class MiniRecorderPanel: NSPanel {
         standardWindowButton(.closeButton)?.isHidden = true
     }
 
-    static func calculateWindowMetrics() -> NSRect {
+    static func calculateWindowMetrics(position: MiniRecorderPosition) -> NSRect {
         let width: CGFloat = 540
         let height: CGFloat = 430
 
@@ -45,7 +45,12 @@ class MiniRecorderPanel: NSPanel {
         let visibleFrame = screen.visibleFrame
         let centerX = visibleFrame.midX
         let xPosition = centerX - (width / 2)
-        let yPosition = visibleFrame.minY + padding
+        let yPosition = yPosition(
+            in: visibleFrame,
+            windowHeight: height,
+            padding: padding,
+            position: position
+        )
 
         return NSRect(
             x: xPosition,
@@ -55,8 +60,22 @@ class MiniRecorderPanel: NSPanel {
         )
     }
 
-    func show() {
-        let metrics = MiniRecorderPanel.calculateWindowMetrics()
+    static func yPosition(
+        in visibleFrame: NSRect,
+        windowHeight: CGFloat,
+        padding: CGFloat,
+        position: MiniRecorderPosition
+    ) -> CGFloat {
+        switch position {
+        case .top:
+            return visibleFrame.maxY - windowHeight - padding
+        case .bottom:
+            return visibleFrame.minY + padding
+        }
+    }
+
+    func show(position: MiniRecorderPosition) {
+        let metrics = MiniRecorderPanel.calculateWindowMetrics(position: position)
         setFrame(metrics, display: true)
         orderFrontRegardless()
     }

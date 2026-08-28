@@ -4951,6 +4951,50 @@
         }
       }
     },
+    "Bottom" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unten"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下方"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下方"
+          }
+        }
+      }
+    },
+    "Top" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oben"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上方"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上方"
+          }
+        }
+      }
+    },
     "Back" : {
       "localizations" : {
         "de" : {
@@ -13202,13 +13246,13 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "迷你"
+            "value" : "迷你浮窗"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "迷你"
+            "value" : "迷你浮窗"
           }
         }
       }
@@ -15536,13 +15580,13 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "刘海"
+            "value" : "上方刘海"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "劉海"
+            "value" : "上方瀏海"
           }
         }
       }
@@ -17486,6 +17530,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取消錄音"
+          }
+        }
+      }
+    },
+    "Recorder Position" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Position des Aufnahmefensters"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浮窗位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浮窗位置"
           }
         }
       }

@@ -26,6 +26,7 @@ class NotchWindowManager {
                     onCloseTapped: onCloseTapped,
                     onAssistantFollowUp: onAssistantFollowUp
                 )
+                .environment(\.locale, AppLanguagePreference.locale)
             )
         }
     }

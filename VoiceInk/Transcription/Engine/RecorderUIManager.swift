@@ -23,6 +23,27 @@ enum RecorderPanelStyle: String, CaseIterable, Identifiable {
     }
 }
 
+enum MiniRecorderPosition: String, CaseIterable, Identifiable {
+    case top
+    case bottom
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .top:
+            return String(localized: "Top")
+        case .bottom:
+            return String(localized: "Bottom")
+        }
+    }
+
+    static func stored(defaults: UserDefaults = .standard) -> MiniRecorderPosition {
+        let rawValue = defaults.string(forKey: RecorderDisplaySettingsKeys.miniRecorderPosition)
+        return rawValue.flatMap(MiniRecorderPosition.init(rawValue:)) ?? .top
+    }
+}
+
 @MainActor
 protocol RecorderPanelPresenting: AnyObject {
     var isRecorderPanelVisible: Bool { get }
@@ -36,6 +57,17 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
             guard oldValue != recorderPanelStyle else { return }
             rebuildVisiblePanel(previousStyle: oldValue)
             UserDefaults.standard.set(recorderPanelStyle.rawValue, forKey: "RecorderType")
+        }
+    }
+
+    @Published var miniRecorderPosition: MiniRecorderPosition = .stored() {
+        didSet {
+            guard oldValue != miniRecorderPosition else { return }
+            UserDefaults.standard.set(
+                miniRecorderPosition.rawValue,
+                forKey: RecorderDisplaySettingsKeys.miniRecorderPosition
+            )
+            rebuildVisibleMiniPanel()
         }
     }
 
@@ -109,6 +141,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
                     engine: engine,
                     recorder: recorder,
                     assistantSession: engine.assistantSession,
+                    position: miniRecorderPosition,
                     onRecordButtonTapped: { [weak self] in
                         Task { @MainActor in
                             await self?.toggleRecorderPanel()
@@ -150,6 +183,18 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
             miniWindowManager?.destroyWindow()
             miniWindowManager = nil
         }
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            showRecorderPanel()
+        }
+    }
+
+    private func rebuildVisibleMiniPanel() {
+        guard isRecorderPanelVisible, recorderPanelStyle == .mini else { return }
+
+        miniWindowManager?.destroyWindow()
+        miniWindowManager = nil
 
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 50_000_000)

@@ -225,6 +225,15 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.menu)
 
+                if recorderUIManager.recorderPanelStyle == .mini {
+                    Picker("Recorder Position", selection: $recorderUIManager.miniRecorderPosition) {
+                        ForEach(MiniRecorderPosition.allCases) { position in
+                            Text(position.displayName).tag(position)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
                 Toggle(isOn: $showLiveTranscript) {
                     HStack(spacing: 4) {
                         Text("Live Text Display")

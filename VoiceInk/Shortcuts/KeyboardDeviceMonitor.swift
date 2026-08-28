@@ -26,6 +26,7 @@ final class KeyboardDeviceMonitor: ObservableObject, @unchecked Sendable {
     @Published private(set) var connectedDevices: [KeyboardDeviceSnapshot] = []
 
     var onInputEvent: (@Sendable (KeyboardInputEvent) -> Void)?
+    var onDeviceRemoved: (@Sendable (UUID) -> Void)?
 
     private final class CallbackContext {
         weak var monitor: KeyboardDeviceMonitor?
@@ -178,9 +179,13 @@ final class KeyboardDeviceMonitor: ObservableObject, @unchecked Sendable {
         let pointer = devicePointer(device)
         guard let instance = devicesByPointer.removeValue(forKey: pointer) else { return }
 
-        for event in deviceState.removeDevice(instance, timestamp: DispatchTime.now().uptimeNanoseconds) {
-            onInputEvent?(event)
-        }
+        let observedAt = DispatchTime.now().uptimeNanoseconds
+        _ = deviceState.removeDevice(
+            instance,
+            timestamp: observedAt,
+            observedAtNanoseconds: observedAt
+        )
+        onDeviceRemoved?(instance.id)
         publishCurrentDevices()
     }
 
@@ -199,11 +204,13 @@ final class KeyboardDeviceMonitor: ObservableObject, @unchecked Sendable {
             publishCurrentDevices()
         }
 
+        let observedAt = DispatchTime.now().uptimeNanoseconds
         guard let event = deviceState.handle(
             device: instance,
             usage: IOHIDElementGetUsage(element),
             value: IOHIDValueGetIntegerValue(value),
-            timestamp: IOHIDValueGetTimeStamp(value)
+            timestamp: IOHIDValueGetTimeStamp(value),
+            observedAtNanoseconds: observedAt
         ) else { return }
 
         onInputEvent?(event)

@@ -7,15 +7,19 @@ final class RecorderPanelShortcutManager: ObservableObject {
     private var recorderUIManager: RecorderUIManager
     private var visibilityTask: Task<Void, Never>?
     private var shortcutChangeObserver: NSObjectProtocol?
-    private let visibleRecorderMonitor = ShortcutMonitor()
+    private let visibleRecorderMonitor: ShortcutMonitor
 
     // Double-tap Escape handling
     private var firstEscapePressTime: Date? = nil
     private let escapeDoublePressThreshold: TimeInterval = 1.5
     private var escapeTimeoutTask: Task<Void, Never>?
 
-    init(recorderUIManager: RecorderUIManager) {
+    init(
+        recorderUIManager: RecorderUIManager,
+        attributionBroker: KeyboardEventAttributionBroker
+    ) {
         self.recorderUIManager = recorderUIManager
+        self.visibleRecorderMonitor = ShortcutMonitor(attributionBroker: attributionBroker)
         setupShortcutChangeObserver()
         setupVisibilityObserver()
     }
@@ -69,23 +73,36 @@ final class RecorderPanelShortcutManager: ObservableObject {
             return
         }
 
-        var shortcuts = ShortcutStore.shortcuts(for: ShortcutAction.recorderPanelStoredActions)
+        var bindings = ShortcutAction.recorderPanelStoredActions.reduce(into: [ShortcutAction: [ShortcutBinding]]()) {
+            result, action in
+            let actionBindings = ShortcutStore.bindings(for: action)
+            if !actionBindings.isEmpty {
+                result[action] = actionBindings
+            }
+        }
 
-        if ShortcutStore.shortcut(for: .cancelRecorder) == nil {
-            shortcuts[.recorderPanelEscape] = .key(keyCode: UInt16(kVK_Escape), modifierFlags: [])
+        if !ShortcutStore.hasBindings(for: .cancelRecorder) {
+            bindings[.recorderPanelEscape] = [
+                ShortcutBinding(
+                    shortcut: .key(keyCode: UInt16(kVK_Escape), modifierFlags: []),
+                    scope: .allKeyboards
+                )
+            ]
         }
 
         if canUseModeShortcuts {
             for (index, keyCode) in Self.digitKeyCodes.enumerated() {
-                shortcuts[.recorderPanelMode(index)] = .key(
-                    keyCode: keyCode,
-                    modifierFlags: [.option]
-                )
+                bindings[.recorderPanelMode(index)] = [
+                    ShortcutBinding(
+                        shortcut: .key(keyCode: keyCode, modifierFlags: [.option]),
+                        scope: .allKeyboards
+                    )
+                ]
             }
         }
 
         visibleRecorderMonitor.start(
-            shortcuts: shortcuts,
+            bindings: bindings,
             onKeyDown: { [weak self] action, _ in
                 Task { @MainActor in
                     await self?.handleRecorderPanelShortcut(action)
@@ -100,7 +117,7 @@ final class RecorderPanelShortcutManager: ObservableObject {
 
         switch action {
         case .cancelRecorder:
-            guard ShortcutStore.shortcut(for: .cancelRecorder) != nil else { return }
+            guard ShortcutStore.hasBindings(for: .cancelRecorder) else { return }
             await recorderUIManager.cancelRecording()
         case .recorderPanelEscape:
             await handleEscapeShortcut()
@@ -112,7 +129,7 @@ final class RecorderPanelShortcutManager: ObservableObject {
     }
 
     private func handleEscapeShortcut() async {
-        guard ShortcutStore.shortcut(for: .cancelRecorder) == nil else { return }
+        guard !ShortcutStore.hasBindings(for: .cancelRecorder) else { return }
 
         let now = Date()
         if let firstTime = firstEscapePressTime,
@@ -147,6 +164,10 @@ final class RecorderPanelShortcutManager: ObservableObject {
 
         let selectedConfig = availableConfigurations[index]
         modeManager.setActiveConfiguration(selectedConfig)
+    }
+
+    func releaseActiveShortcuts(from sourceID: UUID) {
+        visibleRecorderMonitor.releaseActiveShortcuts(from: sourceID)
     }
 
     deinit {

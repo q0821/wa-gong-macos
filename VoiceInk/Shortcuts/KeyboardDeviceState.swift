@@ -23,6 +23,7 @@ struct KeyboardInputEvent: Equatable, Sendable {
     let suggestedCarbonKeyCode: UInt16?
     let transition: Transition
     let timestamp: UInt64
+    let observedAtNanoseconds: UInt64
     let pressedUsages: Set<UInt32>
     let modifierUsages: Set<UInt32>
 }
@@ -49,7 +50,8 @@ struct KeyboardDeviceState {
         device: KeyboardDeviceInstance,
         usage: UInt32,
         value: Int,
-        timestamp: UInt64
+        timestamp: UInt64,
+        observedAtNanoseconds: UInt64? = nil
     ) -> KeyboardInputEvent? {
         guard isActive, let descriptor = HIDKeyboardUsageMapper.descriptor(for: usage) else {
             return nil
@@ -83,13 +85,15 @@ struct KeyboardDeviceState {
             descriptor: descriptor,
             transition: transition,
             timestamp: timestamp,
+            observedAtNanoseconds: observedAtNanoseconds ?? DispatchTime.now().uptimeNanoseconds,
             activeUsages: state.usages
         )
     }
 
     mutating func removeDevice(
         _ device: KeyboardDeviceInstance,
-        timestamp: UInt64
+        timestamp: UInt64,
+        observedAtNanoseconds: UInt64? = nil
     ) -> [KeyboardInputEvent] {
         guard isActive,
             let state = pressedBySourceID.removeValue(forKey: device.id)
@@ -108,6 +112,7 @@ struct KeyboardDeviceState {
                 descriptor: descriptor,
                 transition: .keyUp,
                 timestamp: timestamp,
+                observedAtNanoseconds: observedAtNanoseconds ?? DispatchTime.now().uptimeNanoseconds,
                 activeUsages: remainingUsages
             )
         }
@@ -118,6 +123,7 @@ struct KeyboardDeviceState {
         descriptor: HIDKeyboardUsageDescriptor,
         transition: KeyboardInputEvent.Transition,
         timestamp: UInt64,
+        observedAtNanoseconds: UInt64,
         activeUsages: Set<UInt32>
     ) -> KeyboardInputEvent {
         let modifiers = activeUsages.filter { usage in
@@ -131,6 +137,7 @@ struct KeyboardDeviceState {
             suggestedCarbonKeyCode: descriptor.suggestedCarbonKeyCode,
             transition: transition,
             timestamp: timestamp,
+            observedAtNanoseconds: observedAtNanoseconds,
             pressedUsages: keys,
             modifierUsages: Set(modifiers)
         )

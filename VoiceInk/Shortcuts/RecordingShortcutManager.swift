@@ -45,7 +45,8 @@ class RecordingShortcutManager: ObservableObject {
     private var recorderUIManager: RecorderUIManager
     private var recorderPanelShortcutManager: RecorderPanelShortcutManager
     private let modeShortcutManager: ModeShortcutManager
-    private let shortcutMonitor = ShortcutMonitor()
+    private let shortcutMonitor: ShortcutMonitor
+    private let keyboardDeviceMonitor: KeyboardDeviceMonitor
     private var shortcutChangeObserver: NSObjectProtocol?
     private var applicationActivationObserver: NSObjectProtocol?
     private let shortcutModeHandler: RecordingShortcutModeHandler
@@ -90,7 +91,12 @@ class RecordingShortcutManager: ObservableObject {
         recordingState != .transcribing && recordingState != .enhancing && recordingState != .busy
     }
 
-    init(engine: WaGongEngine, recorderUIManager: RecorderUIManager) {
+    init(
+        engine: WaGongEngine,
+        recorderUIManager: RecorderUIManager,
+        keyboardDeviceMonitor: KeyboardDeviceMonitor,
+        attributionBroker: KeyboardEventAttributionBroker
+    ) {
         ShortcutMigration.migrateLegacyShortcutsIfNeeded()
 
         self.primaryRecordingShortcut = ShortcutMigration.migrateShortcutSelection(
@@ -137,15 +143,31 @@ class RecordingShortcutManager: ObservableObject {
 
         self.engine = engine
         self.recorderUIManager = recorderUIManager
-        self.recorderPanelShortcutManager = RecorderPanelShortcutManager(recorderUIManager: recorderUIManager)
+        self.keyboardDeviceMonitor = keyboardDeviceMonitor
+        self.shortcutMonitor = ShortcutMonitor(attributionBroker: attributionBroker)
+        self.recorderPanelShortcutManager = RecorderPanelShortcutManager(
+            recorderUIManager: recorderUIManager,
+            attributionBroker: attributionBroker
+        )
         self.shortcutModeHandler = shortcutModeHandler
         self.primaryRecordingShortcutModeSource = primaryRecordingShortcutModeSource
         self.modeShortcutManager = ModeShortcutManager(
             modeProvider: {
                 primaryRecordingShortcutModeSource.primaryMode
             },
-            shortcutModeHandler: shortcutModeHandler
+            shortcutModeHandler: shortcutModeHandler,
+            attributionBroker: attributionBroker
         )
+
+        keyboardDeviceMonitor.onDeviceRemoved = { [weak self] sourceID in
+            attributionBroker.removeSource(sourceID)
+            Task { @MainActor in
+                guard let self else { return }
+                self.shortcutMonitor.releaseActiveShortcuts(from: sourceID)
+                self.modeShortcutManager.releaseActiveShortcuts(from: sourceID)
+                self.recorderPanelShortcutManager.releaseActiveShortcuts(from: sourceID)
+            }
+        }
 
         applicationActivationObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification,
@@ -177,9 +199,11 @@ class RecordingShortcutManager: ObservableObject {
         removeAllMonitoring()
 
         guard AXIsProcessTrusted() else {
+            keyboardDeviceMonitor.stop()
             return
         }
 
+        refreshKeyboardDeviceMonitoring()
         refreshShortcutMonitor()
         setupMiddleClickMonitoring()
     }
@@ -219,24 +243,31 @@ class RecordingShortcutManager: ObservableObject {
     }
 
     private func refreshShortcutMonitor() {
-        let primaryShortcut = primaryRecordingShortcut == .custom ? ShortcutStore.shortcut(for: .primaryRecording) : nil
-        let secondaryShortcut =
-            secondaryRecordingShortcut == .custom ? ShortcutStore.shortcut(for: .secondaryRecording) : nil
-        var shortcuts = ShortcutStore.shortcuts(for: ShortcutAction.globalUtilityActions)
+        let primaryBindings =
+            primaryRecordingShortcut == .custom ? ShortcutStore.bindings(for: .primaryRecording) : []
+        let secondaryBindings =
+            secondaryRecordingShortcut == .custom ? ShortcutStore.bindings(for: .secondaryRecording) : []
+        var bindings = ShortcutAction.globalUtilityActions.reduce(into: [ShortcutAction: [ShortcutBinding]]()) {
+            result, action in
+            let actionBindings = ShortcutStore.bindings(for: action)
+            if !actionBindings.isEmpty {
+                result[action] = actionBindings
+            }
+        }
         var interruptibleRecordingActions = Set<ShortcutAction>()
 
-        if let primaryShortcut {
-            shortcuts[.primaryRecording] = primaryShortcut
+        if !primaryBindings.isEmpty {
+            bindings[.primaryRecording] = primaryBindings
             interruptibleRecordingActions.insert(.primaryRecording)
         }
 
-        if let secondaryShortcut {
-            shortcuts[.secondaryRecording] = secondaryShortcut
+        if !secondaryBindings.isEmpty {
+            bindings[.secondaryRecording] = secondaryBindings
             interruptibleRecordingActions.insert(.secondaryRecording)
         }
 
         shortcutMonitor.start(
-            shortcuts: shortcuts,
+            bindings: bindings,
             interruptibleActions: interruptibleRecordingActions,
             onKeyDown: { [weak self] action, eventTime in
                 Task { @MainActor in
@@ -270,6 +301,23 @@ class RecordingShortcutManager: ObservableObject {
                 }
             }
         )
+    }
+
+    private func refreshKeyboardDeviceMonitoring() {
+        let actions = ShortcutAction.legacyKeyboardShortcutActions
+            + ModeManager.shared.configurations.map { ShortcutAction.mode($0.id) }
+        let hasDeviceBinding = actions.contains { action in
+            ShortcutStore.bindings(for: action).contains { binding in
+                if case .device = binding.scope { return true }
+                return false
+            }
+        }
+
+        if hasDeviceBinding, KeyboardInputPermission.currentStatus == .granted {
+            keyboardDeviceMonitor.start()
+        } else {
+            keyboardDeviceMonitor.stop()
+        }
     }
 
     private func recordingMode(for action: ShortcutAction) -> Mode? {
@@ -324,9 +372,9 @@ class RecordingShortcutManager: ObservableObject {
 
     var isShortcutConfigured: Bool {
         let isPrimaryShortcutConfigured =
-            primaryRecordingShortcut != .none && ShortcutStore.shortcut(for: .primaryRecording) != nil
+            primaryRecordingShortcut != .none && ShortcutStore.hasBindings(for: .primaryRecording)
         let isSecondaryShortcutConfigured =
-            secondaryRecordingShortcut == .none || ShortcutStore.shortcut(for: .secondaryRecording) != nil
+            secondaryRecordingShortcut == .none || ShortcutStore.hasBindings(for: .secondaryRecording)
         return isPrimaryShortcutConfigured && isSecondaryShortcutConfigured
     }
 

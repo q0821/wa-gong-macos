@@ -4,14 +4,16 @@ import Foundation
 import os
 
 final class ShortcutMonitor {
-    fileprivate enum EventKind {
+    enum EventKind {
         case keyDown
         case keyUp
         case flagsChanged
     }
 
     private struct ShortcutState {
-        var shortcut: Shortcut
+        var bindings: [ShortcutBinding]
+        var activeBinding: ShortcutBinding? = nil
+        var activeSourceID: UUID? = nil
         var isDown = false
         var pressedAt: TimeInterval?
         var isInterrupted = false
@@ -24,9 +26,14 @@ final class ShortcutMonitor {
     private var onShortcutInterrupted: ((ShortcutAction, TimeInterval) -> Void)?
     private var eventTap: CFMachPort?
     private var eventTapRunLoopSource: CFRunLoopSource?
+    private let attributionBroker: KeyboardEventAttributionBroker?
     private let logger = Logger(subsystem: "com.jackie-yeh.wagong", category: "ShortcutMonitor")
 
     private static let shortcutInterruptionWindow: TimeInterval = 1.0
+
+    init(attributionBroker: KeyboardEventAttributionBroker? = nil) {
+        self.attributionBroker = attributionBroker
+    }
 
     deinit {
         stop()
@@ -40,14 +47,49 @@ final class ShortcutMonitor {
         onKeyUp: @escaping (ShortcutAction, TimeInterval) -> Void,
         onShortcutInterrupted: ((ShortcutAction, TimeInterval) -> Void)? = nil
     ) -> Bool {
-        stop()
+        start(
+            bindings: shortcuts.mapValues { [ShortcutBinding(shortcut: $0, scope: .allKeyboards)] },
+            interruptibleActions: interruptibleActions,
+            onKeyDown: onKeyDown,
+            onKeyUp: onKeyUp,
+            onShortcutInterrupted: onShortcutInterrupted
+        )
+    }
 
-        for (action, shortcut) in shortcuts {
-            self.shortcuts[action] = ShortcutState(shortcut: shortcut)
+    @discardableResult
+    func start(
+        bindings: [ShortcutAction: [ShortcutBinding]],
+        interruptibleActions: Set<ShortcutAction> = [],
+        onKeyDown: @escaping (ShortcutAction, TimeInterval) -> Void,
+        onKeyUp: @escaping (ShortcutAction, TimeInterval) -> Void,
+        onShortcutInterrupted: ((ShortcutAction, TimeInterval) -> Void)? = nil
+    ) -> Bool {
+        configureForTesting(
+            bindings: bindings,
+            interruptibleActions: interruptibleActions,
+            onKeyDown: onKeyDown,
+            onKeyUp: onKeyUp,
+            onShortcutInterrupted: onShortcutInterrupted
+        )
+
+        guard !shortcuts.isEmpty else {
+            return true
         }
 
-        guard !self.shortcuts.isEmpty else {
-            return true
+        return installEventTap()
+    }
+
+    func configureForTesting(
+        bindings: [ShortcutAction: [ShortcutBinding]],
+        interruptibleActions: Set<ShortcutAction> = [],
+        onKeyDown: @escaping (ShortcutAction, TimeInterval) -> Void,
+        onKeyUp: @escaping (ShortcutAction, TimeInterval) -> Void,
+        onShortcutInterrupted: ((ShortcutAction, TimeInterval) -> Void)? = nil
+    ) {
+        stop()
+
+        for (action, actionBindings) in bindings where !actionBindings.isEmpty {
+            shortcuts[action] = ShortcutState(bindings: actionBindings)
         }
 
         self.interruptibleActions = interruptibleActions
@@ -55,7 +97,6 @@ final class ShortcutMonitor {
         self.onKeyUp = onKeyUp
         self.onShortcutInterrupted = onShortcutInterrupted
 
-        return installEventTap()
     }
 
     func stop() {
@@ -74,6 +115,26 @@ final class ShortcutMonitor {
         onKeyDown = nil
         onKeyUp = nil
         onShortcutInterrupted = nil
+    }
+
+    func releaseActiveShortcuts(from sourceID: UUID) {
+        let eventTime = ProcessInfo.processInfo.systemUptime
+        for action in Array(shortcuts.keys) {
+            guard var state = shortcuts[action], state.isDown, state.activeSourceID == sourceID else {
+                continue
+            }
+
+            state.isDown = false
+            state.pressedAt = nil
+            state.isInterrupted = false
+            state.activeBinding = nil
+            state.activeSourceID = nil
+            shortcuts[action] = state
+
+            if interruptibleActions.contains(action) {
+                dispatchKeyUp(for: action, eventTime: eventTime)
+            }
+        }
     }
 
     private func installEventTap() -> Bool {
@@ -130,11 +191,18 @@ final class ShortcutMonitor {
 
         let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
         let modifierFlags = NSEvent.ModifierFlags(rawValue: UInt(event.flags.rawValue))
+        let token = ShortcutEventToken(
+            eventTimestamp: event.timestamp,
+            keyCode: keyCode,
+            transition: eventKind.tokenTransition
+        )
+        let attribution = attributionBroker?.attribution(for: token)
         return handleEvent(
             kind: eventKind,
             keyCode: keyCode,
             modifierFlags: modifierFlags,
-            eventTime: ProcessInfo.processInfo.systemUptime
+            eventTime: ProcessInfo.processInfo.systemUptime,
+            attribution: attribution
         )
     }
 
@@ -153,17 +221,20 @@ final class ShortcutMonitor {
                 state.isDown = false
                 state.pressedAt = nil
                 state.isInterrupted = false
+                state.activeBinding = nil
+                state.activeSourceID = nil
                 shortcuts[action] = state
             }
             dispatchKeyUp(for: action, eventTime: eventTime)
         }
     }
 
-    private func handleEvent(
+    func handleEvent(
         kind: EventKind,
         keyCode: UInt16,
         modifierFlags: NSEvent.ModifierFlags,
-        eventTime: TimeInterval
+        eventTime: TimeInterval,
+        attribution: KeyboardEventAttribution?
     ) -> Bool {
         var shouldSuppress = false
 
@@ -176,20 +247,31 @@ final class ShortcutMonitor {
                 continue
             }
 
-            if state.shortcut.isModifierOnly {
+            let shouldHandleAsModifierOnly = state.activeBinding?.shortcut.isModifierOnly == true
+                || (!state.isDown
+                    && kind == .flagsChanged
+                    && state.bindings.contains(where: { $0.shortcut.isModifierOnly }))
+            if shouldHandleAsModifierOnly {
                 handleModifierOnlyShortcut(
                     action: action,
                     state: state,
                     kind: kind,
                     keyCode: keyCode,
                     modifierFlags: modifierFlags,
-                    eventTime: eventTime
+                    eventTime: eventTime,
+                    attribution: attribution
                 )
                 continue
             }
 
+            let binding = state.activeBinding ?? resolvedBinding(
+                from: state.bindings,
+                attribution: attribution,
+                matching: { $0.matchesKeyEvent(keyCode: keyCode, modifierFlags: modifierFlags) }
+            )
+            guard let binding else { continue }
             let transition = transitionForKeyShortcut(
-                state.shortcut,
+                binding.shortcut,
                 isDown: state.isDown,
                 kind: kind,
                 keyCode: keyCode,
@@ -203,13 +285,18 @@ final class ShortcutMonitor {
                 shouldSuppress = true
             case .keyDown:
                 state.isDown = true
+                state.activeBinding = binding
+                state.activeSourceID = attribution?.sourceID
                 state.pressedAt = eventTime
                 state.isInterrupted = false
                 shortcuts[action] = state
                 shouldSuppress = true
                 dispatchKeyDown(for: action, eventTime: eventTime)
             case .keyUp:
+                guard sourceMatchesActiveState(state, attribution: attribution) else { break }
                 state.isDown = false
+                state.activeBinding = nil
+                state.activeSourceID = nil
                 state.pressedAt = nil
                 state.isInterrupted = false
                 shortcuts[action] = state
@@ -263,7 +350,8 @@ final class ShortcutMonitor {
         kind: EventKind,
         keyCode: UInt16,
         modifierFlags: NSEvent.ModifierFlags,
-        eventTime: TimeInterval
+        eventTime: TimeInterval,
+        attribution: KeyboardEventAttribution?
     ) {
         var state = state
 
@@ -272,8 +360,13 @@ final class ShortcutMonitor {
         }
 
         if state.isDown {
-            if state.shortcut.shouldReleaseModifierEvent(keyCode: keyCode, modifierFlags: modifierFlags) {
+            guard let activeBinding = state.activeBinding,
+                sourceMatchesActiveState(state, attribution: attribution)
+            else { return }
+            if activeBinding.shortcut.shouldReleaseModifierEvent(keyCode: keyCode, modifierFlags: modifierFlags) {
                 state.isDown = false
+                state.activeBinding = nil
+                state.activeSourceID = nil
                 state.pressedAt = nil
                 state.isInterrupted = false
                 shortcuts[action] = state
@@ -283,8 +376,16 @@ final class ShortcutMonitor {
             return
         }
 
-        if state.shortcut.matchesModifierEvent(keyCode: keyCode, modifierFlags: modifierFlags) {
+        guard let binding = resolvedBinding(
+            from: state.bindings,
+            attribution: attribution,
+            matching: { $0.matchesModifierEvent(keyCode: keyCode, modifierFlags: modifierFlags) }
+        ) else { return }
+
+        if binding.shortcut.matchesModifierEvent(keyCode: keyCode, modifierFlags: modifierFlags) {
             state.isDown = true
+            state.activeBinding = binding
+            state.activeSourceID = attribution?.sourceID
             state.pressedAt = eventTime
             state.isInterrupted = false
             shortcuts[action] = state
@@ -303,7 +404,7 @@ final class ShortcutMonitor {
                 !state.isInterrupted,
                 let pressedAt = state.pressedAt,
                 eventTime - pressedAt <= Self.shortcutInterruptionWindow,
-                state.shortcut.isInterruptedByAdditionalKeyDown(keyCode: keyCode)
+                state.activeBinding?.shortcut.isInterruptedByAdditionalKeyDown(keyCode: keyCode) == true
             else {
                 continue
             }
@@ -312,6 +413,37 @@ final class ShortcutMonitor {
             shortcuts[action] = state
             dispatchShortcutInterrupted(for: action, eventTime: eventTime)
         }
+    }
+
+    private func resolvedBinding(
+        from bindings: [ShortcutBinding],
+        attribution: KeyboardEventAttribution?,
+        matching predicate: (Shortcut) -> Bool
+    ) -> ShortcutBinding? {
+        let candidates = bindings.filter { predicate($0.shortcut) }
+        if let attribution,
+            let deviceBinding = candidates.first(where: { binding in
+                guard case .device(let storedDevice) = binding.scope else { return false }
+                return storedDevice.matches(attribution.device)
+            })
+        {
+            return deviceBinding
+        }
+        return candidates.first { $0.scope == .allKeyboards }
+    }
+
+    private func sourceMatchesActiveState(
+        _ state: ShortcutState,
+        attribution: KeyboardEventAttribution?
+    ) -> Bool {
+        guard let activeBinding = state.activeBinding else { return false }
+        if case .device = activeBinding.scope {
+            return state.activeSourceID != nil && state.activeSourceID == attribution?.sourceID
+        }
+        if let activeSourceID = state.activeSourceID, let attribution {
+            return activeSourceID == attribution.sourceID
+        }
+        return true
     }
 
     private func dispatchKeyDown(for action: ShortcutAction, eventTime: TimeInterval) {
@@ -342,6 +474,14 @@ final class ShortcutMonitor {
 }
 
 private extension ShortcutMonitor.EventKind {
+    var tokenTransition: ShortcutEventToken.Transition {
+        switch self {
+        case .keyDown: return .keyDown
+        case .keyUp: return .keyUp
+        case .flagsChanged: return .flagsChanged
+        }
+    }
+
     init?(_ type: CGEventType) {
         switch type {
         case .keyDown:

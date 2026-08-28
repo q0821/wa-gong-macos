@@ -145,9 +145,19 @@ struct WaGongApp: App {
         _engine = StateObject(wrappedValue: engine)
 
         // 7. Create other services that depend on engine
-        let recordingShortcutManager = RecordingShortcutManager(engine: engine, recorderUIManager: recorderUIManager)
+        let keyboardDeviceMonitor = KeyboardDeviceMonitor()
+        let attributionBroker = KeyboardEventAttributionBroker()
+        keyboardDeviceMonitor.onInputEvent = { event in
+            attributionBroker.observe(event)
+        }
+        let recordingShortcutManager = RecordingShortcutManager(
+            engine: engine,
+            recorderUIManager: recorderUIManager,
+            keyboardDeviceMonitor: keyboardDeviceMonitor,
+            attributionBroker: attributionBroker
+        )
         _recordingShortcutManager = StateObject(wrappedValue: recordingShortcutManager)
-        _keyboardDeviceMonitor = StateObject(wrappedValue: KeyboardDeviceMonitor())
+        _keyboardDeviceMonitor = StateObject(wrappedValue: keyboardDeviceMonitor)
 
         let menuBarManager = MenuBarManager()
         _menuBarManager = StateObject(wrappedValue: menuBarManager)

@@ -2,17 +2,19 @@ import Foundation
 
 @MainActor
 class ModeShortcutManager {
-    private let shortcutMonitor = ShortcutMonitor()
+    private let shortcutMonitor: ShortcutMonitor
     private let modeProvider: @MainActor () -> RecordingShortcutManager.Mode
     private let shortcutModeHandler: RecordingShortcutModeHandler
     private var shortcutChangeObserver: NSObjectProtocol?
 
     init(
         modeProvider: @escaping @MainActor () -> RecordingShortcutManager.Mode,
-        shortcutModeHandler: RecordingShortcutModeHandler
+        shortcutModeHandler: RecordingShortcutModeHandler,
+        attributionBroker: KeyboardEventAttributionBroker
     ) {
         self.modeProvider = modeProvider
         self.shortcutModeHandler = shortcutModeHandler
+        self.shortcutMonitor = ShortcutMonitor(attributionBroker: attributionBroker)
 
         refreshModeShortcuts()
 
@@ -58,17 +60,18 @@ class ModeShortcutManager {
     }
 
     private func refreshModeShortcuts() {
-        let shortcuts = ModeManager.shared.enabledConfigurations.reduce(into: [ShortcutAction: Shortcut]()) {
+        let bindings = ModeManager.shared.enabledConfigurations.reduce(into: [ShortcutAction: [ShortcutBinding]]()) {
             result, config in
             let action = ShortcutAction.mode(config.id)
-            if let shortcut = ShortcutStore.shortcut(for: action) {
-                result[action] = shortcut
+            let actionBindings = ShortcutStore.bindings(for: action)
+            if !actionBindings.isEmpty {
+                result[action] = actionBindings
             }
         }
 
         shortcutMonitor.start(
-            shortcuts: shortcuts,
-            interruptibleActions: Set(shortcuts.keys),
+            bindings: bindings,
+            interruptibleActions: Set(bindings.keys),
             onKeyDown: { [weak self] action, eventTime in
                 Task { @MainActor in
                     guard let self,
@@ -114,11 +117,15 @@ class ModeShortcutManager {
         guard case .mode(let modeId) = action,
             let config = ModeManager.shared.getConfiguration(with: modeId),
             config.isEnabled,
-            ShortcutStore.shortcut(for: .mode(config.id)) != nil
+            ShortcutStore.hasBindings(for: .mode(config.id))
         else {
             return nil
         }
 
         return modeId
+    }
+
+    func releaseActiveShortcuts(from sourceID: UUID) {
+        shortcutMonitor.releaseActiveShortcuts(from: sourceID)
     }
 }

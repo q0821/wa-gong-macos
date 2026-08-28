@@ -1,5 +1,24 @@
 import Foundation
 
+private enum PrivacyHUDLocalization {
+    static func string(_ key: String, locale: Locale, bundle: Bundle = .main) -> String {
+        let localization = Bundle.preferredLocalizations(
+            from: bundle.localizations,
+            forPreferences: [locale.identifier]
+        ).first
+
+        guard
+            let localization,
+            let path = bundle.path(forResource: localization, ofType: "lproj"),
+            let localizedBundle = Bundle(path: path)
+        else {
+            return key
+        }
+
+        return localizedBundle.localizedString(forKey: key, value: key, table: nil)
+    }
+}
+
 struct PrivacyRequestSummary: Equatable, Sendable {
     enum DataType: String, CaseIterable, Sendable {
         case transcript
@@ -10,22 +29,22 @@ struct PrivacyRequestSummary: Equatable, Sendable {
         case screenOCR
         case customVocabulary
 
-        var displayName: String {
+        func displayName(locale: Locale) -> String {
             switch self {
             case .transcript:
-                return "Transcript"
+                return PrivacyHUDLocalization.string("Transcript", locale: locale)
             case .prompt:
-                return "Prompt"
+                return PrivacyHUDLocalization.string("Prompt", locale: locale)
             case .conversation:
-                return "Chat messages"
+                return PrivacyHUDLocalization.string("Chat messages", locale: locale)
             case .audio:
-                return "Audio"
+                return PrivacyHUDLocalization.string("Audio", locale: locale)
             case .selectedText:
-                return "Selected text"
+                return PrivacyHUDLocalization.string("Selected text", locale: locale)
             case .screenOCR:
-                return "Screen OCR"
+                return PrivacyHUDLocalization.string("Screen OCR", locale: locale)
             case .customVocabulary:
-                return "Custom vocabulary"
+                return PrivacyHUDLocalization.string("Custom vocabulary", locale: locale)
             }
         }
     }
@@ -45,8 +64,21 @@ struct PrivacyRequestSummary: Equatable, Sendable {
     }
 
     var displayText: String {
-        let dataDescription = dataTypes.map(\.displayName).joined(separator: ", ")
-        return "External AI request\nDestination: \(destination)\nModel: \(modelName)\nData: \(dataDescription)"
+        displayText(locale: AppLanguagePreference.locale)
+    }
+
+    func displayText(locale: Locale) -> String {
+        let dataDescription = dataTypes.map { $0.displayName(locale: locale) }.joined(separator: ", ")
+        return String(
+            format: PrivacyHUDLocalization.string(
+                "External AI request\nDestination: %@\nModel: %@\nData: %@",
+                locale: locale
+            ),
+            locale: locale,
+            destination,
+            modelName,
+            dataDescription
+        )
     }
 
     static func sanitizedDestination(_ rawDestination: String) -> String {
@@ -97,7 +129,8 @@ enum PrivacyHUD {
         NotificationManager.shared.showNotification(
             title: summary.displayText,
             type: .info,
-            duration: 4.0
+            duration: 4.0,
+            placement: .recorderAdjacent(.stored())
         )
     }
 }

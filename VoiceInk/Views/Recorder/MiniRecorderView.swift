@@ -12,7 +12,7 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
     // MARK: - Layout Constants
 
-    private let controlBarHeight: CGFloat = 40
+    private let controlBarHeight = MiniRecorderPanel.visibleControlBarHeight
     private let compactWidth: CGFloat = 184
     private let expandedWidth: CGFloat = 300
     private let assistantWidth: CGFloat = 520

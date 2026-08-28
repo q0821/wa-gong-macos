@@ -57,6 +57,31 @@ struct VoiceInkTests {
         )
     }
 
+    @Test func privacyNotificationStacksBelowTopRecorderAndAboveBottomRecorder() {
+        let visibleFrame = NSRect(x: 0, y: 40, width: 1440, height: 860)
+        let notificationSize = NSSize(width: 452, height: 80)
+
+        let topOrigin = PrivacyNotificationLayout.origin(
+            in: visibleFrame,
+            notificationSize: notificationSize,
+            recorderHeight: 40,
+            edgePadding: 24,
+            spacing: 16,
+            position: .top
+        )
+        let bottomOrigin = PrivacyNotificationLayout.origin(
+            in: visibleFrame,
+            notificationSize: notificationSize,
+            recorderHeight: 40,
+            edgePadding: 24,
+            spacing: 16,
+            position: .bottom
+        )
+
+        #expect(topOrigin == NSPoint(x: 494, y: 740))
+        #expect(bottomOrigin == NSPoint(x: 494, y: 120))
+    }
+
     @Test func explicitAppLanguageProvidesMatchingFloatingPanelLocale() {
         let systemLocale = Locale(identifier: "en_US")
         let traditionalChineseLocale = AppLanguagePreference.locale(
@@ -585,21 +610,6 @@ struct VoiceInkTests {
         #expect(result == "聲筆 聲筆 Voice Inkish")
     }
 
-    @Test func privacyRequestSummaryShowsDestinationAndDataKindsWithoutPayload() {
-        let summary = PrivacyRequestSummary(
-            destination: "https://api.openai.com/v1/chat/completions",
-            modelName: "gpt-4.1-mini",
-            dataTypes: [.transcript, .prompt, .selectedText]
-        )
-
-        #expect(summary.displayText.contains("api.openai.com/v1/chat/completions"))
-        #expect(summary.displayText.contains("gpt-4.1-mini"))
-        #expect(summary.displayText.contains("Transcript"))
-        #expect(summary.displayText.contains("Selected text"))
-        #expect(!summary.displayText.contains("clipboard-secret"))
-        #expect(!summary.displayText.contains("sk-test"))
-    }
-
     @Test func privacyRequestSummaryRedactsURLQueryItems() {
         let summary = PrivacyRequestSummary(
             destination: "https://example.com/v1/chat?api_key=sk-test",
@@ -608,8 +618,9 @@ struct VoiceInkTests {
         )
 
         #expect(summary.destination == "https://example.com/v1/chat")
-        #expect(!summary.displayText.contains("api_key"))
-        #expect(!summary.displayText.contains("sk-test"))
+        let displayText = summary.displayText(locale: Locale(identifier: "en"))
+        #expect(!displayText.contains("api_key"))
+        #expect(!displayText.contains("sk-test"))
     }
 
     @Test func privacyRequestSummaryUsesOpenAITranscriptionDestination() {
@@ -685,4 +696,39 @@ struct VoiceInkTests {
         #expect(!didAutoSend)
     }
 
+}
+
+@Suite
+struct PrivacyRequestSummaryLocalizationTests {
+    @Test func showsDestinationAndDataKindsWithoutPayload() {
+        let summary = PrivacyRequestSummary(
+            destination: "https://api.openai.com/v1/chat/completions",
+            modelName: "gpt-4.1-mini",
+            dataTypes: [.transcript, .prompt, .selectedText]
+        )
+
+        let displayText = summary.displayText(locale: Locale(identifier: "en"))
+
+        #expect(displayText.contains("api.openai.com/v1/chat/completions"))
+        #expect(displayText.contains("gpt-4.1-mini"))
+        #expect(displayText.contains("Transcript"))
+        #expect(displayText.contains("Selected text"))
+        #expect(!displayText.contains("clipboard-secret"))
+        #expect(!displayText.contains("sk-test"))
+    }
+
+    @Test func usesTraditionalChineseAppLanguage() {
+        let summary = PrivacyRequestSummary(
+            destination: "https://api.openai.com/v1/audio/transcriptions",
+            modelName: "gpt-4o-transcribe",
+            dataTypes: [.audio]
+        )
+
+        let displayText = summary.displayText(locale: Locale(identifier: "zh-Hant"))
+
+        #expect(displayText.contains("外部 AI 傳送提示"))
+        #expect(displayText.contains("傳送位置：https://api.openai.com/v1/audio/transcriptions"))
+        #expect(displayText.contains("模型：gpt-4o-transcribe"))
+        #expect(displayText.contains("傳送內容：音訊"))
+    }
 }

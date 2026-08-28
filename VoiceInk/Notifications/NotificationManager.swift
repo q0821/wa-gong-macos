@@ -1,6 +1,42 @@
 import AppKit
 import SwiftUI
 
+enum AppNotificationPlacement {
+    case defaultBottom
+    case recorderAdjacent(MiniRecorderPosition)
+}
+
+enum PrivacyNotificationLayout {
+    static func origin(
+        in visibleFrame: NSRect,
+        notificationSize: NSSize,
+        recorderHeight: CGFloat,
+        edgePadding: CGFloat,
+        spacing: CGFloat,
+        position: MiniRecorderPosition
+    ) -> NSPoint {
+        let proposedX = visibleFrame.midX - notificationSize.width / 2
+        let minimumX = visibleFrame.minX + edgePadding
+        let maximumX = visibleFrame.maxX - edgePadding - notificationSize.width
+        let x = min(max(proposedX, minimumX), max(minimumX, maximumX))
+
+        let proposedY: CGFloat
+        switch position {
+        case .top:
+            let recorderBottom = visibleFrame.maxY - edgePadding - recorderHeight
+            proposedY = recorderBottom - spacing - notificationSize.height
+        case .bottom:
+            let recorderTop = visibleFrame.minY + edgePadding + recorderHeight
+            proposedY = recorderTop + spacing
+        }
+
+        let minimumY = visibleFrame.minY + edgePadding
+        let maximumY = visibleFrame.maxY - edgePadding - notificationSize.height
+        let y = min(max(proposedY, minimumY), max(minimumY, maximumY))
+        return NSPoint(x: x, y: y)
+    }
+}
+
 class NotificationManager {
     static let shared = NotificationManager()
 
@@ -14,6 +50,7 @@ class NotificationManager {
         title: String,
         type: AppNotificationView.NotificationType,
         duration: TimeInterval = 3.0,
+        placement: AppNotificationPlacement = .defaultBottom,
         onTap: (() -> Void)? = nil,
         actionButton: (label: String, action: () -> Void)? = nil
     ) {
@@ -59,7 +96,7 @@ class NotificationManager {
         panel.hasShadow = false
         panel.isMovableByWindowBackground = false
 
-        positionWindow(panel)
+        positionWindow(panel, placement: placement)
         panel.alphaValue = 0
         panel.makeKeyAndOrderFront(nil as Any?)
 
@@ -81,21 +118,38 @@ class NotificationManager {
     }
 
     @MainActor
-    private func positionWindow(_ window: NSWindow) {
-        let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+    private func positionWindow(_ window: NSWindow, placement: AppNotificationPlacement) {
+        let activeScreen: NSScreen
+        switch placement {
+        case .defaultBottom:
+            activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+        case .recorderAdjacent:
+            activeScreen = NSScreen.main ?? NSScreen.screens[0]
+        }
+
         let screenRect = activeScreen.visibleFrame
         let notificationRect = window.frame
 
-        // Position notification centered horizontally on screen
-        let notificationX = screenRect.midX - (notificationRect.width / 2)
-
-        // Position notification near bottom of screen with appropriate spacing
-        let bottomPadding: CGFloat = 24
-        let componentHeight: CGFloat = 34
-        let notificationSpacing: CGFloat = 16
-        let notificationY = screenRect.minY + bottomPadding + componentHeight + notificationSpacing
-
-        window.setFrameOrigin(NSPoint(x: notificationX, y: notificationY))
+        switch placement {
+        case .defaultBottom:
+            let notificationX = screenRect.midX - notificationRect.width / 2
+            let bottomPadding: CGFloat = 24
+            let componentHeight: CGFloat = 34
+            let notificationSpacing: CGFloat = 16
+            let notificationY = screenRect.minY + bottomPadding + componentHeight + notificationSpacing
+            window.setFrameOrigin(NSPoint(x: notificationX, y: notificationY))
+        case .recorderAdjacent(let position):
+            window.setFrameOrigin(
+                PrivacyNotificationLayout.origin(
+                    in: screenRect,
+                    notificationSize: notificationRect.size,
+                    recorderHeight: MiniRecorderPanel.visibleControlBarHeight,
+                    edgePadding: MiniRecorderPanel.edgePadding,
+                    spacing: 16,
+                    position: position
+                )
+            )
+        }
     }
 
     @MainActor

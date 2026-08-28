@@ -2,6 +2,9 @@ import AppKit
 import SwiftUI
 
 class MiniRecorderPanel: NSPanel {
+    static let visibleControlBarHeight: CGFloat = 40
+    static let edgePadding: CGFloat = 24
+
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
@@ -40,15 +43,13 @@ class MiniRecorderPanel: NSPanel {
         }
 
         // Host stays large enough for assistant output; SwiftUI controls the visible mini width.
-        let padding: CGFloat = 24
-
         let visibleFrame = screen.visibleFrame
         let centerX = visibleFrame.midX
         let xPosition = centerX - (width / 2)
         let yPosition = yPosition(
             in: visibleFrame,
             windowHeight: height,
-            padding: padding,
+            padding: edgePadding,
             position: position
         )
 

@@ -30,6 +30,7 @@ final class KeychainService {
         private let legacyLocalPrefix = "LocalKeychain_"
     #else
         private let service = AppIdentity.bundleIdentifier
+        private let legacyLocalService = "\(AppIdentity.bundleIdentifier).Local"
     #endif
 
     private init() {}
@@ -59,7 +60,12 @@ final class KeychainService {
         syncable: Bool = true,
         accessibility: Accessibility? = nil
     ) -> Bool {
-        let query = baseQuery(forKey: key, syncable: syncable, service: service)
+        let query = baseQuery(
+            forKey: key,
+            syncable: syncable,
+            service: service,
+            usesDataProtectionKeychain: usesDataProtectionKeychain
+        )
         var attributes: [String: Any] = [kSecValueData as String: data]
         applyAccessibility(accessibility, to: &attributes)
         let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
@@ -142,7 +148,55 @@ final class KeychainService {
 
     /// Retrieves data while preserving the Security framework status.
     func readData(forKey key: String, syncable: Bool = true) -> ReadResult<Data> {
-        var query = baseQuery(forKey: key, syncable: syncable, service: service)
+        let current = readDataDirectly(
+            forKey: key,
+            syncable: syncable,
+            service: service,
+            usesDataProtectionKeychain: usesDataProtectionKeychain
+        )
+
+        #if LOCAL_BUILD
+            if case .notFound = current,
+               let legacyData = defaults.data(forKey: legacyLocalPrefix + key)
+            {
+                _ = save(data: legacyData, forKey: key, syncable: false)
+                return .value(legacyData)
+            }
+
+            return current
+        #else
+            return LegacyKeychainMigration.resolve(
+                current: current,
+                readLegacy: {
+                    self.readDataDirectly(
+                        forKey: key,
+                        syncable: false,
+                        service: self.legacyLocalService,
+                        usesDataProtectionKeychain: false
+                    )
+                },
+                saveCurrent: { data in
+                    self.save(data: data, forKey: key, syncable: syncable)
+                },
+                deleteLegacy: {
+                    self.deleteLegacyLocalItem(forKey: key)
+                }
+            )
+        #endif
+    }
+
+    private func readDataDirectly(
+        forKey key: String,
+        syncable: Bool,
+        service: String,
+        usesDataProtectionKeychain: Bool
+    ) -> ReadResult<Data> {
+        var query = baseQuery(
+            forKey: key,
+            syncable: syncable,
+            service: service,
+            usesDataProtectionKeychain: usesDataProtectionKeychain
+        )
         query[kSecReturnData as String] = kCFBooleanTrue
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
@@ -158,13 +212,6 @@ final class KeychainService {
         }
 
         if status == errSecItemNotFound {
-            #if LOCAL_BUILD
-                if let legacyData = defaults.data(forKey: legacyLocalPrefix + key) {
-                    _ = save(data: legacyData, forKey: key, syncable: false)
-                    return .value(legacyData)
-                }
-            #endif
-
             return .notFound
         }
 
@@ -177,7 +224,12 @@ final class KeychainService {
     /// Deletes an item from Keychain.
     @discardableResult
     func delete(forKey key: String, syncable: Bool = true) -> Bool {
-        let query = baseQuery(forKey: key, syncable: syncable, service: service)
+        let query = baseQuery(
+            forKey: key,
+            syncable: syncable,
+            service: service,
+            usesDataProtectionKeychain: usesDataProtectionKeychain
+        )
         let status = SecItemDelete(query as CFDictionary)
 
         guard status == errSecSuccess || status == errSecItemNotFound else {
@@ -196,46 +248,65 @@ final class KeychainService {
 
     /// Checks if a key exists in Keychain.
     func exists(forKey key: String, syncable: Bool = true) -> Bool {
-        let status = findStatus(forKey: key, syncable: syncable, service: service)
-        if status == errSecSuccess {
-            return true
+        guard case .value = readData(forKey: key, syncable: syncable) else {
+            return false
         }
-
-        #if LOCAL_BUILD
-            if status == errSecItemNotFound {
-                return defaults.data(forKey: legacyLocalPrefix + key) != nil
-            }
-        #endif
-
-        return status == errSecSuccess
+        return true
     }
 
     // MARK: - Private Helpers
 
     /// Creates a base Keychain query.
-    private func baseQuery(forKey key: String, syncable: Bool, service: String) -> [String: Any] {
+    private func baseQuery(
+        forKey key: String,
+        syncable: Bool,
+        service: String,
+        usesDataProtectionKeychain: Bool
+    ) -> [String: Any] {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
         ]
 
-        #if !LOCAL_BUILD
+        if usesDataProtectionKeychain {
             query[kSecUseDataProtectionKeychain as String] = true
 
             if syncable {
                 query[kSecAttrSynchronizable as String] = kCFBooleanTrue
             }
-        #endif
+        }
 
         return query
     }
 
-    private func findStatus(forKey key: String, syncable: Bool, service: String) -> OSStatus {
-        var query = baseQuery(forKey: key, syncable: syncable, service: service)
-        query[kSecReturnData as String] = kCFBooleanFalse
-        return SecItemCopyMatching(query as CFDictionary, nil)
+    private var usesDataProtectionKeychain: Bool {
+        #if LOCAL_BUILD
+            false
+        #else
+            true
+        #endif
     }
+
+    #if !LOCAL_BUILD
+        private func deleteLegacyLocalItem(forKey key: String) {
+            let query = baseQuery(
+                forKey: key,
+                syncable: false,
+                service: legacyLocalService,
+                usesDataProtectionKeychain: false
+            )
+            let status = SecItemDelete(query as CFDictionary)
+
+            if status == errSecSuccess || status == errSecItemNotFound {
+                logger.info("Migrated legacy local keychain item for key: \(key, privacy: .public)")
+            } else {
+                logger.error(
+                    "Saved migrated keychain item but failed to delete legacy item for key: \(key, privacy: .public), status: \(status, privacy: .public)"
+                )
+            }
+        }
+    #endif
 
     private func applyAccessibility(_ accessibility: Accessibility?, to attributes: inout [String: Any]) {
         #if !LOCAL_BUILD
@@ -250,5 +321,29 @@ final class KeychainService {
         #if LOCAL_BUILD
             defaults.removeObject(forKey: legacyLocalPrefix + key)
         #endif
+    }
+}
+
+enum LegacyKeychainMigration {
+    static func resolve<Value>(
+        current: KeychainService.ReadResult<Value>,
+        readLegacy: () -> KeychainService.ReadResult<Value>,
+        saveCurrent: (Value) -> Bool,
+        deleteLegacy: () -> Void
+    ) -> KeychainService.ReadResult<Value> {
+        guard case .notFound = current else {
+            return current
+        }
+
+        let legacy = readLegacy()
+        guard case .value(let value) = legacy else {
+            return legacy
+        }
+
+        if saveCurrent(value) {
+            deleteLegacy()
+        }
+
+        return .value(value)
     }
 }

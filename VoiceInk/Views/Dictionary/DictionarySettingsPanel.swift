@@ -10,7 +10,7 @@ struct DictionarySettingsPanel: View {
             Form {
                 Section {
                     LabeledContent("Quick Add to Dictionary") {
-                        ShortcutRecorder(action: .quickAddToDictionary)
+                        ShortcutBindingControl(action: .quickAddToDictionary)
                             .controlSize(.small)
                     }
                 } header: {

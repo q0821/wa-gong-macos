@@ -38,7 +38,7 @@ struct SettingsView: View {
                     HStack(spacing: 8) {
                         Spacer()
                         shortcutModePicker(binding: $recordingShortcutManager.primaryRecordingShortcutMode)
-                        ShortcutRecorder(action: .primaryRecording) {
+                        ShortcutBindingControl(action: .primaryRecording) {
                             recordingShortcutManager.primaryRecordingShortcut = .custom
                             recordingShortcutManager.updateShortcutStatus()
                         }
@@ -51,7 +51,7 @@ struct SettingsView: View {
                         HStack(spacing: 8) {
                             Spacer()
                             shortcutModePicker(binding: $recordingShortcutManager.secondaryRecordingShortcutMode)
-                            ShortcutRecorder(action: .secondaryRecording) {
+                            ShortcutBindingControl(action: .secondaryRecording) {
                                 recordingShortcutManager.secondaryRecordingShortcut = .custom
                                 recordingShortcutManager.updateShortcutStatus()
                             }
@@ -78,21 +78,21 @@ struct SettingsView: View {
 
             Section("Additional Shortcuts") {
                 LabeledContent("Paste Last Transcription (Original)") {
-                    ShortcutRecorder(action: .pasteLastTranscription) {
+                    ShortcutBindingControl(action: .pasteLastTranscription) {
                         recordingShortcutManager.updateShortcutStatus()
                     }
                     .controlSize(.small)
                 }
 
                 LabeledContent("Paste Last Transcription (Enhanced)") {
-                    ShortcutRecorder(action: .pasteLastEnhancement) {
+                    ShortcutBindingControl(action: .pasteLastEnhancement) {
                         recordingShortcutManager.updateShortcutStatus()
                     }
                     .controlSize(.small)
                 }
 
                 LabeledContent("Retry Last Transcription") {
-                    ShortcutRecorder(action: .retryLastTranscription) {
+                    ShortcutBindingControl(action: .retryLastTranscription) {
                         recordingShortcutManager.updateShortcutStatus()
                     }
                     .controlSize(.small)
@@ -100,7 +100,7 @@ struct SettingsView: View {
 
                 LabeledContent("Cancel Recording") {
                     HStack(spacing: 8) {
-                        ShortcutRecorder(
+                        ShortcutBindingControl(
                             action: .cancelRecorder,
                             defaultShortcut: Self.defaultCancelRecordingShortcut
                         ) {

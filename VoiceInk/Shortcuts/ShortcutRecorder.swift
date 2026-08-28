@@ -32,10 +32,16 @@ struct ShortcutRecorder: View {
                         name: Self.shortcutRecordingDidStart,
                         object: recorderID
                     )
-                    clearShortcutBeforeRecording()
-                    recorder.start(action: action) { newShortcut in
-                        shortcut = newShortcut
-                        onShortcutChanged()
+                    recorder.start(action: action, scope: .allKeyboards) { newShortcut in
+                        let binding = ShortcutBinding(
+                            id: ShortcutStore.allKeyboardBinding(for: action)?.id ?? UUID(),
+                            shortcut: newShortcut,
+                            scope: .allKeyboards
+                        )
+                        if ShortcutStore.upsertBinding(binding, for: action) {
+                            shortcut = newShortcut
+                            onShortcutChanged()
+                        }
                     }
                 }
             } label: {
@@ -83,16 +89,10 @@ struct ShortcutRecorder: View {
         return shortcut ?? defaultShortcut
     }
 
-    private func clearShortcutBeforeRecording() {
-        ShortcutStore.setShortcut(nil, for: action)
-        shortcut = nil
-        onShortcutChanged()
-    }
-
-    private static let shortcutRecordingDidStart = Notification.Name("ShortcutRecorderRecordingDidStart")
+    static let shortcutRecordingDidStart = Notification.Name("ShortcutRecorderRecordingDidStart")
 }
 
-private struct ShortcutVisualization: View {
+struct ShortcutVisualization: View {
     let shortcut: Shortcut?
     let isRecording: Bool
 
@@ -166,17 +166,29 @@ final class ShortcutRecorderModel: ObservableObject {
     private var localMonitor: Any?
     private var onCapture: ((Shortcut) -> Void)?
     private var activeAction: ShortcutAction?
+    private var activeScope: KeyboardScope?
     private var pendingModifierShortcut: Shortcut?
     private var peakModifierFlags: NSEvent.ModifierFlags = []
+    private var requiredSourceID: UUID?
+    private var attributionBroker: KeyboardEventAttributionBroker?
 
     deinit {
         removeRecordingMonitor()
     }
 
-    func start(action: ShortcutAction, onCapture: @escaping (Shortcut) -> Void) {
+    func start(
+        action: ShortcutAction,
+        scope: KeyboardScope,
+        requiredSourceID: UUID? = nil,
+        attributionBroker: KeyboardEventAttributionBroker? = nil,
+        onCapture: @escaping (Shortcut) -> Void
+    ) {
         cancel()
 
         activeAction = action
+        activeScope = scope
+        self.requiredSourceID = requiredSourceID
+        self.attributionBroker = attributionBroker
         self.onCapture = onCapture
         isRecording = true
         previewShortcut = nil
@@ -194,7 +206,13 @@ final class ShortcutRecorderModel: ObservableObject {
             return
         }
 
-        if let validationError = ShortcutValidator.validationError(for: shortcut, action: activeAction) {
+        guard let activeScope else {
+            cancel()
+            return
+        }
+
+        let candidate = ShortcutBinding(shortcut: shortcut, scope: activeScope)
+        if let validationError = ShortcutValidator.validationError(for: candidate, action: activeAction) {
             cancel()
             showErrorNotification(validationError.notificationTitle(for: shortcut))
             return
@@ -204,7 +222,6 @@ final class ShortcutRecorderModel: ObservableObject {
         removeRecordingMonitor()
         resetRecordingState()
 
-        ShortcutStore.setShortcut(shortcut, for: activeAction)
         capture?(shortcut)
     }
 
@@ -213,8 +230,11 @@ final class ShortcutRecorderModel: ObservableObject {
         previewShortcut = nil
         onCapture = nil
         activeAction = nil
+        activeScope = nil
         pendingModifierShortcut = nil
         peakModifierFlags = []
+        requiredSourceID = nil
+        attributionBroker = nil
     }
 
     private func showErrorNotification(_ title: String) {
@@ -246,6 +266,12 @@ final class ShortcutRecorderModel: ObservableObject {
             return false
         }
 
+        if let requiredSourceID {
+            guard sourceID(for: event) == requiredSourceID else {
+                return false
+            }
+        }
+
         switch event.type {
         case .keyDown:
             return handleKeyDown(keyCode: event.keyCode, modifierFlags: event.modifierFlags)
@@ -254,6 +280,27 @@ final class ShortcutRecorderModel: ObservableObject {
         default:
             return false
         }
+    }
+
+    private func sourceID(for event: NSEvent) -> UUID? {
+        guard let attributionBroker, let cgEvent = event.cgEvent else { return nil }
+        let transition: ShortcutEventToken.Transition
+        switch event.type {
+        case .keyDown:
+            transition = .keyDown
+        case .keyUp:
+            transition = .keyUp
+        case .flagsChanged:
+            transition = .flagsChanged
+        default:
+            return nil
+        }
+        let token = ShortcutEventToken(
+            eventTimestamp: cgEvent.timestamp,
+            keyCode: event.keyCode,
+            transition: transition
+        )
+        return attributionBroker.attribution(for: token)?.sourceID
     }
 
     private func handleKeyDown(keyCode: UInt16, modifierFlags: NSEvent.ModifierFlags) -> Bool {

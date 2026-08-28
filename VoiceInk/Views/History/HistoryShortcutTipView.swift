@@ -26,7 +26,7 @@ struct HistoryShortcutTipView: View {
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.secondary)
 
-                ShortcutRecorder(action: .openHistoryWindow)
+                ShortcutBindingControl(action: .openHistoryWindow)
                     .controlSize(.small)
 
                 Spacer()

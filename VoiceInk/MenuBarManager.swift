@@ -12,6 +12,7 @@ class MenuBarManager: ObservableObject {
 
     private var modelContainer: ModelContainer?
     private var engine: WaGongEngine?
+    private weak var recordingShortcutManager: RecordingShortcutManager?
     private var configuredActivationPolicy: NSApplication.ActivationPolicy {
         isMenuBarOnly ? .accessory : .regular
     }
@@ -44,9 +45,14 @@ class MenuBarManager: ObservableObject {
         AppPresentationPolicy.restoreAccessoryIfNeededAfterUserFacingWindowClosed()
     }
 
-    func configure(modelContainer: ModelContainer, engine: WaGongEngine) {
+    func configure(
+        modelContainer: ModelContainer,
+        engine: WaGongEngine,
+        recordingShortcutManager: RecordingShortcutManager
+    ) {
         self.modelContainer = modelContainer
         self.engine = engine
+        self.recordingShortcutManager = recordingShortcutManager
     }
 
     func toggleMenuBarOnly() {
@@ -85,7 +91,8 @@ class MenuBarManager: ObservableObject {
 
     func openHistoryWindow() {
         guard let modelContainer = modelContainer,
-            let engine = engine
+            let engine = engine,
+            let recordingShortcutManager = recordingShortcutManager
         else {
             return
         }
@@ -95,7 +102,8 @@ class MenuBarManager: ObservableObject {
 
             HistoryWindowController.shared.showHistoryWindow(
                 modelContainer: modelContainer,
-                engine: engine
+                engine: engine,
+                recordingShortcutManager: recordingShortcutManager
             )
         }
 

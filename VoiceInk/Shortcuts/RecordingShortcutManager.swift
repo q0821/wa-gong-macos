@@ -47,6 +47,9 @@ class RecordingShortcutManager: ObservableObject {
     private let modeShortcutManager: ModeShortcutManager
     private let shortcutMonitor: ShortcutMonitor
     private let keyboardDeviceMonitor: KeyboardDeviceMonitor
+    let keyboardEventAttributionBroker: KeyboardEventAttributionBroker
+
+    var keyboardMonitor: KeyboardDeviceMonitor { keyboardDeviceMonitor }
     private var shortcutChangeObserver: NSObjectProtocol?
     private var applicationActivationObserver: NSObjectProtocol?
     private let shortcutModeHandler: RecordingShortcutModeHandler
@@ -144,6 +147,7 @@ class RecordingShortcutManager: ObservableObject {
         self.engine = engine
         self.recorderUIManager = recorderUIManager
         self.keyboardDeviceMonitor = keyboardDeviceMonitor
+        self.keyboardEventAttributionBroker = attributionBroker
         self.shortcutMonitor = ShortcutMonitor(attributionBroker: attributionBroker)
         self.recorderPanelShortcutManager = RecorderPanelShortcutManager(
             recorderUIManager: recorderUIManager,
@@ -175,6 +179,7 @@ class RecordingShortcutManager: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
+                self?.keyboardDeviceMonitor.refreshPermissionStatus()
                 self?.refreshShortcutMonitoring()
             }
         }
@@ -347,7 +352,8 @@ class RecordingShortcutManager: ObservableObject {
         case .openHistoryWindow:
             HistoryWindowController.shared.showHistoryWindow(
                 modelContainer: engine.modelContext.container,
-                engine: engine
+                engine: engine,
+                recordingShortcutManager: self
             )
         case .quickAddToDictionary:
             DictionaryQuickAddManager.shared.toggle(modelContainer: engine.modelContext.container)
@@ -381,6 +387,17 @@ class RecordingShortcutManager: ObservableObject {
     func updateShortcutStatus() {
         // Called when a shortcut changes
         refreshShortcutMonitoring()
+    }
+
+    var deviceBindingCount: Int {
+        let actions = ShortcutAction.legacyKeyboardShortcutActions
+            + ModeManager.shared.configurations.map { ShortcutAction.mode($0.id) }
+        return actions.reduce(0) { count, action in
+            count + ShortcutStore.bindings(for: action).filter { binding in
+                if case .device = binding.scope { return true }
+                return false
+            }.count
+        }
     }
 
     deinit {

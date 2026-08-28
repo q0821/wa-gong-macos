@@ -13,7 +13,11 @@ class HistoryWindowController: NSObject, NSWindowDelegate {
         super.init()
     }
 
-    func showHistoryWindow(modelContainer: ModelContainer, engine: WaGongEngine) {
+    func showHistoryWindow(
+        modelContainer: ModelContainer,
+        engine: WaGongEngine,
+        recordingShortcutManager: RecordingShortcutManager
+    ) {
         AppPresentationPolicy.activateForUserFacingWindow()
 
         if let existingWindow = historyWindow {
@@ -25,17 +29,26 @@ class HistoryWindowController: NSObject, NSWindowDelegate {
             return
         }
 
-        let window = createHistoryWindow(modelContainer: modelContainer, engine: engine)
+        let window = createHistoryWindow(
+            modelContainer: modelContainer,
+            engine: engine,
+            recordingShortcutManager: recordingShortcutManager
+        )
         historyWindow = window
         window.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
-    private func createHistoryWindow(modelContainer: ModelContainer, engine: WaGongEngine) -> NSWindow {
+    private func createHistoryWindow(
+        modelContainer: ModelContainer,
+        engine: WaGongEngine,
+        recordingShortcutManager: RecordingShortcutManager
+    ) -> NSWindow {
         let historyView = TranscriptionHistoryView()
             .modelContainer(modelContainer)
             .environmentObject(engine)
             .environmentObject(engine.enhancementService!)
+            .environmentObject(recordingShortcutManager)
             .frame(minWidth: 1150, minHeight: 700)
 
         let hostingController = NSHostingController(rootView: historyView)

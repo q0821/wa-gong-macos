@@ -40,7 +40,7 @@ struct ModeTriggerSection: View {
 
                 Spacer()
 
-                ShortcutRecorder(action: .mode(modeId))
+                ShortcutBindingControl(action: .mode(modeId))
                     .frame(minHeight: 28)
             }
         } header: {

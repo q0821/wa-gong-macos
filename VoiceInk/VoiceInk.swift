@@ -161,7 +161,11 @@ struct WaGongApp: App {
 
         let menuBarManager = MenuBarManager()
         _menuBarManager = StateObject(wrappedValue: menuBarManager)
-        menuBarManager.configure(modelContainer: resolvedContainer, engine: engine)
+        menuBarManager.configure(
+            modelContainer: resolvedContainer,
+            engine: engine,
+            recordingShortcutManager: recordingShortcutManager
+        )
 
         let activeWindowService = ActiveWindowService.shared
         _activeWindowService = StateObject(wrappedValue: activeWindowService)

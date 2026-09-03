@@ -9,6 +9,8 @@ struct ShortcutBindingControl: View {
     @State private var bindings: [ShortcutBinding]
     @State private var draftDevice: KeyboardDeviceSnapshot?
     @State private var isShowingDevicePicker = false
+    @State private var deviceConfigurationID = UUID()
+    @State private var isDeviceConfigurationActive = false
 
     init(
         action: ShortcutAction,
@@ -46,6 +48,11 @@ struct ShortcutBindingControl: View {
                             isShowingDevicePicker = false
                         }
                     )
+                    .onDisappear {
+                        if draftDevice == nil {
+                            endDeviceConfiguration()
+                        }
+                    }
                 }
             }
 
@@ -66,6 +73,9 @@ struct ShortcutBindingControl: View {
         .onReceive(NotificationCenter.default.publisher(for: ShortcutStore.shortcutDidChange)) { notification in
             guard let changedAction = notification.object as? ShortcutAction, changedAction == action else { return }
             reloadBindings()
+        }
+        .onDisappear {
+            endDeviceConfiguration()
         }
     }
 
@@ -90,12 +100,14 @@ struct ShortcutBindingControl: View {
                     .help(reference.displayName)
 
                 if let connectedDevice {
-                    DeviceShortcutRecorder(
+                    VerifiedDeviceShortcutRecorder(
                         action: action,
                         bindingID: binding.id,
                         currentShortcut: binding.shortcut,
                         device: connectedDevice,
+                        monitor: recordingShortcutManager.keyboardMonitor,
                         attributionBroker: recordingShortcutManager.keyboardEventAttributionBroker,
+                        startsVerificationAutomatically: false,
                         onSaved: didChangeShortcut
                     )
                 } else {
@@ -134,36 +146,50 @@ struct ShortcutBindingControl: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
 
-            DeviceShortcutRecorder(
+            VerifiedDeviceShortcutRecorder(
                 action: action,
                 bindingID: bindingID,
                 currentShortcut: shortcut,
                 device: device,
+                monitor: recordingShortcutManager.keyboardMonitor,
                 attributionBroker: recordingShortcutManager.keyboardEventAttributionBroker,
+                startsVerificationAutomatically: true,
                 onSaved: {
                     draftDevice = nil
+                    endDeviceConfiguration()
                     didChangeShortcut()
                 }
             )
 
             Button {
                 draftDevice = nil
+                endDeviceConfiguration()
             } label: {
                 Image(systemName: "xmark.circle")
             }
             .buttonStyle(.plain)
             .help("Cancel")
+            .accessibilityLabel("Cancel adding \(device.reference.displayName) shortcut")
         }
     }
 
     private func prepareDevicePicker() {
         let monitor = recordingShortcutManager.keyboardMonitor
-        if KeyboardInputPermission.currentStatus == .granted {
-            monitor.start()
-        } else {
-            monitor.refreshPermissionStatus()
-        }
+        beginDeviceConfiguration()
+        monitor.refreshPermissionStatus()
         isShowingDevicePicker = true
+    }
+
+    private func beginDeviceConfiguration() {
+        guard !isDeviceConfigurationActive else { return }
+        isDeviceConfigurationActive = true
+        recordingShortcutManager.beginDeviceShortcutConfiguration(id: deviceConfigurationID)
+    }
+
+    private func endDeviceConfiguration() {
+        guard isDeviceConfigurationActive else { return }
+        isDeviceConfigurationActive = false
+        recordingShortcutManager.endDeviceShortcutConfiguration(id: deviceConfigurationID)
     }
 
     private func bindingMatches(_ binding: ShortcutBinding, device: KeyboardDeviceReference) -> Bool {
@@ -214,19 +240,162 @@ private struct KeyboardDevicePicker: View {
                         HStack {
                             Text(device.reference.displayName)
                             Spacer()
-                            if device.bindingAvailability == .unverifiedBluetooth {
-                                Text("Bluetooth is not verified yet")
+                            switch device.bindingAvailability {
+                            case .supported:
+                                EmptyView()
+                            case .requiresVerification:
+                                Text("Requires key verification")
+                                    .foregroundStyle(.secondary)
+                            case .unsupportedTransport:
+                                Text("Unsupported connection")
                                     .foregroundStyle(.secondary)
                             }
                         }
                     }
                     .buttonStyle(.plain)
-                    .disabled(device.bindingAvailability != .supported)
+                    .disabled(device.bindingAvailability == .unsupportedTransport)
                 }
             }
         }
         .padding(12)
         .frame(minWidth: 280)
+    }
+}
+
+private struct VerifiedDeviceShortcutRecorder: View {
+    let action: ShortcutAction
+    let bindingID: UUID
+    let currentShortcut: Shortcut?
+    let device: KeyboardDeviceSnapshot
+    @ObservedObject var monitor: KeyboardDeviceMonitor
+    let attributionBroker: KeyboardEventAttributionBroker
+    let startsVerificationAutomatically: Bool
+    let onSaved: () -> Void
+
+    @StateObject private var verifier = KeyboardDeviceVerificationModel()
+    @State private var verificationID = UUID()
+
+    var body: some View {
+        Group {
+            if device.bindingAvailability != .requiresVerification || verifier.state == .verified {
+                HStack(spacing: 6) {
+                    if device.bindingAvailability == .requiresVerification {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                            .help("Connection verified")
+                            .accessibilityLabel("Connection verified")
+                    }
+
+                    DeviceShortcutRecorder(
+                        action: action,
+                        bindingID: bindingID,
+                        currentShortcut: currentShortcut,
+                        device: device,
+                        attributionBroker: attributionBroker,
+                        onSaved: onSaved
+                    )
+                }
+            } else {
+                verificationControl
+            }
+        }
+        .onAppear {
+            guard startsVerificationAutomatically,
+                device.bindingAvailability == .requiresVerification,
+                verifier.state == .idle
+            else {
+                return
+            }
+            startVerification()
+        }
+        .onChange(of: monitor.connectedDevices) { _, connectedDevices in
+            guard !connectedDevices.contains(where: { $0.id == device.id }) else { return }
+            verifier.markDisconnected()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: ShortcutRecorder.shortcutRecordingDidStart)) {
+            notification in
+            guard let activeID = notification.object as? UUID, activeID != verificationID else { return }
+            verifier.cancel()
+        }
+        .onDisappear {
+            verifier.cancel()
+        }
+    }
+
+    @ViewBuilder
+    private var verificationControl: some View {
+        switch verifier.state {
+        case .idle:
+            Button("Verify Bluetooth keyboard") {
+                startVerification()
+            }
+            .help("Confirm that key events come from \(device.reference.displayName)")
+        case .waiting:
+            HStack(spacing: 6) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Press a letter key on this keyboard")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Cancel") {
+                    verifier.cancel()
+                }
+                .buttonStyle(.link)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Verifying \(device.reference.displayName). Press a letter key on this keyboard.")
+        case .timedOut:
+            Button("No key detected. Try Again") {
+                startVerification()
+            }
+            .help("Make sure the keyboard is connected and use it to complete verification")
+        case .disconnected:
+            Text("Keyboard disconnected")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .differentDevice(let displayName, let transport):
+            HStack(spacing: 6) {
+                Text(
+                    String(
+                        format: String(localized: "Detected %@ (%@), not the selected %@."),
+                        displayName,
+                        localizedTransport(transport),
+                        device.reference.displayName
+                    )
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+
+                Button("Try Again") {
+                    startVerification()
+                }
+                .buttonStyle(.link)
+            }
+        case .verified:
+            EmptyView()
+        }
+    }
+
+    private func localizedTransport(_ transport: String) -> String {
+        let normalized = transport.lowercased()
+        if normalized.contains("bluetooth") {
+            return String(localized: "Bluetooth")
+        }
+        if normalized.contains("usb") {
+            return "USB"
+        }
+        return String(localized: "Unknown connection")
+    }
+
+    private func startVerification() {
+        NotificationCenter.default.post(
+            name: ShortcutRecorder.shortcutRecordingDidStart,
+            object: verificationID
+        )
+        verifier.start(
+            selectedSourceID: device.id,
+            attributionBroker: attributionBroker
+        )
     }
 }
 

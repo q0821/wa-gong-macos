@@ -23,6 +23,14 @@ struct AppSidebar: View {
 
             Spacer(minLength: 16)
 
+            #if LOCAL_BUILD
+                if let identity = TestBuildIdentity.current {
+                    TestBuildBadge(identity: identity)
+                        .padding(.horizontal, 10)
+                        .padding(.bottom, 10)
+                }
+            #endif
+
             sidebarSection(ViewType.secondaryItems)
                 .padding(.bottom, 14)
         }
@@ -55,6 +63,44 @@ struct AppSidebar: View {
         .padding(.horizontal, 10)
     }
 }
+
+#if LOCAL_BUILD
+    private struct TestBuildBadge: View {
+        let identity: TestBuildIdentity
+
+        var body: some View {
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(AppTheme.Status.warningStrong)
+                    .frame(width: 7, height: 7)
+
+                Text("TEST BUILD")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Spacer(minLength: 4)
+
+                Text(identity.sourceFingerprint.prefix(8).uppercased())
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(AppTheme.Status.warningStrong.opacity(0.11))
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(AppTheme.Status.warningStrong.opacity(0.35), lineWidth: 1)
+            }
+            .help(identity.buildID)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Test build")
+            .accessibilityValue(identity.buildID)
+        }
+    }
+#endif
 
 private extension ViewType {
     var title: LocalizedStringKey {

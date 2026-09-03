@@ -67,6 +67,74 @@ struct LegacyKeychainMigrationTests {
 
         #expect(result.unavailableStatus == errSecAuthFailed)
     }
+
+    @Test func localBuildReadsProductionValueWhenNoLocalValueExists() {
+        let production = Data("production".utf8)
+
+        let result = LocalBuildKeychainLookup.resolve(
+            local: .notFound,
+            readLegacyLocal: { nil },
+            migrateLegacyLocal: { _ in },
+            readProduction: { .value(production) }
+        )
+
+        #expect(result.value == production)
+    }
+
+    @Test func localBuildValueOverridesProductionWithoutReadingIt() {
+        let local = Data("local".utf8)
+        var didReadProduction = false
+
+        let result = LocalBuildKeychainLookup.resolve(
+            local: .value(local),
+            readLegacyLocal: { nil },
+            migrateLegacyLocal: { _ in },
+            readProduction: {
+                didReadProduction = true
+                return .value(Data("production".utf8))
+            }
+        )
+
+        #expect(result.value == local)
+        #expect(!didReadProduction)
+    }
+
+    @Test func legacyLocalValueOverridesProductionAndMigratesLocally() {
+        let legacyLocal = Data("legacy-local".utf8)
+        var migratedValue: Data?
+        var didReadProduction = false
+
+        let result = LocalBuildKeychainLookup.resolve(
+            local: .notFound,
+            readLegacyLocal: { legacyLocal },
+            migrateLegacyLocal: { migratedValue = $0 },
+            readProduction: {
+                didReadProduction = true
+                return .value(Data("production".utf8))
+            }
+        )
+
+        #expect(result.value == legacyLocal)
+        #expect(migratedValue == legacyLocal)
+        #expect(!didReadProduction)
+    }
+
+    @Test func unavailableLocalKeychainDoesNotFallBackToProduction() {
+        var didReadProduction = false
+
+        let result = LocalBuildKeychainLookup.resolve(
+            local: .unavailable(errSecAuthFailed),
+            readLegacyLocal: { nil },
+            migrateLegacyLocal: { _ in },
+            readProduction: {
+                didReadProduction = true
+                return .value(Data("production".utf8))
+            }
+        )
+
+        #expect(result.unavailableStatus == errSecAuthFailed)
+        #expect(!didReadProduction)
+    }
 }
 
 private extension KeychainService.ReadResult where Value == Data {

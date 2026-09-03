@@ -16,6 +16,7 @@ final class SystemInfoService {
             APP INFORMATION:
             App Version: \(getAppVersion())
             Build Version: \(getBuildVersion())
+            \(getTestBuildInformation())
 
             OPERATING SYSTEM:
             macOS Version: \(ProcessInfo.processInfo.operatingSystemVersionString)
@@ -87,6 +88,21 @@ final class SystemInfoService {
 
     private func getBuildVersion() -> String {
         return Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+    }
+
+    private func getTestBuildInformation() -> String {
+        guard let identity = TestBuildIdentity.current else {
+            return "Build Channel: release"
+        }
+
+        return """
+            Build Channel: \(identity.channel)
+            Test Build ID: \(identity.buildID)
+            Source Revision: \(identity.sourceRevision)
+            Source State: \(identity.sourceState)
+            Source Fingerprint: \(identity.sourceFingerprint)
+            Build Timestamp: \(identity.buildTimestamp)
+            """
     }
 
     private func getMacModel() -> String {

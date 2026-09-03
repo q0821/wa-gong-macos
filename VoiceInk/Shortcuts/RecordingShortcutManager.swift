@@ -1,6 +1,16 @@
 import AppKit
 import Foundation
 
+enum KeyboardDeviceMonitoringPolicy {
+    static func shouldMonitor(
+        hasDeviceBinding: Bool,
+        activeConfigurationCount: Int,
+        hasInputMonitoringPermission: Bool
+    ) -> Bool {
+        hasInputMonitoringPermission && (hasDeviceBinding || activeConfigurationCount > 0)
+    }
+}
+
 @MainActor
 class RecordingShortcutManager: ObservableObject {
     @Published var primaryRecordingShortcut: ShortcutSelection {
@@ -52,6 +62,7 @@ class RecordingShortcutManager: ObservableObject {
     var keyboardMonitor: KeyboardDeviceMonitor { keyboardDeviceMonitor }
     private var shortcutChangeObserver: NSObjectProtocol?
     private var applicationActivationObserver: NSObjectProtocol?
+    private var activeDeviceConfigurationIDs: Set<UUID> = []
     private let shortcutModeHandler: RecordingShortcutModeHandler
     private let primaryRecordingShortcutModeSource: RecordingShortcutModeSource
 
@@ -318,11 +329,26 @@ class RecordingShortcutManager: ObservableObject {
             }
         }
 
-        if hasDeviceBinding, KeyboardInputPermission.currentStatus == .granted {
+        let shouldMonitor = KeyboardDeviceMonitoringPolicy.shouldMonitor(
+            hasDeviceBinding: hasDeviceBinding,
+            activeConfigurationCount: activeDeviceConfigurationIDs.count,
+            hasInputMonitoringPermission: KeyboardInputPermission.currentStatus == .granted
+        )
+        if shouldMonitor {
             keyboardDeviceMonitor.start()
         } else {
             keyboardDeviceMonitor.stop()
         }
+    }
+
+    func beginDeviceShortcutConfiguration(id: UUID) {
+        activeDeviceConfigurationIDs.insert(id)
+        refreshKeyboardDeviceMonitoring()
+    }
+
+    func endDeviceShortcutConfiguration(id: UUID) {
+        activeDeviceConfigurationIDs.remove(id)
+        refreshKeyboardDeviceMonitoring()
     }
 
     private func recordingMode(for action: ShortcutAction) -> Mode? {

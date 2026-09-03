@@ -67,6 +67,34 @@ struct KeyboardEventAttributionBrokerTests {
         #expect(second == first)
     }
 
+    @Test func lookupBeforeDelayedHIDEventDoesNotPoisonLaterAttribution() {
+        let broker = KeyboardEventAttributionBroker()
+        let source = UUID()
+        let eventToken = token(keyCode: 15, transition: .keyDown)
+
+        let earlyLookup = broker.attribution(for: eventToken, observedAtNanoseconds: 1_000)
+        broker.observe(event(sourceID: source, keyCode: 15, transition: .keyDown, observedAt: 2_000))
+        let recoveredLookup = broker.attribution(for: eventToken, observedAtNanoseconds: 3_000)
+
+        #expect(earlyLookup == nil)
+        #expect(recoveredLookup?.sourceID == source)
+    }
+
+    @Test func waitsForDelayedHIDEventWithinBoundedWindow() async {
+        let broker = KeyboardEventAttributionBroker()
+        let source = UUID()
+        let eventToken = token(keyCode: 15, transition: .keyDown)
+
+        async let attribution = broker.attribution(
+            for: eventToken,
+            waitingUpToNanoseconds: 100_000_000
+        )
+        await Task.yield()
+        broker.observe(event(sourceID: source, keyCode: 15, transition: .keyDown, observedAt: 2_000))
+
+        #expect(await attribution?.sourceID == source)
+    }
+
     private func token(
         keyCode: UInt16,
         transition: ShortcutEventToken.Transition

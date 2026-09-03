@@ -4,13 +4,40 @@ import IOKit.hid
 struct KeyboardDeviceSnapshot: Identifiable, Equatable, Sendable {
     enum BindingAvailability: Equatable, Sendable {
         case supported
-        case unverifiedBluetooth
+        case requiresVerification
         case unsupportedTransport
     }
 
     let id: UUID
     let reference: KeyboardDeviceReference
     let bindingAvailability: BindingAvailability
+}
+
+enum KeyboardDeviceVerificationPolicy {
+    static func availability(
+        for reference: KeyboardDeviceReference
+    ) -> KeyboardDeviceSnapshot.BindingAvailability {
+        if reference.matchStrength == .builtIn {
+            return .supported
+        }
+
+        let transport = reference.transport?.lowercased() ?? ""
+        if transport.contains("bluetooth") {
+            return .requiresVerification
+        }
+        if transport.contains("usb") {
+            return .supported
+        }
+        return .unsupportedTransport
+    }
+
+    static func accepts(
+        sourceID: UUID,
+        transition: KeyboardInputEvent.Transition,
+        selectedSourceID: UUID
+    ) -> Bool {
+        sourceID == selectedSourceID && transition == .keyDown
+    }
 }
 
 final class KeyboardDeviceMonitor: ObservableObject, @unchecked Sendable {
@@ -142,6 +169,12 @@ final class KeyboardDeviceMonitor: ObservableObject, @unchecked Sendable {
         self.manager = manager
         statusAfterCancellation = .idle
         deviceState.activate()
+        let openResult = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+        guard openResult == kIOReturnSuccess else {
+            statusAfterCancellation = .failed
+            IOHIDManagerCancel(manager)
+            return
+        }
         IOHIDManagerActivate(manager)
         publish(status: .listening)
     }
@@ -242,28 +275,13 @@ final class KeyboardDeviceMonitor: ObservableObject, @unchecked Sendable {
                 KeyboardDeviceSnapshot(
                     id: instance.id,
                     reference: instance.reference,
-                    bindingAvailability: bindingAvailability(for: instance.reference)
+                    bindingAvailability: KeyboardDeviceVerificationPolicy.availability(
+                        for: instance.reference
+                    )
                 )
             }
             .sorted { $0.reference.displayName.localizedStandardCompare($1.reference.displayName) == .orderedAscending }
         publish(devices: snapshots)
-    }
-
-    private func bindingAvailability(
-        for reference: KeyboardDeviceReference
-    ) -> KeyboardDeviceSnapshot.BindingAvailability {
-        if reference.matchStrength == .builtIn {
-            return .supported
-        }
-
-        let transport = reference.transport?.lowercased() ?? ""
-        if transport.contains("bluetooth") {
-            return .unverifiedBluetooth
-        }
-        if transport.contains("usb") {
-            return .supported
-        }
-        return .unsupportedTransport
     }
 
     private func devicePointer(_ device: IOHIDDevice) -> UInt {

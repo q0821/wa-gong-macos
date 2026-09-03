@@ -197,6 +197,14 @@ struct WaGongApp: App {
                 modelContainer: resolvedContainer)
             await tokenBackfillTask?.value
         }
+
+        #if LOCAL_BUILD
+            do {
+                try TestBuildIdentity.current?.writeLaunchReceiptIfRequested()
+            } catch {
+                logger.error("Failed to write the test build launch receipt: \(error, privacy: .public)")
+            }
+        #endif
     }
 
     // MARK: - Container Creation Helpers

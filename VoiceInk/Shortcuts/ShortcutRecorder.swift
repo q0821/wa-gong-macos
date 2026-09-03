@@ -205,6 +205,7 @@ final class ShortcutRecorderModel: ObservableObject {
     private var peakModifierFlags: NSEvent.ModifierFlags = []
     private var requiredSourceID: UUID?
     private var attributionBroker: KeyboardEventAttributionBroker?
+    private var pendingAttributionTasks: [Task<Void, Never>] = []
 
     deinit {
         removeRecordingMonitor()
@@ -269,6 +270,8 @@ final class ShortcutRecorderModel: ObservableObject {
         peakModifierFlags = []
         requiredSourceID = nil
         attributionBroker = nil
+        pendingAttributionTasks.forEach { $0.cancel() }
+        pendingAttributionTasks.removeAll()
     }
 
     private func showErrorNotification(_ title: String) {
@@ -301,23 +304,69 @@ final class ShortcutRecorderModel: ObservableObject {
         }
 
         if let requiredSourceID {
-            guard sourceID(for: event) == requiredSourceID else {
+            guard let attributionBroker, let token = eventToken(for: event) else {
                 return false
             }
+
+            if let attribution = attributionBroker.attribution(for: token) {
+                guard attribution.sourceID == requiredSourceID else { return false }
+                return handleAttributedRecordingEvent(event)
+            }
+
+            let eventType = event.type
+            let keyCode = event.keyCode
+            let modifierFlags = event.modifierFlags
+            let task = Task { @MainActor [weak self] in
+                let attribution = await attributionBroker.attribution(
+                    for: token,
+                    waitingUpToNanoseconds: 75_000_000
+                )
+                guard !Task.isCancelled,
+                    let self,
+                    self.isRecording,
+                    self.requiredSourceID == attribution?.sourceID
+                else {
+                    return
+                }
+
+                _ = self.handleAttributedRecordingEvent(
+                    type: eventType,
+                    keyCode: keyCode,
+                    modifierFlags: modifierFlags
+                )
+            }
+            pendingAttributionTasks.append(task)
+            return true
         }
 
-        switch event.type {
+        return handleAttributedRecordingEvent(event)
+    }
+
+    private func handleAttributedRecordingEvent(_ event: NSEvent) -> Bool {
+        handleAttributedRecordingEvent(
+            type: event.type,
+            keyCode: event.keyCode,
+            modifierFlags: event.modifierFlags
+        )
+    }
+
+    private func handleAttributedRecordingEvent(
+        type: NSEvent.EventType,
+        keyCode: UInt16,
+        modifierFlags: NSEvent.ModifierFlags
+    ) -> Bool {
+        switch type {
         case .keyDown:
-            return handleKeyDown(keyCode: event.keyCode, modifierFlags: event.modifierFlags)
+            return handleKeyDown(keyCode: keyCode, modifierFlags: modifierFlags)
         case .flagsChanged:
-            return handleFlagsChanged(keyCode: event.keyCode, modifierFlags: event.modifierFlags)
+            return handleFlagsChanged(keyCode: keyCode, modifierFlags: modifierFlags)
         default:
             return false
         }
     }
 
-    private func sourceID(for event: NSEvent) -> UUID? {
-        guard let attributionBroker, let cgEvent = event.cgEvent else { return nil }
+    private func eventToken(for event: NSEvent) -> ShortcutEventToken? {
+        guard let cgEvent = event.cgEvent else { return nil }
         let transition: ShortcutEventToken.Transition
         switch event.type {
         case .keyDown:
@@ -329,12 +378,11 @@ final class ShortcutRecorderModel: ObservableObject {
         default:
             return nil
         }
-        let token = ShortcutEventToken(
+        return ShortcutEventToken(
             eventTimestamp: cgEvent.timestamp,
             keyCode: event.keyCode,
             transition: transition
         )
-        return attributionBroker.attribution(for: token)?.sourceID
     }
 
     private func handleKeyDown(keyCode: UInt16, modifierFlags: NSEvent.ModifierFlags) -> Bool {
@@ -386,5 +434,138 @@ final class ShortcutRecorderModel: ObservableObject {
         }
 
         return true
+    }
+}
+
+@MainActor
+final class KeyboardDeviceVerificationModel: ObservableObject {
+    enum State: Equatable {
+        case idle
+        case waiting
+        case verified
+        case timedOut
+        case disconnected
+        case differentDevice(displayName: String, transport: String)
+    }
+
+    @Published private(set) var state: State = .idle
+
+    private var localMonitor: Any?
+    private var timeoutTask: Task<Void, Never>?
+    private var attributionTask: Task<Void, Never>?
+    private var selectedSourceID: UUID?
+    private var attributionBroker: KeyboardEventAttributionBroker?
+
+    deinit {
+        if let localMonitor {
+            NSEvent.removeMonitor(localMonitor)
+        }
+        timeoutTask?.cancel()
+        attributionTask?.cancel()
+    }
+
+    func start(
+        selectedSourceID: UUID,
+        attributionBroker: KeyboardEventAttributionBroker,
+        timeoutNanoseconds: UInt64 = 12_000_000_000
+    ) {
+        cancel()
+        self.selectedSourceID = selectedSourceID
+        self.attributionBroker = attributionBroker
+        state = .waiting
+
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+            guard let self else { return event }
+            return self.handle(event) ? nil : event
+        }
+
+        timeoutTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: timeoutNanoseconds)
+            guard !Task.isCancelled else { return }
+            self?.finish(with: .timedOut)
+        }
+    }
+
+    func markDisconnected() {
+        guard state == .waiting else { return }
+        finish(with: .disconnected)
+    }
+
+    func cancel() {
+        guard state == .waiting else { return }
+        removeEventMonitor()
+        timeoutTask?.cancel()
+        timeoutTask = nil
+        attributionTask?.cancel()
+        attributionTask = nil
+        selectedSourceID = nil
+        attributionBroker = nil
+        state = .idle
+    }
+
+    private func handle(_ event: NSEvent) -> Bool {
+        guard let cgEvent = event.cgEvent else { return false }
+        let token = ShortcutEventToken(
+            eventTimestamp: cgEvent.timestamp,
+            keyCode: event.keyCode,
+            transition: .keyDown
+        )
+        return handleVerificationKeyDown(token: token, isRepeat: event.isARepeat)
+    }
+
+    @discardableResult
+    func handleVerificationKeyDown(token: ShortcutEventToken, isRepeat: Bool) -> Bool {
+        guard state == .waiting, !isRepeat, let attributionBroker else {
+            return false
+        }
+
+        attributionTask?.cancel()
+        attributionTask = Task { [weak self] in
+            let attribution = await attributionBroker.attribution(
+                for: token,
+                waitingUpToNanoseconds: 75_000_000
+            )
+            guard !Task.isCancelled,
+                let self,
+                self.state == .waiting,
+                let selectedSourceID = self.selectedSourceID,
+                let attribution
+            else {
+                return
+            }
+
+            if KeyboardDeviceVerificationPolicy.accepts(
+                sourceID: attribution.sourceID,
+                transition: .keyDown,
+                selectedSourceID: selectedSourceID
+            ) {
+                self.finish(with: .verified)
+            } else {
+                self.finish(
+                    with: .differentDevice(
+                        displayName: attribution.device.displayName,
+                        transport: attribution.device.transport ?? "Unknown"
+                    )
+                )
+            }
+        }
+        return true
+    }
+
+    private func finish(with finalState: State) {
+        removeEventMonitor()
+        timeoutTask?.cancel()
+        timeoutTask = nil
+        attributionTask?.cancel()
+        attributionTask = nil
+        selectedSourceID = nil
+        attributionBroker = nil
+        state = finalState
+    }
+
+    private func removeEventMonitor() {
+        guard let localMonitor else { return }
+        NSEvent.removeMonitor(localMonitor)
+        self.localMonitor = nil
     }
 }

@@ -1,12 +1,11 @@
 // LocalBuild.xcconfig
-// Build configuration for local builds with an ad-hoc fallback when no Apple Development identity is available.
-// Used by `make local` — does NOT affect Debug or Release configurations.
+// Deterministic local test configuration used by `make test-app`.
 
-// `make local` supplies an Apple Development identity when one is available,
-// and falls back to ad-hoc signing otherwise.
 CODE_SIGN_STYLE = Manual
-DEVELOPMENT_TEAM =
+DEVELOPMENT_TEAM = 8N33V8XXTX
 PROVISIONING_PROFILE_SPECIFIER =
+WAGONG_BUILD_CHANNEL = test
+WAGONG_DISPLAY_NAME = 聲筆 Wa-Gong 測試版
 
 // Entitlements are set via absolute path in the Makefile command line
 // (relative paths break SPM package targets that resolve from their own source root)

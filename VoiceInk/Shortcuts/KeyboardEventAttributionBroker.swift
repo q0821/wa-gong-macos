@@ -19,13 +19,19 @@ struct KeyboardEventAttribution: Equatable, Sendable {
 
 final class KeyboardEventAttributionBroker: @unchecked Sendable {
     private struct CachedAttribution {
-        let attribution: KeyboardEventAttribution?
+        let attribution: KeyboardEventAttribution
         let observedAtNanoseconds: UInt64
+    }
+
+    private struct PendingAttributionRequest {
+        let token: ShortcutEventToken
+        let continuation: CheckedContinuation<KeyboardEventAttribution?, Never>
     }
 
     private let lock = NSLock()
     private var pendingHIDEvents: [KeyboardInputEvent] = []
     private var cachedByToken: [ShortcutEventToken: CachedAttribution] = [:]
+    private var pendingRequests: [UUID: PendingAttributionRequest] = [:]
     private let matchingWindowNanoseconds: UInt64
     private let maximumPendingEvents: Int
 
@@ -35,13 +41,28 @@ final class KeyboardEventAttributionBroker: @unchecked Sendable {
     }
 
     func observe(_ event: KeyboardInputEvent) {
-        lock.lock()
-        defer { lock.unlock() }
+        var completedRequests: [(CheckedContinuation<KeyboardEventAttribution?, Never>, KeyboardEventAttribution)] = []
 
+        lock.lock()
         prune(now: event.observedAtNanoseconds)
         pendingHIDEvents.append(event)
         if pendingHIDEvents.count > maximumPendingEvents {
             pendingHIDEvents.removeFirst(pendingHIDEvents.count - maximumPendingEvents)
+        }
+
+        for (requestID, request) in Array(pendingRequests) {
+            if let attribution = attributionLocked(
+                for: request.token,
+                observedAtNanoseconds: event.observedAtNanoseconds
+            ) {
+                pendingRequests.removeValue(forKey: requestID)
+                completedRequests.append((request.continuation, attribution))
+            }
+        }
+        lock.unlock()
+
+        for (continuation, attribution) in completedRequests {
+            continuation.resume(returning: attribution)
         }
     }
 
@@ -53,6 +74,55 @@ final class KeyboardEventAttributionBroker: @unchecked Sendable {
         defer { lock.unlock() }
 
         prune(now: observedAtNanoseconds)
+        return attributionLocked(for: token, observedAtNanoseconds: observedAtNanoseconds)
+    }
+
+    func attribution(
+        for token: ShortcutEventToken,
+        waitingUpToNanoseconds timeoutNanoseconds: UInt64
+    ) async -> KeyboardEventAttribution? {
+        if let immediate = attribution(for: token) {
+            return immediate
+        }
+
+        let requestID = UUID()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let now = DispatchTime.now().uptimeNanoseconds
+                lock.lock()
+                prune(now: now)
+
+                if let attribution = attributionLocked(
+                    for: token,
+                    observedAtNanoseconds: now
+                ) {
+                    lock.unlock()
+                    continuation.resume(returning: attribution)
+                    return
+                }
+
+                pendingRequests[requestID] = PendingAttributionRequest(
+                    token: token,
+                    continuation: continuation
+                )
+                lock.unlock()
+
+                let cappedTimeout = min(timeoutNanoseconds, UInt64(Int.max))
+                DispatchQueue.global().asyncAfter(
+                    deadline: .now() + .nanoseconds(Int(cappedTimeout))
+                ) { [weak self] in
+                    self?.resolvePendingRequest(requestID, with: nil)
+                }
+            }
+        } onCancel: { [weak self] in
+            self?.resolvePendingRequest(requestID, with: nil)
+        }
+    }
+
+    private func attributionLocked(
+        for token: ShortcutEventToken,
+        observedAtNanoseconds: UInt64
+    ) -> KeyboardEventAttribution? {
         if let cached = cachedByToken[token] {
             return cached.attribution
         }
@@ -78,27 +148,45 @@ final class KeyboardEventAttributionBroker: @unchecked Sendable {
             let event = pendingHIDEvents.remove(at: index)
             return KeyboardEventAttribution(sourceID: event.sourceID, device: event.device)
         }
-        cachedByToken[token] = CachedAttribution(
-            attribution: attribution,
-            observedAtNanoseconds: observedAtNanoseconds
-        )
+        if let attribution {
+            cachedByToken[token] = CachedAttribution(
+                attribution: attribution,
+                observedAtNanoseconds: observedAtNanoseconds
+            )
+        }
         return attribution
     }
 
     func reset() {
+        let continuations: [CheckedContinuation<KeyboardEventAttribution?, Never>]
         lock.lock()
         pendingHIDEvents.removeAll()
         cachedByToken.removeAll()
+        continuations = pendingRequests.values.map(\.continuation)
+        pendingRequests.removeAll()
         lock.unlock()
+
+        continuations.forEach { $0.resume(returning: nil) }
     }
 
     func removeSource(_ sourceID: UUID) {
         lock.lock()
         pendingHIDEvents.removeAll { $0.sourceID == sourceID }
         cachedByToken = cachedByToken.filter { _, cached in
-            cached.attribution?.sourceID != sourceID
+            cached.attribution.sourceID != sourceID
         }
         lock.unlock()
+    }
+
+    private func resolvePendingRequest(
+        _ requestID: UUID,
+        with attribution: KeyboardEventAttribution?
+    ) {
+        let continuation: CheckedContinuation<KeyboardEventAttribution?, Never>?
+        lock.lock()
+        continuation = pendingRequests.removeValue(forKey: requestID)?.continuation
+        lock.unlock()
+        continuation?.resume(returning: attribution)
     }
 
     private func prune(now: UInt64) {

@@ -26343,6 +26343,48 @@
         }
       }
     },
+    "Cancel adding %@ shortcut" : {
+      "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "取消新增 %@ 的快速鍵" } } }
+    },
+    "Bluetooth" : {
+      "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "藍牙" } } }
+    },
+    "Confirm that key events come from %@" : {
+      "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "確認按鍵事件確實來自 %@" } } }
+    },
+    "Connection verified" : {
+      "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "這次連線已驗證" } } }
+    },
+    "Detected %@ (%@), not the selected %@." : {
+      "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "偵測到 %@（%@），不是所選的 %@。" } } }
+    },
+    "Make sure the keyboard is connected and use it to complete verification" : {
+      "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "請確認鍵盤已連線，並使用這把鍵盤完成驗證" } } }
+    },
+    "No key detected. Try Again" : {
+      "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "未偵測到按鍵，重試" } } }
+    },
+    "Press a letter key on this keyboard" : {
+      "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "請在這把鍵盤按一個字母鍵" } } }
+    },
+    "Requires key verification" : {
+      "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "需按鍵驗證" } } }
+    },
+    "Unsupported connection" : {
+      "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "不支援此連線方式" } } }
+    },
+    "Unknown connection" : {
+      "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "未知連線" } } }
+    },
+    "Try Again" : {
+      "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "重試" } } }
+    },
+    "Verify Bluetooth keyboard" : {
+      "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "驗證藍牙鍵盤" } } }
+    },
+    "Verifying %@. Press a letter key on this keyboard." : {
+      "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在驗證 %@。請在這把鍵盤按一個字母鍵。" } } }
+    },
     "Allowed" : {
       "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已允許" } } }
     },

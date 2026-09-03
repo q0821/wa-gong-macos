@@ -2,7 +2,7 @@ import Foundation
 import Security
 import os
 
-/// Stores production credentials in the Data Protection Keychain and local-build credentials in a separate, non-syncing login Keychain namespace.
+/// Keeps local-build writes separate while allowing a read-only fallback to production credentials.
 final class KeychainService {
     static let shared = KeychainService()
 
@@ -156,14 +156,27 @@ final class KeychainService {
         )
 
         #if LOCAL_BUILD
-            if case .notFound = current,
-               let legacyData = defaults.data(forKey: legacyLocalPrefix + key)
-            {
-                _ = save(data: legacyData, forKey: key, syncable: false)
-                return .value(legacyData)
-            }
-
-            return current
+            return LocalBuildKeychainLookup.resolve(
+                local: current,
+                readLegacyLocal: {
+                    self.defaults.data(forKey: self.legacyLocalPrefix + key)
+                },
+                migrateLegacyLocal: { data in
+                    _ = self.save(data: data, forKey: key, syncable: false)
+                },
+                readProduction: {
+                    let production = self.readDataDirectly(
+                        forKey: key,
+                        syncable: syncable,
+                        service: AppIdentity.bundleIdentifier,
+                        usesDataProtectionKeychain: true
+                    )
+                    if case .value = production {
+                        self.logger.notice("Using production Keychain item for local-build key: \(key, privacy: .public)")
+                    }
+                    return production
+                }
+            )
         #else
             return LegacyKeychainMigration.resolve(
                 current: current,
@@ -321,6 +334,26 @@ final class KeychainService {
         #if LOCAL_BUILD
             defaults.removeObject(forKey: legacyLocalPrefix + key)
         #endif
+    }
+}
+
+enum LocalBuildKeychainLookup {
+    static func resolve<Value>(
+        local: KeychainService.ReadResult<Value>,
+        readLegacyLocal: () -> Value?,
+        migrateLegacyLocal: (Value) -> Void,
+        readProduction: () -> KeychainService.ReadResult<Value>
+    ) -> KeychainService.ReadResult<Value> {
+        guard case .notFound = local else {
+            return local
+        }
+
+        if let legacyLocal = readLegacyLocal() {
+            migrateLegacyLocal(legacyLocal)
+            return .value(legacyLocal)
+        }
+
+        return readProduction()
     }
 }
 

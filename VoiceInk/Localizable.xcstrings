@@ -1,6 +1,41 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Connecting microphone" : {
+      "localizations" : {
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在連接麥克風" } }
+      }
+    },
+    "No audio arrived from the microphone. Check the connection or choose another microphone." : {
+      "localizations" : {
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "尚未收到麥克風的有效音訊，請檢查連線或改用其他麥克風。" } }
+      }
+    },
+    "Maximum Audio Storage" : {
+      "localizations" : {
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "錄音容量上限" } }
+      }
+    },
+    "Recordings are deleted oldest first when either limit is exceeded. Transcripts are kept. Files in use may temporarily exceed the limit." : {
+      "localizations" : {
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "天數到期或容量超過上限時，會從最舊的錄音開始刪除，轉錄文字仍會保留。使用中的檔案可能暫時超過容量上限。" } }
+      }
+    },
+    "Audio storage used: %@ / %lld MB" : {
+      "localizations" : {
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "錄音已使用：%@／%lld MB" } }
+      }
+    },
+    "No recordings currently need cleanup under these limits." : {
+      "localizations" : {
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "依目前的天數與容量限制，沒有需要清理的錄音。" } }
+      }
+    },
+    "Text cleanup timed out. Retrying (%lld/%lld)." : {
+      "localizations" : {
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "文字整理逾時，正在重試（第 %lld／%lld 次）。" } }
+      }
+    },
     "" : {
       "localizations" : {
         "de" : {

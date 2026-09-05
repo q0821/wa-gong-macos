@@ -63,6 +63,7 @@ final class CoreAudioRecorder: @unchecked Sendable {
     private var isAudioUnitInitialized = false
     private var currentDeviceID: AudioDeviceID = 0
     private var recordingURL: URL?
+    let captureReadiness = AudioCaptureReadiness()
 
     // Device format (what the hardware provides)
     private var deviceFormat = AudioStreamBasicDescription()
@@ -181,6 +182,8 @@ final class CoreAudioRecorder: @unchecked Sendable {
             try createOutputFile(at: url)
             resetAudioProcessingState()
 
+            captureReadiness.reset()
+
             try startAudioUnit()
         } catch {
             isRecording = false
@@ -194,6 +197,7 @@ final class CoreAudioRecorder: @unchecked Sendable {
 
     /// Stops the current recording
     func stopRecording() {
+        captureReadiness.cancel()
         guard isRecording || audioFile != nil else {
             return
         }
@@ -1059,6 +1063,12 @@ final class CoreAudioRecorder: @unchecked Sendable {
         let writeStatus = ExtAudioFileWrite(file, outputFrameCount, &outputBufferList)
         if writeStatus != noErr {
             logger.error("🎙️ ExtAudioFileWrite failed with status: \(writeStatus, privacy: .public)")
+        } else if !captureReadiness.isReady {
+            let samples = UnsafeBufferPointer(start: outputBuffer, count: Int(outputFrameCount))
+            captureReadiness.observe(
+                hasSignal: samples.contains(where: { $0 != 0 }),
+                duration: Double(outputFrameCount) / outputFormat.mSampleRate
+            )
         }
 
         // Send the same PCM data to the streaming callback if set.

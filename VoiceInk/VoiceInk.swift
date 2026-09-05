@@ -28,9 +28,6 @@ struct WaGongApp: App {
     @State private var showMenuBarIcon = true
     @State private var didShowLaunchReminders = false
 
-    // Audio cleanup manager for automatic deletion of old audio files
-    private let audioCleanupManager = AudioCleanupManager.shared
-
     // Transcription auto-cleanup service for zero data retention
     private let transcriptionAutoCleanupService = TranscriptionAutoCleanupService.shared
 
@@ -90,6 +87,10 @@ struct WaGongApp: App {
         }
 
         container = resolvedContainer
+        AudioCleanupManager.shared.startAutomaticCleanup(modelContext: resolvedContainer.mainContext)
+        Task { @MainActor in
+            await AudioCleanupManager.shared.runAutomaticCleanupIfNeeded(modelContext: resolvedContainer.mainContext)
+        }
         DictionaryService.removeExactDuplicateContent(context: resolvedContainer.mainContext, source: "launch")
 
         // Initialize services with proper sharing of instances
@@ -326,17 +327,6 @@ struct WaGongApp: App {
 
                             GitHubStarPromptCoordinator.shared.scheduleIfNeeded(modelContainer: container)
 
-                            // Run due audio-only cleanup and schedule future checks when transcript cleanup is not managing retention.
-                            if !UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isTranscriptionCleanupEnabled)
-                                && UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isAudioCleanupEnabled)
-                            {
-                                Task {
-                                    await audioCleanupManager.runAutomaticCleanupIfNeeded(
-                                        modelContext: container.mainContext)
-                                }
-                                audioCleanupManager.startAutomaticCleanup(modelContext: container.mainContext)
-                            }
-
                             // Process any pending open-file request now that the main ContentView is ready.
                             if let pendingURL = appDelegate.pendingOpenFileURL {
                                 NotificationCenter.default.post(
@@ -357,9 +347,6 @@ struct WaGongApp: App {
                         .onDisappear {
                             AnnouncementsService.shared.stop()
                             whisperModelManager.unloadModel()
-
-                            // Stop the automatic audio cleanup process
-                            audioCleanupManager.stopAutomaticCleanup()
                         }
                 } else {
                     OnboardingView(hasCompletedOnboardingV2: $hasCompletedOnboardingV2)

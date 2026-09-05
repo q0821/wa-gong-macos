@@ -215,7 +215,6 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
                 await cancelRecording()
             case .idle:
                 if engine.assistantSession.canSendFollowUp {
-                    SoundManager.shared.playStartSound()
                     await engine.toggleRecord(
                         modeId: modeId,
                         isAssistantFollowUp: true
@@ -227,7 +226,6 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
                 await dismissRecorderPanel()
             }
         } else {
-            SoundManager.shared.playStartSound()
             isRecorderPanelVisible = true
             await engine.toggleRecord(modeId: modeId)
         }

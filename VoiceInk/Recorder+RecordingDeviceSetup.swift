@@ -30,6 +30,12 @@ extension Recorder {
                 }
             }
         }
+        do {
+            try await recorder.captureReadiness.waitUntilReady()
+            logger.notice("Microphone ready deviceID=\(deviceID, privacy: .public) startupSeconds=\(recorder.captureReadiness.startupDuration ?? 0, privacy: .public)")
+        } catch AudioCaptureReadiness.ReadinessError.timedOut {
+            throw RecorderError.microphoneNotReady
+        }
     }
 
     func showRecordingDeviceNotification(

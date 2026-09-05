@@ -60,6 +60,7 @@ enum CleanupSettingsKeys {
     static let transcriptionRetentionMinutes = "TranscriptionRetentionMinutes"
     static let isAudioCleanupEnabled = "IsAudioCleanupEnabled"
     static let audioRetentionPeriod = "AudioRetentionPeriod"
+    static let audioStorageLimitMB = "AudioStorageLimitMB"
     static let lastAutomaticAudioCleanupDate = "AudioCleanupLastAutomaticCleanupDate"
 }
 
@@ -115,8 +116,9 @@ enum AppDefaults {
             // Cleanup
             CleanupSettingsKeys.isTranscriptionCleanupEnabled: false,
             CleanupSettingsKeys.transcriptionRetentionMinutes: 1440,
-            CleanupSettingsKeys.isAudioCleanupEnabled: false,
-            CleanupSettingsKeys.audioRetentionPeriod: 7,
+            CleanupSettingsKeys.isAudioCleanupEnabled: true,
+            CleanupSettingsKeys.audioRetentionPeriod: 3,
+            CleanupSettingsKeys.audioStorageLimitMB: 300,
 
             // UI & Behavior
             "IsMenuBarOnly": false,
@@ -129,8 +131,8 @@ enum AppDefaults {
             // Enhancement
             "SkipShortEnhancement": true,
             "ShortEnhancementWordThreshold": 3,
-            "EnhancementTimeoutSeconds": 7,
-            "EnhancementRetryOnTimeout": true,
+            "EnhancementTimeoutSeconds": 20,
+            "EnhancementRetryOnTimeout": false,
 
             // Model
             "PrewarmModelOnWake": true,

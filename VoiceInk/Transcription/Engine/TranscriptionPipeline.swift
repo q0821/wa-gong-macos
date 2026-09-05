@@ -64,6 +64,8 @@ class TranscriptionPipeline {
         onDismiss: @escaping () async -> Void,
         assistant: AssistantHooks = .inactive
     ) async {
+        AudioCleanupManager.protect(audioURL)
+        defer { AudioCleanupManager.release(audioURL) }
         let model = transcriptionConfiguration.model
         var finalText: String?
         var responseError: String?

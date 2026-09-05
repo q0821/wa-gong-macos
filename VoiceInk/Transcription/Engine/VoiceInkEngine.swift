@@ -279,6 +279,7 @@ class WaGongEngine: NSObject, ObservableObject {
                             }
 
                             self.recordingState = .recording
+                            SoundManager.shared.playStartSound()
 
                             await activeModeTask.value
 
@@ -391,6 +392,7 @@ class WaGongEngine: NSObject, ObservableObject {
 
                         } catch {
                             activeModeTask.cancel()
+                            guard self.activeRecordingStartID == startID else { return }
                             self.logger.error("Recording failed to start: \(error, privacy: .public)")
                             let audioFailure = self.recordingAudioFailure(for: error)
                             if audioFailure == nil {

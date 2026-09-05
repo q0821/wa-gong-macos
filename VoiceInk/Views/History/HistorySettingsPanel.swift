@@ -8,8 +8,10 @@ struct HistorySettingsPanel: View {
 
     @AppStorage(CleanupSettingsKeys.isTranscriptionCleanupEnabled) private var isTranscriptionCleanupEnabled = false
     @AppStorage(CleanupSettingsKeys.transcriptionRetentionMinutes) private var transcriptionRetentionMinutes = 24 * 60
-    @AppStorage(CleanupSettingsKeys.isAudioCleanupEnabled) private var isAudioCleanupEnabled = false
-    @AppStorage(CleanupSettingsKeys.audioRetentionPeriod) private var audioRetentionPeriod = 7
+    @AppStorage(CleanupSettingsKeys.isAudioCleanupEnabled) private var isAudioCleanupEnabled = true
+    @AppStorage(CleanupSettingsKeys.audioRetentionPeriod) private var audioRetentionPeriod = 3
+    @AppStorage(CleanupSettingsKeys.audioStorageLimitMB) private var audioStorageLimitMB = 300
+    @State private var audioStorageBytes: Int64 = 0
 
     @State private var isPerformingAudioCleanup = false
     @State private var isShowingAudioConfirmation = false
@@ -65,6 +67,22 @@ struct HistorySettingsPanel: View {
                                 Text("30 days").tag(30)
                             }
 
+                            Picker("Maximum Audio Storage", selection: $audioStorageLimitMB) {
+                                ForEach([100, 300, 500, 1000, 2000], id: \.self) { megabytes in
+                                    Text("\(megabytes) MB").tag(megabytes)
+                                }
+                            }
+
+                            Text("Recordings are deleted oldest first when either limit is exceeded. Transcripts are kept. Files in use may temporarily exceed the limit.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            Text(String(format: String(localized: "Audio storage used: %@ / %lld MB"),
+                                        AudioCleanupManager.shared.formatFileSize(audioStorageBytes),
+                                        Int64(audioStorageLimitMB)))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
                             Button {
                                 analyzeAudioCleanup()
                             } label: {
@@ -105,7 +123,7 @@ struct HistorySettingsPanel: View {
                             "This will delete \(cleanupInfo.fileCount) audio files (\(AudioCleanupManager.shared.formatFileSize(cleanupInfo.totalSize)))."
                     ))
             } else {
-                Text(String(localized: "No audio files found older than \(audioRetentionPeriod) days."))
+                Text("No recordings currently need cleanup under these limits.")
             }
         }
         .alert("Cleanup Complete", isPresented: $showAudioCleanupResult) {
@@ -143,6 +161,13 @@ struct HistorySettingsPanel: View {
                 AudioCleanupManager.shared.stopAutomaticCleanup()
             }
         }
+        .task { refreshAudioUsage() }
+        .onReceive(NotificationCenter.default.publisher(for: .transcriptionCompleted)) { _ in
+            refreshAudioUsage()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: AudioCleanupManager.didCleanAudio)) { _ in
+            refreshAudioUsage()
+        }
     }
 
     private func sectionHeader(_ title: LocalizedStringKey, tip: LocalizedStringKey) -> some View {
@@ -174,9 +199,14 @@ struct HistorySettingsPanel: View {
             )
             await MainActor.run {
                 audioCleanupResult = result
+                refreshAudioUsage()
                 isPerformingAudioCleanup = false
                 showAudioCleanupResult = true
             }
         }
+    }
+
+    private func refreshAudioUsage() {
+        audioStorageBytes = AudioCleanupManager.shared.currentStorageBytes()
     }
 }

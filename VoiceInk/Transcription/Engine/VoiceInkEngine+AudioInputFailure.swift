@@ -29,6 +29,14 @@ extension WaGongEngine {
     func recordingAudioFailure(
         for error: Error
     ) -> (title: String, actionLabel: String, action: () -> Void)? {
+        if let recorderError = error as? Recorder.RecorderError,
+           case .microphoneNotReady = recorderError {
+            return (
+                String(localized: "No audio arrived from the microphone. Check the connection or choose another microphone."),
+                String(localized: "Audio Settings"),
+                AudioSetupNavigator.openAudioSettings
+            )
+        }
         guard let recorderError = error as? Recorder.RecorderError,
             case .noUsableMicrophone(let internalMicrophoneBlockedByClosedLid) = recorderError
         else {

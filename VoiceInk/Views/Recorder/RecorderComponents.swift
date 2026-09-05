@@ -43,11 +43,11 @@ struct RecorderRecordButton: View {
 
     private var visualState: VisualState {
         switch recordingState {
-        case .idle, .starting, .busy:
+        case .idle, .busy:
             return .ready
         case .recording:
             return .recording
-        case .transcribing, .enhancing:
+        case .starting, .transcribing, .enhancing:
             return .processing
         }
     }
@@ -128,7 +128,7 @@ struct RecorderRecordButton: View {
         case .idle:
             return String(localized: "Start recording")
         case .starting:
-            return String(localized: "Starting recording")
+            return String(localized: "Connecting microphone")
         case .recording:
             return String(localized: "Stop recording")
         case .transcribing:
@@ -355,7 +355,13 @@ struct RecorderStatusDisplay: View {
 
     var body: some View {
         Group {
-            if currentState == .enhancing {
+            if currentState == .starting {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.mini)
+                    Text("Connecting microphone").font(.caption).lineLimit(1).minimumScaleFactor(0.8)
+                }
+                .foregroundStyle(.white)
+            } else if currentState == .enhancing {
                 ProcessingStatusDisplay(mode: .enhancing, color: .white).transition(.opacity)
             } else if currentState == .transcribing {
                 ProcessingStatusDisplay(mode: .transcribing, color: .white).transition(.opacity)

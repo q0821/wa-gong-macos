@@ -122,6 +122,8 @@ class AudioTranscriptionManager: ObservableObject {
     private func processItem(
         _ item: AudioFileQueueItem, modelContext: ModelContext, engine: WaGongEngine, mode: ModeConfig
     ) async {
+        AudioCleanupManager.protect(item.url)
+        defer { AudioCleanupManager.release(item.url) }
         let serviceRegistry = TranscriptionServiceRegistry(
             modelProvider: engine.whisperModelManager,
             modelsDirectory: engine.whisperModelManager.modelsDirectory,

@@ -50,6 +50,9 @@ class AudioTranscriptionService: ObservableObject {
             throw TranscriptionError.noAudioFile
         }
 
+        AudioCleanupManager.protect(url)
+        defer { AudioCleanupManager.release(url) }
+
         await MainActor.run {
             isTranscribing = true
         }

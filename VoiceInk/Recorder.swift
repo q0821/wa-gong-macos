@@ -18,6 +18,7 @@ class Recorder: NSObject, ObservableObject {
     private var audioMuteTask: Task<Void, Never>?
     private var mediaPauseTask: Task<Void, Never>?
     private var audioRestorationTask: Task<Void, Never>?
+    private var activeStartID: UUID?
     private let smoothedValuesLock = NSLock()
     private var smoothedAverage: Float = 0
     private var smoothedPeak: Float = 0
@@ -30,6 +31,7 @@ class Recorder: NSObject, ObservableObject {
 
     enum RecorderError: Error {
         case couldNotStartRecording
+        case microphoneNotReady
         case noUsableMicrophone(internalMicrophoneBlockedByClosedLid: Bool)
     }
 
@@ -54,6 +56,8 @@ class Recorder: NSObject, ObservableObject {
     }
 
     func startRecording(toOutputFile url: URL) async throws {
+        let startID = UUID()
+        activeStartID = startID
         var resolution = deviceManager.resolveCurrentRecordingDevice()
         guard var deviceID = resolution.deviceID else {
             onAudioChunk = nil
@@ -77,6 +81,7 @@ class Recorder: NSObject, ObservableObject {
             do {
                 try await startHardwareRecording(coreAudioRecorder, to: url, deviceID: deviceID)
             } catch {
+                guard activeStartID == startID, !(error is CancellationError) else { throw CancellationError() }
                 let retryResolution = deviceManager.resolveCurrentRecordingDevice(excluding: deviceID)
                 guard deviceManager.isClamshellClosed,
                     deviceManager.isInternalMicrophone(deviceID),
@@ -91,20 +96,25 @@ class Recorder: NSObject, ObservableObject {
                 try await startHardwareRecording(coreAudioRecorder, to: url, deviceID: fallbackDeviceID)
             }
 
+            guard activeStartID == startID else { throw CancellationError() }
             deviceManager.recordingDidStart(deviceID: deviceID)
             showRecordingDeviceNotification(for: deviceID, resolution: resolution)
             UserDefaults.standard.set(String(deviceID), forKey: "lastUsedMicrophoneDeviceID")
             resetAudioMeter()
         } catch {
+            guard activeStartID == startID else { throw CancellationError() }
             logger.error(
                 "Failed to start recording deviceID=\(deviceID, privacy: .public) file=\(url.lastPathComponent, privacy: .public) error=\(error, privacy: .public)"
             )
             await stopRecording()
+            if let recorderError = error as? RecorderError { throw recorderError }
+            if error is CancellationError { throw error }
             throw RecorderError.couldNotStartRecording
         }
     }
 
     func stopRecording() async {
+        activeStartID = nil
         audioMuteTask?.cancel()
         audioMuteTask = nil
         mediaPauseTask?.cancel()

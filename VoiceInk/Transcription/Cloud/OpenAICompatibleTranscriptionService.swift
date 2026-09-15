@@ -3,10 +3,13 @@ import Foundation
 class OpenAICompatibleTranscriptionService {
     func transcribe(audioURL: URL, model: CustomCloudModel, context: TranscriptionRequestContext) async throws -> String
     {
-        guard let url = URL(string: model.apiEndpoint) else {
+        guard let url = CustomEndpointPolicy.validatedURL(model.apiEndpoint) else {
             throw NSError(
                 domain: "CustomWhisperTranscriptionService", code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Invalid API endpoint URL"])
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "API endpoint must use HTTPS (plain HTTP is allowed only for localhost)"
+                ])
         }
 
         let boundary = "Boundary-\(UUID().uuidString)"

@@ -14,7 +14,7 @@ struct CustomModelConnectionTester {
     static func testTranscriptionEndpoint(endpoint: String, apiKey: String, modelName: String) async
         -> ConnectionTestResult
     {
-        guard let url = URL(string: endpoint), isAllowedScheme(url) else {
+        guard let url = CustomEndpointPolicy.validatedURL(endpoint) else {
             return .failure(
                 message: String(localized: "Endpoint must use HTTPS (plain HTTP is allowed only for localhost)"))
         }
@@ -70,7 +70,7 @@ struct CustomModelConnectionTester {
     static func testEnhancementEndpoint(baseURL: String, apiKey: String, modelName: String) async
         -> ConnectionTestResult
     {
-        guard let url = URL(string: baseURL), isAllowedScheme(url) else {
+        guard let url = CustomEndpointPolicy.validatedURL(baseURL) else {
             return .failure(
                 message: String(localized: "Base URL must use HTTPS (plain HTTP is allowed only for localhost)"))
         }
@@ -81,20 +81,6 @@ struct CustomModelConnectionTester {
             return .success
         }
         return .failure(message: result.errorMessage ?? String(localized: "Could not verify this API key"))
-    }
-
-    /// HTTPS everywhere; plain HTTP only toward loopback, matching the app's
-    /// existing local-server use cases (e.g. Ollama at http://localhost:11434).
-    private static func isAllowedScheme(_ url: URL) -> Bool {
-        switch url.scheme?.lowercased() {
-        case "https":
-            return true
-        case "http":
-            let host = url.host?.lowercased() ?? ""
-            return host == "localhost" || host == "127.0.0.1" || host == "::1"
-        default:
-            return false
-        }
     }
 
     private static func serverMessage(from data: Data) -> String {

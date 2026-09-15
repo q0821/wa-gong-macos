@@ -46,9 +46,9 @@ struct CustomModelBackup: Codable {
         self.apiKey = nil
     }
 
-    func makeModel() -> CustomCloudModel {
-        let model = CustomCloudModel(
-            id: id,
+    func makeImportedModel(id newID: UUID = UUID()) -> CustomCloudModel {
+        CustomCloudModel(
+            id: newID,
             name: name,
             displayName: displayName,
             description: description,
@@ -57,12 +57,6 @@ struct CustomModelBackup: Codable {
             isMultilingual: isMultilingualModel,
             supportedLanguages: supportedLanguages
         )
-
-        if let apiKey, !apiKey.isEmpty {
-            APIKeyManager.shared.saveCustomModelAPIKey(apiKey, forModelId: id)
-        }
-
-        return model
     }
 }
 

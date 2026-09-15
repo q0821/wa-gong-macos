@@ -119,8 +119,8 @@ final class StreamingTranscriptionSession: TranscriptionSession {
                 self.streamingService.cancel()
             } catch {
                 guard !Task.isCancelled else { return }
-                let desc = error.localizedDescription
-                self.logger.error("❌ Failed to start streaming, will fall back to batch: \(desc, privacy: .public)")
+                let summary = SensitiveLogSanitizer.errorSummary(error)
+                self.logger.error("❌ Failed to start streaming, will fall back to batch: \(summary, privacy: .public)")
                 self.streamingFailed = true
             }
         }
@@ -148,7 +148,8 @@ final class StreamingTranscriptionSession: TranscriptionSession {
                     logger.notice("Streaming provider requested full batch transcription")
                 }
             } catch {
-                logger.error("❌ Streaming failed, falling back to batch: \(error, privacy: .public)")
+                let summary = SensitiveLogSanitizer.errorSummary(error)
+                logger.error("❌ Streaming failed, falling back to batch: \(summary, privacy: .public)")
                 startupTask?.cancel()
                 startupTask = nil
                 startupTaskID = nil

@@ -162,6 +162,9 @@ final class CohereTranscriptionService: TranscriptionService, @unchecked Sendabl
             let backend = backend
             let task = Task.detached(priority: .userInitiated) {
                 try Task.checkCancellation()
+                guard artifact.modelFileIntegrityIsValid(in: artifact.modelDirectory) else {
+                    throw CocoaError(.fileReadCorruptFile)
+                }
                 guard let modelURL = artifact.installedModelFileURL else {
                     throw CocoaError(.fileNoSuchFile)
                 }

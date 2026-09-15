@@ -82,7 +82,7 @@ extension AIService {
         case .custom:
             guard
                 let customConfiguration = CustomAIProviderManager.shared.requestConfiguration(forModel: resolvedModel),
-                let baseURL = URL(string: customConfiguration.baseURL)
+                let baseURL = CustomEndpointPolicy.validatedURL(customConfiguration.baseURL)
             else {
                 throw EnhancementError.notConfigured
             }

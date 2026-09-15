@@ -148,8 +148,18 @@ final class WaGongRefineModelDownloader: @unchecked Sendable {
 
         let recordURL = snapshotDirectory.appendingPathComponent(verificationRecordFilename)
         if !FileManager.default.fileExists(atPath: recordURL.path) {
-            // Existing installations use the original size-based completion check.
-            return true
+            do {
+                for file in files {
+                    try validateDownloadedFile(
+                        at: snapshotDirectory.appendingPathComponent(file.path),
+                        file: file
+                    )
+                }
+                try? persistVerificationRecord(currentRecord, at: snapshotDirectory)
+                return true
+            } catch {
+                return false
+            }
         }
 
         if storedVerificationRecord(at: snapshotDirectory) == currentRecord {
@@ -164,6 +174,26 @@ final class WaGongRefineModelDownloader: @unchecked Sendable {
                 )
             }
             try? persistVerificationRecord(currentRecord, at: snapshotDirectory)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    static func snapshotIntegrityIsValid(
+        at snapshotDirectory: URL,
+        files: [ModelFile] = WaGongRefineModelDownloader.files
+    ) -> Bool {
+        do {
+            for file in files {
+                try validateDownloadedFile(
+                    at: snapshotDirectory.appendingPathComponent(file.path),
+                    file: file
+                )
+            }
+            if let currentRecord = verificationRecord(at: snapshotDirectory, files: files) {
+                try? persistVerificationRecord(currentRecord, at: snapshotDirectory)
+            }
             return true
         } catch {
             return false
@@ -448,6 +478,12 @@ final class WaGongRefineModelDownloader: @unchecked Sendable {
         }
 
         try FileManager.default.moveItem(at: partialURL, to: finalURL)
+        do {
+            try Self.validateDownloadedFile(at: finalURL, file: file)
+        } catch {
+            try? FileManager.default.removeItem(at: finalURL)
+            throw error
+        }
         try? FileManager.default.removeItem(at: validatorURL(for: file))
         progressTracker.update(identifier: file.path, downloadedBytes: file.size)
     }
@@ -800,6 +836,21 @@ final class WaGongRefineModelDownloader: @unchecked Sendable {
                 }
 
                 do {
+                    guard BoundedDownloadPolicy.canAccept(
+                        currentBytes: $0.bytesWritten,
+                        incomingBytes: data.count,
+                        expectedBytes: file.size
+                    ) else {
+                        let (attemptedBytes, overflow) = $0.bytesWritten.addingReportingOverflow(
+                            Int64(data.count)
+                        )
+                        $0.writeError = WaGongRefineDownloadError.invalidFileSize(
+                            file.path,
+                            expected: file.size,
+                            actual: overflow ? Int64.max : attemptedBytes
+                        )
+                        return nil
+                    }
                     try handle.write(contentsOf: data)
                     $0.bytesWritten += Int64(data.count)
                     return $0.bytesWritten

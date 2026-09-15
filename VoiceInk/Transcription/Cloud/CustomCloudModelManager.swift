@@ -99,8 +99,9 @@ class CustomCloudModelManager: ObservableObject {
 
         if apiEndpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             errors.append(String(localized: "API endpoint cannot be empty"))
-        } else if !isValidURL(apiEndpoint) {
-            errors.append(String(localized: "API endpoint must be a valid URL"))
+        } else if !CustomEndpointPolicy.isAllowed(apiEndpoint) {
+            errors.append(
+                String(localized: "API endpoint must use HTTPS (plain HTTP is allowed only for localhost)"))
         }
 
         if modelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -114,10 +115,4 @@ class CustomCloudModelManager: ObservableObject {
         return errors
     }
 
-    private func isValidURL(_ string: String) -> Bool {
-        if let url = URL(string: string) {
-            return url.scheme != nil && url.host != nil
-        }
-        return false
-    }
 }

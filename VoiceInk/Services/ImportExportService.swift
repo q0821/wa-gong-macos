@@ -303,6 +303,21 @@ class ImportExportService {
                 return
             }
 
+            let allowImportedCustomCommands: Bool
+            if selectedCategories.contains(.modes),
+                !BackupImportSecurityPolicy.importedCommands(in: backup.modeConfigs).isEmpty
+            {
+                guard let decision = presentImportedCommandConfirmation(for: backup.modeConfigs) else {
+                    showAlert(
+                        title: String(localized: "Import Canceled"),
+                        message: String(localized: "No settings were imported."))
+                    return
+                }
+                allowImportedCustomCommands = decision
+            } else {
+                allowImportedCustomCommands = false
+            }
+
             try BackupImporter.apply(
                 backup,
                 categories: selectedCategories,
@@ -313,7 +328,8 @@ class ImportExportService {
                 playbackController: playbackController,
                 recorderUIManager: recorderUIManager,
                 modelContext: modelContext,
-                transcriptionModelManager: transcriptionModelManager
+                transcriptionModelManager: transcriptionModelManager,
+                allowImportedCustomCommands: allowImportedCustomCommands
             )
 
             showImportSuccessAlert(
@@ -349,6 +365,37 @@ class ImportExportService {
         }
 
         return accessory.selectedCategories
+    }
+
+    private func presentImportedCommandConfirmation(for modes: [ModeConfig]) -> Bool? {
+        let commands = BackupImportSecurityPolicy.importedCommands(in: modes)
+        guard !commands.isEmpty else { return false }
+
+        let commandList = commands
+            .map { "\($0.modeName):\n\($0.command)" }
+            .joined(separator: "\n\n")
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Imported Shell Commands")
+        alert.informativeText = String(
+            format: String(
+                localized:
+                    "This backup contains commands that run with your macOS user permissions. Review every command below. You can import them disabled or explicitly enable them.\n\n%@"
+            ),
+            commandList
+        )
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: String(localized: "Import Disabled"))
+        alert.addButton(withTitle: String(localized: "Enable Reviewed Commands"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            return false
+        case .alertSecondButtonReturn:
+            return true
+        default:
+            return nil
+        }
     }
 
     private func categorySummary(for categories: Set<BackupCategory>) -> String {

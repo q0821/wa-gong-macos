@@ -99,6 +99,8 @@ class WaGongEngine: NSObject, ObservableObject {
     private var currentSessionTranscriptionConfiguration: TranscriptionRuntimeConfiguration?
     private var activeRecordingStartID: UUID?
     private var activePipelineTranscriptionID: UUID?
+    private var activePipelineTask: Task<Void, Never>?
+    private var activePipelineTaskID: UUID?
     private var canceledPipelineTranscriptionIDs = Set<UUID>()
     private var activeRecordingUseCase: RecordingUseCase = .newSession
     private var activePipelineUseCase: RecordingUseCase = .newSession
@@ -204,11 +206,22 @@ class WaGongEngine: NSObject, ObservableObject {
                     try? modelContext.save()
                     NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)
 
-                    await runPipeline(
-                        on: transcription,
-                        audioURL: recordedFile,
-                        contextStore: activeRecordingContextStore
-                    )
+                    let pipelineTaskID = UUID()
+                    let pipelineTask = Task { @MainActor [weak self] in
+                        guard let self else { return }
+                        await self.runPipeline(
+                            on: transcription,
+                            audioURL: recordedFile,
+                            contextStore: self.activeRecordingContextStore
+                        )
+                    }
+                    activePipelineTaskID = pipelineTaskID
+                    activePipelineTask = pipelineTask
+                    await pipelineTask.value
+                    if activePipelineTaskID == pipelineTaskID {
+                        activePipelineTask = nil
+                        activePipelineTaskID = nil
+                    }
                 } else {
                     await finishActiveRecorderCancellation()
                 }
@@ -377,7 +390,8 @@ class WaGongEngine: NSObject, ObservableObject {
                                         do {
                                             try await self.whisperModelManager.loadModel(localWhisperModel)
                                         } catch {
-                                            self.logger.error("❌ Model loading failed: \(error, privacy: .public)")
+                                            let summary = SensitiveLogSanitizer.errorSummary(error)
+                                            self.logger.error("❌ Model loading failed: \(summary, privacy: .public)")
                                         }
                                     }
                                 } else if let fluidAudioModel = currentModel as? FluidAudioModel {
@@ -511,9 +525,22 @@ class WaGongEngine: NSObject, ObservableObject {
     private func startRecordingContextCapture() {
         clearActiveRecordingContext()
 
+        guard let enhancementService,
+            let aiService = enhancementService.getAIService()
+        else {
+            return
+        }
+
+        let configuration = ModeRuntimeResolver.currentEnhancementConfiguration(
+            enhancementService: enhancementService,
+            aiService: aiService
+        )
+        let plan = RecordingContextCapturePlan(configuration: configuration)
+        guard plan != .none else { return }
+
         let store = RecordingContextSnapshotStore()
         activeRecordingContextStore = store
-        activeRecordingContextTasks = RecordingContextCaptureService.startCapture(into: store)
+        activeRecordingContextTasks = RecordingContextCaptureService.startCapture(into: store, plan: plan)
     }
 
     private func clearActiveRecordingContext() {
@@ -677,6 +704,9 @@ class WaGongEngine: NSObject, ObservableObject {
     }
 
     func resetRecordingSession() async {
+        activePipelineTask?.cancel()
+        activePipelineTask = nil
+        activePipelineTaskID = nil
         cancelCurrentSession()
         activeRecordingStartID = nil
         activePipelineTranscriptionID = nil
@@ -702,6 +732,7 @@ class WaGongEngine: NSObject, ObservableObject {
             canceledPipelineTranscriptionIDs.insert(activePipelineTranscriptionID)
         }
 
+        activePipelineTask?.cancel()
         cancelCurrentSession()
     }
 

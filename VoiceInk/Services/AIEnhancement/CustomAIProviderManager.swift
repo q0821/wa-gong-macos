@@ -178,8 +178,8 @@ final class CustomAIProviderManager: ObservableObject {
 
         if trimmedURL.isEmpty {
             errors.append(String(localized: "Base URL cannot be empty"))
-        } else if URL(string: trimmedURL)?.host == nil {
-            errors.append(String(localized: "Base URL must be a valid URL"))
+        } else if !CustomEndpointPolicy.isAllowed(trimmedURL) {
+            errors.append(String(localized: "Base URL must use HTTPS (plain HTTP is allowed only for localhost)"))
         }
 
         if trimmedModel.isEmpty {

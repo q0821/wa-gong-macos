@@ -75,12 +75,20 @@ actor WaGongRefineXPCClient {
     private var idleShutdownTask: Task<Void, Never>?
     private var idleShutdownToken: UUID?
 
-    func prepare(modelDirectory: URL, systemPrompt: String) async throws {
+    func prepare(
+        modelDirectory: URL,
+        systemPrompt: String,
+        validateModelForNewConnection: @Sendable () async throws -> Void
+    ) async throws {
         try await acquireCancellableOperation()
         defer { releaseOperation() }
 
         try Task.checkCancellation()
         cancelIdleShutdown()
+        if connection == nil {
+            try await validateModelForNewConnection()
+            try Task.checkCancellation()
+        }
 
         let request = WaGongRefinePrepareRequest(
             requestID: UUID(),
@@ -137,13 +145,18 @@ actor WaGongRefineXPCClient {
     func enhance(
         transcript: String,
         modelDirectory: URL,
-        systemPrompt: String
+        systemPrompt: String,
+        validateModelForNewConnection: @Sendable () async throws -> Void
     ) async throws -> String {
         try await acquireCancellableOperation()
         defer { releaseOperation() }
 
         try Task.checkCancellation()
         cancelIdleShutdown()
+        if connection == nil {
+            try await validateModelForNewConnection()
+            try Task.checkCancellation()
+        }
 
         let request = WaGongRefineEnhanceRequest(
             requestID: UUID(),

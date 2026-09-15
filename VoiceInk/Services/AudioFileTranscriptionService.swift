@@ -223,7 +223,8 @@ class AudioTranscriptionService: ObservableObject {
                 )
             }
         } catch {
-            logger.error("❌ Transcription failed: \(error, privacy: .public)")
+            let summary = SensitiveLogSanitizer.errorSummary(error)
+            logger.error("❌ Transcription failed: \(summary, privacy: .public)")
             currentError = .transcriptionFailed
             isTranscribing = false
             throw error

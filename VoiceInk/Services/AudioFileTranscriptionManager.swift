@@ -274,8 +274,9 @@ class AudioTranscriptionManager: ObservableObject {
             if Task.isCancelled || error is CancellationError {
                 item.status = .pending
             } else {
-                logger.error("Transcription error: \(error, privacy: .public)")
-                item.status = .failed(message: error.localizedDescription)
+                let summary = SensitiveLogSanitizer.errorSummary(error)
+                logger.error("Transcription error: \(summary, privacy: .public)")
+                item.status = .failed(message: SensitiveLogSanitizer.redact(error.localizedDescription))
             }
         }
 

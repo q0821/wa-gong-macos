@@ -119,22 +119,17 @@ class BrowserURLService {
             try await waitUntilExit(task, browser: browser)
 
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            guard task.terminationStatus == 0 else {
+                logger.error("❌ AppleScript failed for \(browser.displayName, privacy: .public)")
+                throw BrowserURLError.executionFailed
+            }
             if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) {
                 if output.isEmpty {
                     logger.error("❌ Empty output from AppleScript for \(browser.displayName, privacy: .public)")
                     throw BrowserURLError.noActiveTab
                 }
 
-                // Check if output contains error messages
-                if output.lowercased().contains("error") {
-                    logger.error(
-                        "❌ AppleScript error for \(browser.displayName, privacy: .public): \(output, privacy: .public)")
-                    throw BrowserURLError.executionFailed
-                }
-
-                logger.debug(
-                    "✅ Successfully retrieved URL from \(browser.displayName, privacy: .public): \(output, privacy: .public)"
-                )
+                logger.debug("✅ Successfully retrieved URL from \(browser.displayName, privacy: .public)")
                 return output
             } else {
                 logger.error("❌ Failed to decode output from AppleScript for \(browser.displayName, privacy: .public)")
@@ -148,9 +143,7 @@ class BrowserURLService {
             }
             throw CancellationError()
         } catch {
-            logger.error(
-                "❌ AppleScript execution failed for \(browser.displayName, privacy: .public): \(error, privacy: .public)"
-            )
+            logger.error("❌ AppleScript execution failed for \(browser.displayName, privacy: .public)")
             throw BrowserURLError.executionFailed
         }
     }

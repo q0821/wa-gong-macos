@@ -380,7 +380,7 @@ class AIEnhancementService: ObservableObject {
             case .custom:
                 guard
                     let customConfiguration = CustomAIProviderManager.shared.requestConfiguration(forModel: modelName),
-                    let baseURL = URL(string: customConfiguration.baseURL)
+                    let baseURL = CustomEndpointPolicy.validatedURL(customConfiguration.baseURL)
                 else {
                     throw EnhancementError.notConfigured
                 }
@@ -477,9 +477,10 @@ class AIEnhancementService: ObservableObject {
     private func makeRequestWithRetry(
         text: String,
         configuration: EnhancementRuntimeConfiguration,
-        contextSnapshot: RecordingContextSnapshot?
+        contextSnapshot: RecordingContextSnapshot?,
+        shouldCancel: @escaping () -> Bool
     ) async throws -> (text: String, systemMessage: String?, userMessage: String?) {
-        try await EnhancementRequestRetry.run(retryOnTimeout: retryOnTimeout, request: {
+        try await EnhancementRequestRetry.run(retryOnTimeout: retryOnTimeout, shouldCancel: shouldCancel, request: {
             try await self.makeRequest(
                 text: text,
                 configuration: configuration,
@@ -498,7 +499,8 @@ class AIEnhancementService: ObservableObject {
     func enhance(
         _ text: String,
         configuration: EnhancementRuntimeConfiguration,
-        contextSnapshot: RecordingContextSnapshot? = nil
+        contextSnapshot: RecordingContextSnapshot? = nil,
+        shouldCancel: @escaping () -> Bool = { false }
     ) async throws -> AIEnhancementResult {
         let startTime = Date()
         let promptName = configuration.prompt?.title
@@ -508,7 +510,8 @@ class AIEnhancementService: ObservableObject {
             let requestResult = try await makeRequestWithRetry(
                 text: text,
                 configuration: configuration,
-                contextSnapshot: contextSnapshot
+                contextSnapshot: contextSnapshot,
+                shouldCancel: shouldCancel
             )
             try Task.checkCancellation()
             let endTime = Date()
@@ -523,12 +526,12 @@ class AIEnhancementService: ObservableObject {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
-            let errorDescription = EnhancementFailureFormatter.description(for: error)
             let providerName = configuration.provider?.rawValue ?? "Unconfigured"
             let modelName = configuration.modelName ?? configuration.provider?.defaultModel ?? "Unconfigured"
             let duration = Date().timeIntervalSince(startTime)
+            let errorSummary = SensitiveLogSanitizer.errorSummary(error)
             logger.error(
-                "Enhancement failed provider=\(providerName, privacy: .public) model=\(modelName, privacy: .public) duration=\(duration, format: .fixed(precision: 3), privacy: .public)s: \(errorDescription, privacy: .public)"
+                "Enhancement failed provider=\(providerName, privacy: .public) model=\(modelName, privacy: .public) duration=\(duration, format: .fixed(precision: 3), privacy: .public)s \(errorSummary, privacy: .public)"
             )
             throw error
         }

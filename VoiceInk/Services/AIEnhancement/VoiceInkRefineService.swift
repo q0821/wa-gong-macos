@@ -159,7 +159,10 @@ final class WaGongRefineService: ObservableObject {
         return try await inferenceClient.enhance(
             transcript: transcript,
             modelDirectory: snapshotURL,
-            systemPrompt: Self.systemPrompt
+            systemPrompt: Self.systemPrompt,
+            validateModelForNewConnection: {
+                try await Self.validateSnapshotForNativeLoad(snapshotURL)
+            }
         )
     }
 
@@ -179,7 +182,10 @@ final class WaGongRefineService: ObservableObject {
         do {
             try await inferenceClient.prepare(
                 modelDirectory: snapshotURL,
-                systemPrompt: Self.systemPrompt
+                systemPrompt: Self.systemPrompt,
+                validateModelForNewConnection: {
+                    try await Self.validateSnapshotForNativeLoad(snapshotURL)
+                }
             )
         } catch is CancellationError {
         } catch {
@@ -259,6 +265,19 @@ final class WaGongRefineService: ObservableObject {
         #else
             return nil
         #endif
+    }
+
+    private static func validateSnapshotForNativeLoad(_ snapshotURL: URL) async throws {
+        let validationTask = Task.detached(priority: .utility) {
+            WaGongRefineModelDownloader.snapshotIntegrityIsValid(at: snapshotURL)
+        }
+        let isValid = await withTaskCancellationHandler {
+            await validationTask.value
+        } onCancel: {
+            validationTask.cancel()
+        }
+        try Task.checkCancellation()
+        guard isValid else { throw WaGongRefineError.modelNotDownloaded }
     }
 
     private func refreshDownloadedState() {

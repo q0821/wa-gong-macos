@@ -19,6 +19,7 @@ private enum TranscribeCppDownloadError: LocalizedError {
     case httpStatus(Int)
     case invalidRangeResponse
     case incompleteDownload(received: Int64, expected: Int64)
+    case oversizedDownload(expected: Int64)
 
     var errorDescription: String? {
         switch self {
@@ -28,6 +29,8 @@ private enum TranscribeCppDownloadError: LocalizedError {
             return "The model server returned an invalid resume response."
         case .incompleteDownload(let received, let expected):
             return "The model download ended after \(received) of \(expected) bytes."
+        case .oversizedDownload(let expected):
+            return "The model download exceeded the expected \(expected) bytes."
         }
     }
 }
@@ -145,6 +148,13 @@ private final class TranscribeCppDownloadOperation: NSObject, URLSessionDataDele
         do {
             let progress = try lock.withLock { () throws -> Double? in
                 guard !isCompleted, let fileHandle else { return nil }
+                guard BoundedDownloadPolicy.canAccept(
+                    currentBytes: totalBytesWritten,
+                    incomingBytes: data.count,
+                    expectedBytes: expectedByteCount
+                ) else {
+                    throw TranscribeCppDownloadError.oversizedDownload(expected: expectedByteCount)
+                }
                 try fileHandle.write(contentsOf: data)
                 totalBytesWritten += Int64(data.count)
                 return progressToReport(for: totalBytesWritten)

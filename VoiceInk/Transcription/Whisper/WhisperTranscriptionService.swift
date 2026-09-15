@@ -42,7 +42,16 @@ class WhisperTranscriptionService: TranscriptionService {
 
             logger.notice("Loading model: \(model.name, privacy: .public)")
             do {
+                if let artifact = WhisperModelArtifactCatalog.artifact(for: model.name) {
+                    let isValid = await Task.detached(priority: .utility) {
+                        artifact.modelFile.integrityIsValid(at: modelURL)
+                    }.value
+                    try Task.checkCancellation()
+                    guard isValid else { throw WaGongEngineError.modelLoadFailed }
+                }
                 whisperContext = try await WhisperContext.createContext(path: modelURL.path)
+            } catch is CancellationError {
+                throw CancellationError()
             } catch {
                 logger.error("❌ Failed to load model: \(model.name, privacy: .public) - \(error, privacy: .public)")
                 throw WaGongEngineError.modelLoadFailed

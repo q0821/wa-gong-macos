@@ -14,7 +14,7 @@ struct WhisperModelFile: Identifiable {
     var isCoreMLDownloaded: Bool { coreMLEncoderURL != nil }
 
     var downloadURL: String {
-        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(filename)"
+        WhisperModelArtifactCatalog.artifact(for: name)?.modelFile.downloadURL.absoluteString ?? ""
     }
 
     var filename: String {
@@ -23,15 +23,22 @@ struct WhisperModelFile: Identifiable {
 
     // Core ML related properties
     var coreMLZipDownloadURL: String? {
-        // Only non-quantized models have Core ML versions
-        guard !name.contains("q5") && !name.contains("q8") else { return nil }
-        return "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(name)-encoder.mlmodelc.zip"
+        WhisperModelArtifactCatalog.artifact(for: name)?.coreMLArchive?.downloadURL.absoluteString
     }
 
     var coreMLEncoderDirectoryName: String? {
         guard coreMLZipDownloadURL != nil else { return nil }
         return "\(name)-encoder.mlmodelc"
     }
+}
+
+private enum WhisperDownloadError: Error {
+    case invalidArtifact
+    case oversizedArtifact
+    case invalidArtifactSize
+    case invalidArtifactChecksum
+    case invalidArchive
+    case archiveLimitsExceeded
 }
 
 // MARK: - Private download task delegate
@@ -112,6 +119,14 @@ class WhisperModelManager: ObservableObject {
         defer { isModelLoading = false }
 
         do {
+            if let artifact = WhisperModelArtifactCatalog.artifact(for: model.name) {
+                let modelURL = model.url
+                let isValid = await Task.detached(priority: .utility) {
+                    artifact.modelFile.integrityIsValid(at: modelURL)
+                }.value
+                try Task.checkCancellation()
+                guard isValid else { throw WhisperDownloadError.invalidArtifactChecksum }
+            }
             whisperContext = try await WhisperContext.createContext(path: model.url.path)
 
             let currentPrompt =
@@ -120,6 +135,8 @@ class WhisperModelManager: ObservableObject {
 
             isModelLoaded = true
             loadedWhisperModel = model
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             throw WaGongEngineError.modelLoadFailed
         }
@@ -127,7 +144,10 @@ class WhisperModelManager: ObservableObject {
 
     // MARK: - Model Download & Management
 
-    private func downloadFileWithProgress(from url: URL, progressKey: String) async throws -> Data {
+    private func downloadFileWithProgress(
+        from artifact: WhisperRemoteArtifact,
+        progressKey: String
+    ) async throws -> Data {
         let destinationURL = modelsDirectory.appendingPathComponent(UUID().uuidString)
 
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
@@ -139,7 +159,7 @@ class WhisperModelManager: ObservableObject {
                 }
             }
 
-            let task = URLSession.shared.downloadTask(with: url) { tempURL, response, error in
+            let task = URLSession.shared.downloadTask(with: artifact.downloadURL) { tempURL, response, error in
                 if let error = error {
                     finishOnce(.failure(error))
                     return
@@ -155,10 +175,17 @@ class WhisperModelManager: ObservableObject {
 
                 do {
                     try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+                    guard Self.regularFileSize(at: destinationURL) == artifact.size else {
+                        throw WhisperDownloadError.invalidArtifactSize
+                    }
+                    guard artifact.integrityIsValid(at: destinationURL) else {
+                        throw WhisperDownloadError.invalidArtifactChecksum
+                    }
                     let data = try Data(contentsOf: destinationURL, options: .mappedIfSafe)
                     finishOnce(.success(data))
                     try? FileManager.default.removeItem(at: destinationURL)
                 } catch {
+                    try? FileManager.default.removeItem(at: destinationURL)
                     finishOnce(.failure(error))
                 }
             }
@@ -169,6 +196,12 @@ class WhisperModelManager: ObservableObject {
             var lastProgressValue: Double = 0
 
             let observation = task.progress.observe(\.fractionCompleted) { progress, _ in
+                if progress.completedUnitCount > artifact.size {
+                    task.cancel()
+                    try? FileManager.default.removeItem(at: destinationURL)
+                    finishOnce(.failure(WhisperDownloadError.oversizedArtifact))
+                    return
+                }
                 let currentTime = Date()
                 let timeSinceLastUpdate = currentTime.timeIntervalSince(lastUpdateTime)
                 let currentProgress = round(progress.fractionCompleted * 100) / 100
@@ -197,18 +230,19 @@ class WhisperModelManager: ObservableObject {
     }
 
     func downloadModel(_ model: WhisperModel) async {
-        guard let url = URL(string: model.downloadURL) else { return }
-        await performModelDownload(model, url)
+        guard let artifact = WhisperModelArtifactCatalog.artifact(for: model.name) else {
+            handleModelDownloadError(model, WhisperDownloadError.invalidArtifact)
+            return
+        }
+        await performModelDownload(model, artifact)
     }
 
-    private func performModelDownload(_ model: WhisperModel, _ url: URL) async {
+    private func performModelDownload(_ model: WhisperModel, _ artifact: WhisperModelArtifact) async {
         do {
-            var whisperModel = try await downloadMainModel(model, from: url)
+            var whisperModel = try await downloadMainModel(model, artifact: artifact)
 
-            if let coreMLZipURL = whisperModel.coreMLZipDownloadURL,
-                let coreMLURL = URL(string: coreMLZipURL)
-            {
-                whisperModel = try await downloadAndSetupCoreMLModel(for: whisperModel, from: coreMLURL)
+            if let coreMLArtifact = artifact.coreMLArchive {
+                whisperModel = try await downloadAndSetupCoreMLModel(for: whisperModel, artifact: coreMLArtifact)
             }
 
             availableModels.append(whisperModel)
@@ -224,9 +258,11 @@ class WhisperModelManager: ObservableObject {
         }
     }
 
-    private func downloadMainModel(_ model: WhisperModel, from url: URL) async throws -> WhisperModelFile {
+    private func downloadMainModel(_ model: WhisperModel, artifact: WhisperModelArtifact) async throws
+        -> WhisperModelFile
+    {
         let progressKeyMain = model.name + "_main"
-        let data = try await downloadFileWithProgress(from: url, progressKey: progressKeyMain)
+        let data = try await downloadFileWithProgress(from: artifact.modelFile, progressKey: progressKeyMain)
 
         let destinationURL = modelsDirectory.appendingPathComponent(model.filename)
         try data.write(to: destinationURL)
@@ -234,25 +270,47 @@ class WhisperModelManager: ObservableObject {
         return WhisperModelFile(name: model.name, url: destinationURL)
     }
 
-    private func downloadAndSetupCoreMLModel(for model: WhisperModelFile, from url: URL) async throws
+    private func downloadAndSetupCoreMLModel(for model: WhisperModelFile, artifact: WhisperRemoteArtifact) async throws
         -> WhisperModelFile
     {
         let progressKeyCoreML = model.name + "_coreml"
-        let coreMLData = try await downloadFileWithProgress(from: url, progressKey: progressKeyCoreML)
+        let coreMLData = try await downloadFileWithProgress(from: artifact, progressKey: progressKeyCoreML)
 
         let coreMLZipPath = modelsDirectory.appendingPathComponent("\(model.name)-encoder.mlmodelc.zip")
         try coreMLData.write(to: coreMLZipPath)
 
-        return try await unzipAndSetupCoreMLModel(for: model, zipPath: coreMLZipPath, progressKey: progressKeyCoreML)
+        return try await unzipAndSetupCoreMLModel(
+            for: model,
+            artifact: artifact,
+            zipPath: coreMLZipPath,
+            progressKey: progressKeyCoreML
+        )
     }
 
-    private func unzipAndSetupCoreMLModel(for model: WhisperModelFile, zipPath: URL, progressKey: String) async throws
+    private func unzipAndSetupCoreMLModel(
+        for model: WhisperModelFile,
+        artifact: WhisperRemoteArtifact,
+        zipPath: URL,
+        progressKey: String
+    ) async throws
         -> WhisperModelFile
     {
         let coreMLDestination = modelsDirectory.appendingPathComponent("\(model.name)-encoder.mlmodelc")
+        let stagingDirectory = modelsDirectory.appendingPathComponent(".coreml-staging-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: stagingDirectory) }
 
+        try await unzipCoreMLFile(zipPath, to: stagingDirectory)
+        try Self.validateExtractedArchive(
+            at: stagingDirectory,
+            maximumEntryCount: 4_096,
+            maximumExpandedBytes: artifact.size * 8
+        )
+        let stagedModel = stagingDirectory.appendingPathComponent("\(model.name)-encoder.mlmodelc")
+        guard FileManager.default.fileExists(atPath: stagedModel.path) else {
+            throw WhisperDownloadError.invalidArchive
+        }
         try? FileManager.default.removeItem(at: coreMLDestination)
-        try await unzipCoreMLFile(zipPath, to: modelsDirectory)
+        try FileManager.default.moveItem(at: stagedModel, to: coreMLDestination)
         return try verifyAndCleanupCoreMLFiles(model, coreMLDestination, zipPath, progressKey)
     }
 
@@ -302,6 +360,59 @@ class WhisperModelManager: ObservableObject {
     private func handleModelDownloadError(_ model: WhisperModel, _ error: Error) {
         self.downloadProgress.removeValue(forKey: model.name + "_main")
         self.downloadProgress.removeValue(forKey: model.name + "_coreml")
+    }
+
+    private nonisolated static func regularFileSize(at url: URL) -> Int64 {
+        let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+        guard values?.isRegularFile == true else { return -1 }
+        return Int64(values?.fileSize ?? -1)
+    }
+
+    nonisolated static func validateExtractedArchive(
+        at root: URL,
+        maximumEntryCount: Int,
+        maximumExpandedBytes: Int64
+    ) throws {
+        let rootPath = root.standardizedFileURL.path
+        guard maximumEntryCount > 0, maximumExpandedBytes >= 0,
+            let enumerator = FileManager.default.enumerator(
+                at: root,
+                includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey],
+                options: []
+            )
+        else {
+            throw WhisperDownloadError.invalidArchive
+        }
+
+        var entryCount = 0
+        var expandedBytes: Int64 = 0
+        for case let entryURL as URL in enumerator {
+            entryCount += 1
+            guard entryCount <= maximumEntryCount else {
+                throw WhisperDownloadError.archiveLimitsExceeded
+            }
+
+            let standardizedPath = entryURL.standardizedFileURL.path
+            guard standardizedPath.hasPrefix(rootPath + "/") else {
+                throw WhisperDownloadError.invalidArchive
+            }
+            let values = try entryURL.resourceValues(
+                forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
+            )
+            guard values.isSymbolicLink != true,
+                values.isDirectory == true || values.isRegularFile == true
+            else {
+                throw WhisperDownloadError.invalidArchive
+            }
+            if values.isRegularFile == true {
+                let size = Int64(values.fileSize ?? 0)
+                let (nextBytes, overflow) = expandedBytes.addingReportingOverflow(size)
+                guard !overflow, nextBytes <= maximumExpandedBytes else {
+                    throw WhisperDownloadError.archiveLimitsExceeded
+                }
+                expandedBytes = nextBytes
+            }
+        }
     }
 
     func deleteModel(_ model: WhisperModelFile) async {

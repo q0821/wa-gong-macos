@@ -103,7 +103,7 @@ final class LogExporter {
                 let timestamp = dateFormatter.string(from: logEntry.date)
                 let level = logLevelString(logEntry.level)
                 let category = logEntry.category
-                let message = logEntry.composedMessage
+                let message = SensitiveLogSanitizer.redact(logEntry.composedMessage)
 
                 logLines.append("[\(timestamp)] [\(level)] [\(category)] \(message)")
                 sessionLogCount += 1

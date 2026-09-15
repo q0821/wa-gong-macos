@@ -5,16 +5,19 @@ enum EnhancementRequestRetry {
     @MainActor
     static func run<Result>(
         retryOnTimeout: Bool,
+        shouldCancel: () -> Bool = { false },
         request: () async throws -> Result,
         onRetry: (Int, Int) -> Void
     ) async throws -> Result {
         let maximumAttempts = 3
         for attempt in 1...maximumAttempts {
             do {
+                guard !shouldCancel() else { throw CancellationError() }
                 try Task.checkCancellation()
                 return try await request()
             } catch EnhancementError.timeout {
                 guard retryOnTimeout, attempt < maximumAttempts else { throw EnhancementError.timeout }
+                guard !shouldCancel() else { throw CancellationError() }
                 try Task.checkCancellation()
                 onRetry(attempt + 1, maximumAttempts)
             }

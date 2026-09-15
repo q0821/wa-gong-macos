@@ -20,7 +20,8 @@ enum BackupImporter {
         _ backup: BackupFile, categories: Set<BackupCategory>, enhancementService: AIEnhancementService,
         recordingShortcutManager: RecordingShortcutManager, menuBarManager: MenuBarManager,
         mediaController: MediaController, playbackController: PlaybackController, recorderUIManager: RecorderUIManager,
-        modelContext: ModelContext, transcriptionModelManager: TranscriptionModelManager
+        modelContext: ModelContext, transcriptionModelManager: TranscriptionModelManager,
+        allowImportedCustomCommands: Bool = false
     ) throws {
         var shouldRepairModePromptSelections = false
 
@@ -51,8 +52,12 @@ enum BackupImporter {
                 ShortcutStore.removeShortcutStorage(for: .mode(config.id))
             }
 
-            modeManager.configurations = backup.modeConfigs
-            let importedModeIds = Set(backup.modeConfigs.map(\.id))
+            let importedModes = BackupImportSecurityPolicy.sanitizedModes(
+                backup.modeConfigs,
+                allowCustomCommands: allowImportedCustomCommands
+            )
+            modeManager.configurations = importedModes
+            let importedModeIds = Set(importedModes.map(\.id))
 
             if let shortcuts = backup.modeShortcuts {
                 for (idString, shortcutBackup) in shortcuts {
@@ -76,7 +81,7 @@ enum BackupImporter {
                     _ = emojiManager.addCustomEmoji(emoji)
                 }
             }
-            print("Successfully imported \(backup.modeConfigs.count) Mode configurations.")
+            print("Successfully imported \(importedModes.count) Mode configurations.")
         }
 
         if shouldRepairModePromptSelections {
@@ -304,7 +309,7 @@ enum BackupImporter {
         }
 
         let customModelManager = CustomCloudModelManager.shared
-        customModelManager.customModels = models.map { $0.makeModel() }
+        customModelManager.customModels = models.map { $0.makeImportedModel() }
         customModelManager.saveCustomModels()
         transcriptionModelManager.refreshAllAvailableModels()
         print("Successfully imported \(models.count) custom model definitions.")
@@ -315,5 +320,31 @@ enum BackupImporter {
             .split(separator: ",")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
             .filter { !$0.isEmpty }
+    }
+}
+
+enum BackupImportSecurityPolicy {
+    static func sanitizedModes(_ modes: [ModeConfig], allowCustomCommands: Bool) -> [ModeConfig] {
+        guard !allowCustomCommands else { return modes }
+
+        return modes.map { mode in
+            guard mode.outputMode == .customCommand, mode.customCommand?.trimmedCommand != nil else {
+                return mode
+            }
+
+            var sanitized = mode
+            sanitized.isEnabled = false
+            sanitized.isDefault = false
+            return sanitized
+        }
+    }
+
+    static func importedCommands(in modes: [ModeConfig]) -> [(modeName: String, command: String)] {
+        modes.compactMap { mode in
+            guard mode.outputMode == .customCommand, let command = mode.customCommand?.trimmedCommand else {
+                return nil
+            }
+            return (mode.name, command)
+        }
     }
 }

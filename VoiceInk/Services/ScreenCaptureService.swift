@@ -4,6 +4,62 @@ import Foundation
 import ScreenCaptureKit
 import Vision
 
+struct ScreenWindowDescriptor: Equatable {
+    let id: CGWindowID
+    let processID: pid_t
+    let title: String?
+    let frame: CGRect
+}
+
+struct FocusedScreenWindowDescriptor: Equatable {
+    let processID: pid_t
+    let title: String?
+    let frame: CGRect?
+}
+
+enum FocusedScreenWindowResolver {
+    static func resolveWindowID(
+        in windows: [ScreenWindowDescriptor],
+        hint: FocusedScreenWindowDescriptor?
+    ) -> CGWindowID? {
+        guard let hint else { return nil }
+        let appWindows = windows.filter { $0.processID == hint.processID }
+        guard !appWindows.isEmpty else { return nil }
+
+        if let focusedFrame = hint.frame {
+            let ranked = appWindows
+                .map { ($0, frameDistance($0.frame, focusedFrame)) }
+                .filter { $0.1 <= 96 }
+                .sorted { $0.1 < $1.1 }
+            if let closest = ranked.first,
+                ranked.dropFirst().first?.1 != closest.1
+            {
+                return closest.0.id
+            }
+        }
+
+        if let focusedTitle = hint.title {
+            let matches = appWindows.filter { normalized($0.title) == normalized(focusedTitle) }
+            if matches.count == 1 {
+                return matches[0].id
+            }
+        }
+
+        return appWindows.count == 1 ? appWindows[0].id : nil
+    }
+
+    private static func normalized(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func frameDistance(_ first: CGRect, _ second: CGRect) -> CGFloat {
+        abs(first.origin.x - second.origin.x) + abs(first.origin.y - second.origin.y)
+            + abs(first.size.width - second.size.width) + abs(first.size.height - second.size.height)
+    }
+}
+
 @MainActor
 class ScreenCaptureService: ObservableObject {
     @Published var isCapturing = false
@@ -17,7 +73,6 @@ class ScreenCaptureService: ObservableObject {
 
     private static let captureTimeout: TimeInterval = 3.0
     private static let maximumCaptureDimension: CGFloat = 2800
-    private static let focusedWindowFrameTolerance: CGFloat = 96
 
     static func requestScreenCapturePermissionRegistration() async -> Bool {
         if CGPreflightScreenCaptureAccess() {
@@ -159,43 +214,22 @@ class ScreenCaptureService: ObservableObject {
                 && window.frame.height > 0
         }
 
-        guard let focusedWindowHint else {
-            return candidates.first
+        let descriptors = candidates.compactMap { window -> ScreenWindowDescriptor? in
+            guard let processID = window.owningApplication?.processID else { return nil }
+            return ScreenWindowDescriptor(
+                id: window.windowID,
+                processID: processID,
+                title: normalized(window.title),
+                frame: window.frame
+            )
         }
-
-        let appWindows = candidates.filter {
-            $0.owningApplication?.processID == focusedWindowHint.processID
+        let hint = focusedWindowHint.map {
+            FocusedScreenWindowDescriptor(processID: $0.processID, title: $0.title, frame: $0.frame)
         }
-
-        guard !appWindows.isEmpty else {
-            return candidates.first
+        guard let selectedID = FocusedScreenWindowResolver.resolveWindowID(in: descriptors, hint: hint) else {
+            return nil
         }
-
-        if let focusedFrame = focusedWindowHint.frame,
-            let closestWindow = closestFrameMatch(to: focusedFrame, in: appWindows),
-            frameDistance(closestWindow.frame, focusedFrame) <= focusedWindowFrameTolerance
-        {
-            return closestWindow
-        }
-
-        if let focusedTitle = focusedWindowHint.title,
-            let titledWindow = appWindows.first(where: { normalized($0.title) == focusedTitle })
-        {
-            return titledWindow
-        }
-
-        return appWindows.first
-    }
-
-    private nonisolated static func closestFrameMatch(to frame: CGRect, in windows: [SCWindow]) -> SCWindow? {
-        windows.min {
-            frameDistance($0.frame, frame) < frameDistance($1.frame, frame)
-        }
-    }
-
-    private nonisolated static func frameDistance(_ first: CGRect, _ second: CGRect) -> CGFloat {
-        abs(first.origin.x - second.origin.x) + abs(first.origin.y - second.origin.y)
-            + abs(first.size.width - second.size.width) + abs(first.size.height - second.size.height)
+        return candidates.first { $0.windowID == selectedID }
     }
 
     private nonisolated static func captureScale(for size: CGSize) -> CGFloat {

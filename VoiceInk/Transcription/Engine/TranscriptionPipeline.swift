@@ -192,7 +192,8 @@ class TranscriptionPipeline {
                         let enhancementResult = try await enhancementService.enhance(
                             textForAI,
                             configuration: resolvedEnhancementConfiguration,
-                            contextSnapshot: contextSnapshot
+                            contextSnapshot: contextSnapshot,
+                            shouldCancel: shouldCancel
                         )
                         if shouldCancel() {
                             await finishCanceledTranscription()
@@ -212,7 +213,9 @@ class TranscriptionPipeline {
                             await finishCanceledTranscription()
                             return
                         }
-                        let errorDescription = EnhancementFailureFormatter.description(for: error)
+                        let errorDescription = SensitiveLogSanitizer.redact(
+                            EnhancementFailureFormatter.description(for: error)
+                        )
                         let failureMessage = EnhancementFailureFormatter.message(description: errorDescription)
                         transcription.enhancedText = failureMessage
                         responseError = errorDescription
@@ -232,7 +235,9 @@ class TranscriptionPipeline {
 
             transcription.transcriptionStatus = TranscriptionStatus.completed.rawValue
         } catch {
-            let errorDescription = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            let errorDescription = SensitiveLogSanitizer.redact(
+                (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            )
 
             if let nativeAppleError = error as? NativeAppleTranscriptionService.ServiceError,
                 nativeAppleError.shouldShowNotification

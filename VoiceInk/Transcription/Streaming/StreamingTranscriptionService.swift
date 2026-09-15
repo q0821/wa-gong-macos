@@ -240,7 +240,8 @@ class StreamingTranscriptionService {
         } catch {
             commitSignal?.finish()
             commitSignal = nil
-            logger.error("Failed to send commit: \(error, privacy: .public)")
+            let summary = SensitiveLogSanitizer.errorSummary(error)
+            logger.error("Failed to send commit: \(summary, privacy: .public)")
             state = .failed
             await cleanupStreaming()
             throw error
@@ -326,9 +327,9 @@ class StreamingTranscriptionService {
                     try await provider?.sendAudioChunk(chunk)
                     metrics.recordSent(chunk.count)
                 } catch {
-                    let desc = error.localizedDescription
+                    let summary = SensitiveLogSanitizer.errorSummary(error)
                     await MainActor.run {
-                        self?.logger.error("Failed to send audio chunk: \(desc, privacy: .public)")
+                        self?.logger.error("Failed to send audio chunk: \(summary, privacy: .public)")
                     }
                 }
             }
@@ -402,7 +403,8 @@ class StreamingTranscriptionService {
                     break
                 case .error(let error):
                     await MainActor.run {
-                        self.logger.error("Streaming event error: \(error, privacy: .public)")
+                        let summary = SensitiveLogSanitizer.errorSummary(error)
+                        self.logger.error("Streaming event error: \(summary, privacy: .public)")
                     }
                 }
             }

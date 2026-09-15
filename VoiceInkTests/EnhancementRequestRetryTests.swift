@@ -53,4 +53,44 @@ struct EnhancementRequestRetryTests {
         }
         #expect(attempts == 3)
     }
+
+    @Test func lifecycleCancellationAfterTimeoutPreventsAnotherRequest() async {
+        var attempts = 0
+        var notices = 0
+        var canceled = false
+
+        await #expect(throws: CancellationError.self) {
+            let _: String = try await EnhancementRequestRetry.run(
+                retryOnTimeout: true,
+                shouldCancel: { canceled },
+                request: {
+                    attempts += 1
+                    canceled = true
+                    throw EnhancementError.timeout
+                },
+                onRetry: { _, _ in notices += 1 }
+            )
+        }
+
+        #expect(attempts == 1)
+        #expect(notices == 0)
+    }
+
+    @Test func lifecycleCancellationBeforeFirstAttemptSendsNothing() async {
+        var attempts = 0
+
+        await #expect(throws: CancellationError.self) {
+            let _: String = try await EnhancementRequestRetry.run(
+                retryOnTimeout: true,
+                shouldCancel: { true },
+                request: {
+                    attempts += 1
+                    return "unexpected"
+                },
+                onRetry: { _, _ in Issue.record("Unexpected retry") }
+            )
+        }
+
+        #expect(attempts == 0)
+    }
 }

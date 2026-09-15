@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 struct TranscribeCppModelArtifact: Sendable {
     let modelName: String
@@ -54,12 +55,28 @@ struct TranscribeCppModelArtifact: Sendable {
         return installedChecksum == expectedSHA256
     }
 
+    func modelFileIntegrityIsValid(in directory: URL) -> Bool {
+        guard modelFileIsValid(in: directory) else { return false }
+        let fileURL = directory.appendingPathComponent(fileName, isDirectory: false)
+        return (try? Self.sha256(of: fileURL)) == expectedSHA256
+    }
+
     func removeInstalledFiles() {
         try? FileManager.default.removeItem(at: modelDirectory)
     }
 
     private static var applicationSupportDirectory: URL {
         AppIdentity.applicationSupportDirectoryURL
+    }
+
+    private static func sha256(of url: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while let data = try handle.read(upToCount: 1_048_576), !data.isEmpty {
+            hasher.update(data: data)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 }
 

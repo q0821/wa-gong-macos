@@ -3,23 +3,24 @@
     <channel>
         <title>Wa-Gong</title>
         <item>
-            <title>1.0.0</title>
-            <pubDate>Fri, 28 Aug 2026 11:14:52 +0800</pubDate>
-            <sparkle:version>1</sparkle:version>
-            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+            <title>1.0.1</title>
+            <pubDate>Wed, 16 Sep 2026 15:02:45 +0800</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.4</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h3>聲筆 Wa-Gong 1.0.0</h3>
+            <description><![CDATA[<h3>聲筆 Wa-Gong 1.0.1</h3>
 <ul>
-  <li>新增 OpenAI 語音轉錄，預設使用 gpt-4o-mini-transcribe，並支援其他 OpenAI 轉錄模型。</li>
-  <li>完成 Gemini 文字整理流程，預設保留來源語言並輸出台灣繁體中文。</li>
-  <li>新增提示詞管理介面，並整理重複的內建提示詞。</li>
-  <li>錄音浮窗預設移至螢幕上方，可在設定中切換上方或下方。</li>
-  <li>轉錄與潤飾狀態改為繁體中文，並沿用 App 的語言設定。</li>
-  <li>加強外部 Request 的目的地與資料類型提示，讓雲端資料流更透明。</li>
+  <li>新增內建、USB 與藍牙鍵盤專用快速鍵，並加強藍牙斷線、重連與按鍵來源驗證。</li>
+  <li>錄音自動清理新增 3 天與 300 MB 雙重上限，只清除 App 管理且已完成處理的錄音。</li>
+  <li>敏感 Context 改為明確啟用，自訂模型 API Key 搬移至 macOS Keychain，完整 AI Request 不再持久保存。</li>
+  <li>加強備份、音檔、模型檔、外部 URL、自訂指令、CSV 與雲端上傳的資安邊界。</li>
+  <li>加強 Provider 取消、逾時與重試控制，避免重複計費、重播與跨工作階段回寫。</li>
+  <li>固定並驗證 Whisper framework 來源，發布流程新增 Team ID、Developer ID、Hardened Runtime 與產物內容檢查。</li>
+  <li>正式啟用 Wa-Gong 的 Sparkle 更新 feed。</li>
 </ul>
-<p>使用 OpenAI、Gemini 或其他雲端服務前，請先在 App 中設定自己的 API Key。雲端服務可能依供應商方案產生費用。</p>
+<p>已完成 Tree80 藍牙鍵盤斷線與重新連線實機測試；休眠與喚醒情境尚未驗證。</p>
 ]]></description>
-            <enclosure url="https://github.com/q0821/wa-gong-macos/releases/download/v1.0.0/Wa-Gong.dmg" length="51467153" type="application/octet-stream" sparkle:edSignature="DHFSx8kx0wm20mtx+gUN96S5Y6GUp8rphHJ5+WSOy3PdSOoKVRQVCaKCN2D56cVsfFYn1QbBChH35WypV9cRAQ=="/>
+            <enclosure url="https://github.com/q0821/wa-gong-macos/releases/download/v1.0.1/Wa-Gong.dmg" length="51020878" type="application/octet-stream" sparkle:edSignature="1WKQWbLGDLIi/6eFAZJpucwZS335bt8jmf3s+ZliByW18YYRKsSluU59QUqYXqXBblnQ3T0MjJGNTrFP2XAYBQ=="/>
         </item>
     </channel>
 </rss>

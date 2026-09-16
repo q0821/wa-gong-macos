@@ -41,8 +41,6 @@ final class Transcription {
         promptName: String? = nil,
         transcriptionDuration: TimeInterval? = nil,
         enhancementDuration: TimeInterval? = nil,
-        aiRequestSystemMessage: String? = nil,
-        aiRequestUserMessage: String? = nil,
         modeName: String? = nil,
         modeEmoji: String? = nil,
         transcriptionStatus: TranscriptionStatus = .pending
@@ -58,8 +56,8 @@ final class Transcription {
         self.promptName = promptName
         self.transcriptionDuration = transcriptionDuration
         self.enhancementDuration = enhancementDuration
-        self.aiRequestSystemMessage = aiRequestSystemMessage
-        self.aiRequestUserMessage = aiRequestUserMessage
+        self.aiRequestSystemMessage = nil
+        self.aiRequestUserMessage = nil
         self.modeName = modeName
         self.modeEmoji = modeEmoji
         self.transcriptionStatus = transcriptionStatus.rawValue
@@ -84,5 +82,31 @@ final class Transcription {
         promptName = nil
         aiRequestSystemMessage = nil
         aiRequestUserMessage = nil
+    }
+}
+
+enum TranscriptionPrivacyMigration {
+    @MainActor
+    static func removePersistedAIRequestContent(modelContext: ModelContext) throws -> Int {
+        let transcriptions = try modelContext.fetch(FetchDescriptor<Transcription>())
+        let affectedCount = clearAIRequestContent(in: transcriptions)
+
+        if affectedCount > 0 {
+            try modelContext.save()
+        }
+        return affectedCount
+    }
+
+    static func clearAIRequestContent(in transcriptions: [Transcription]) -> Int {
+        let affected = transcriptions.filter {
+            $0.aiRequestSystemMessage != nil || $0.aiRequestUserMessage != nil
+        }
+
+        for transcription in affected {
+            transcription.aiRequestSystemMessage = nil
+            transcription.aiRequestUserMessage = nil
+        }
+
+        return affected.count
     }
 }

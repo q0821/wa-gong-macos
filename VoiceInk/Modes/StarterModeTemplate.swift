@@ -73,8 +73,8 @@ enum StarterModeCatalog {
             promptId: PromptTemplates.defaultPromptId,
             outputMode: .paste,
             usesAIEnhancement: true,
-            useSelectedTextContext: true,
-            useScreenCapture: true,
+            useSelectedTextContext: false,
+            useScreenCapture: false,
             isDefault: false
         ),
         StarterModeTemplate(
@@ -88,8 +88,8 @@ enum StarterModeCatalog {
             promptId: PromptTemplates.emailPromptId,
             outputMode: .paste,
             usesAIEnhancement: true,
-            useSelectedTextContext: true,
-            useScreenCapture: true,
+            useSelectedTextContext: false,
+            useScreenCapture: false,
             isDefault: false
         ),
         StarterModeTemplate(
@@ -103,7 +103,7 @@ enum StarterModeCatalog {
             promptId: PromptTemplates.rewritePromptId,
             outputMode: .paste,
             usesAIEnhancement: true,
-            useSelectedTextContext: true,
+            useSelectedTextContext: false,
             useScreenCapture: false,
             isDefault: false
         ),

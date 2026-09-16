@@ -71,6 +71,20 @@ struct ShortcutBindingStoreTests {
         }
     }
 
+    @Test func tamperedPlainKeyBindingIsRejectedWhenRead() throws {
+        try withStore { store, defaults in
+            let action = ShortcutAction.primaryRecording
+            let unsafe = ShortcutBinding(
+                shortcut: .key(keyCode: UInt16(kVK_ANSI_R), modifierFlags: []),
+                scope: .allKeyboards
+            )
+            defaults.set(try JSONEncoder().encode([unsafe]), forKey: action.bindingsUserDefaultsKey)
+
+            #expect(store.bindings(for: action).isEmpty)
+            #expect(!store.hasBindings(for: action))
+        }
+    }
+
     private func withStore(
         _ body: (ShortcutBindingStore, UserDefaults) throws -> Void
     ) throws {

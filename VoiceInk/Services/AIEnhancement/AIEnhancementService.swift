@@ -154,7 +154,7 @@ class AIEnhancementService: ObservableObject {
         contextSnapshot: RecordingContextSnapshot?,
         includesCustomVocabulary: Bool
     ) {
-        guard provider != .waGongRefine, provider != .ollama, provider != .localCLI else {
+        guard provider != .waGongRefine, provider != .localCLI else {
             return
         }
 
@@ -471,7 +471,7 @@ class AIEnhancementService: ObservableObject {
     }
 
     private var retryOnTimeout: Bool {
-        UserDefaults.standard.bool(forKey: "EnhancementRetryOnTimeout")
+        false
     }
 
     private func makeRequestWithRetry(

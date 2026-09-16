@@ -4,6 +4,8 @@ import os
 
 class AudioProcessor {
     private let logger = Logger(subsystem: "com.jackie-yeh.wagong", category: "AudioProcessor")
+    private static let maximumDurationSeconds: Double = 60 * 60
+    private static let maximumOutputSamples = Int(AudioFormat.targetSampleRate * maximumDurationSeconds)
 
     struct AudioFormat {
         static let targetSampleRate: Double = 16000.0
@@ -17,6 +19,7 @@ class AudioProcessor {
         case exportFailed
         case unsupportedFormat
         case sampleExtractionFailed
+        case audioTooLong
 
         var errorDescription: String? {
             switch self {
@@ -30,6 +33,8 @@ class AudioProcessor {
                 return String(localized: "The audio format is not supported")
             case .sampleExtractionFailed:
                 return String(localized: "Failed to extract audio samples")
+            case .audioTooLong:
+                return String(localized: "The audio file is longer than the supported one-hour limit")
             }
         }
     }
@@ -59,6 +64,11 @@ class AudioProcessor {
         let sampleRate = format.sampleRate
         let channels = format.channelCount
         let totalFrames = audioFile.length
+        guard sampleRate > 0,
+            Double(totalFrames) / sampleRate <= Self.maximumDurationSeconds
+        else {
+            throw AudioProcessingError.audioTooLong
+        }
 
         let outputFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
@@ -71,8 +81,9 @@ class AudioProcessor {
             throw AudioProcessingError.unsupportedFormat
         }
 
-        let chunkSize: AVAudioFrameCount = 50_000_000
+        let chunkSize: AVAudioFrameCount = 65_536
         var allSamples: [Float] = []
+        allSamples.reserveCapacity(min(Self.maximumOutputSamples, Int(Double(totalFrames) * AudioFormat.targetSampleRate / sampleRate)))
         var currentFrame: AVAudioFramePosition = 0
 
         while currentFrame < totalFrames {
@@ -88,6 +99,9 @@ class AudioProcessor {
 
             if sampleRate == AudioFormat.targetSampleRate && channels == AudioFormat.targetChannels {
                 let chunkSamples = convertToWhisperFormat(inputBuffer)
+                guard allSamples.count <= Self.maximumOutputSamples - chunkSamples.count else {
+                    throw AudioProcessingError.audioTooLong
+                }
                 allSamples.append(contentsOf: chunkSamples)
             } else {
                 guard let converter = AVAudioConverter(from: format, to: outputFormat) else {
@@ -121,6 +135,9 @@ class AudioProcessor {
                 }
 
                 let chunkSamples = convertToWhisperFormat(outputBuffer)
+                guard allSamples.count <= Self.maximumOutputSamples - chunkSamples.count else {
+                    throw AudioProcessingError.audioTooLong
+                }
                 allSamples.append(contentsOf: chunkSamples)
             }
 
@@ -132,6 +149,10 @@ class AudioProcessor {
 
     private func readUsingAssetReader(_ url: URL) async throws -> [Float] {
         let asset = AVURLAsset(url: url)
+        let duration = try await asset.load(.duration).seconds
+        guard duration.isFinite, duration > 0, duration <= Self.maximumDurationSeconds else {
+            throw AudioProcessingError.audioTooLong
+        }
         // Match the legacy behavior of processing one stream by using the
         // primary audio track rather than attempting to mix multiple tracks.
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else {
@@ -182,6 +203,9 @@ class AudioProcessor {
                 guard status == kCMBlockBufferNoErr else {
                     throw AudioProcessingError.sampleExtractionFailed
                 }
+                guard samples.count <= Self.maximumOutputSamples - chunk.count else {
+                    throw AudioProcessingError.audioTooLong
+                }
                 samples.append(contentsOf: chunk)
             }
         } catch {
@@ -201,9 +225,11 @@ class AudioProcessor {
 
         // Keep the fallback output in the same normalized Float range expected
         // by the WAV export path.
-        let maxSample = samples.map(abs).max() ?? 1
+        let maxSample = samples.lazy.map(abs).max() ?? 1
         if maxSample > 0 {
-            samples = samples.map { $0 / maxSample }
+            for index in samples.indices {
+                samples[index] /= maxSample
+            }
         }
         return samples
     }

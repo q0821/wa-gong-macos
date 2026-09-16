@@ -32,11 +32,12 @@ enum KeyboardDeviceVerificationPolicy {
     }
 
     static func accepts(
-        sourceID: UUID,
+        attribution: KeyboardEventAttribution,
         transition: KeyboardInputEvent.Transition,
-        selectedSourceID: UUID
+        selectedDevice: KeyboardDeviceSnapshot
     ) -> Bool {
-        sourceID == selectedSourceID && transition == .keyDown
+        transition == .keyDown
+            && selectedDevice.reference.matches(attribution.device)
     }
 }
 

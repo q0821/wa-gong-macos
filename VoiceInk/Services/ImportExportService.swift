@@ -275,9 +275,10 @@ class ImportExportService {
         }
 
         do {
-            let jsonData = try Data(contentsOf: url)
+            let jsonData = try BackupImportSecurityPolicy.loadFileURL(url)
             let decoder = JSONDecoder()
             let backup = try decoder.decode(BackupFile.self, from: jsonData)
+            try BackupImportSecurityPolicy.validate(backup)
 
             if backup.version != currentSettingsVersion {
                 showAlert(
@@ -300,6 +301,16 @@ class ImportExportService {
                 showAlert(
                     title: String(localized: "Import Error"),
                     message: String(localized: "Select at least one category to import."))
+                return
+            }
+
+            if selectedCategories.contains(.general),
+                let cleanupSummary = BackupImportSecurityPolicy.destructiveCleanupSummary(backup.generalSettings),
+                !presentCleanupSettingsConfirmation(summary: cleanupSummary)
+            {
+                showAlert(
+                    title: String(localized: "Import Canceled"),
+                    message: String(localized: "No settings were imported."))
                 return
             }
 
@@ -365,6 +376,22 @@ class ImportExportService {
         }
 
         return accessory.selectedCategories
+    }
+
+    private func presentCleanupSettingsConfirmation(summary: String) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Imported Cleanup Settings")
+        alert.informativeText = String(
+            format: String(
+                localized:
+                    "This backup enables automatic deletion. Review the exact effect before importing:\n\n%@"
+            ),
+            summary
+        )
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: String(localized: "Enable Automatic Deletion"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     private func presentImportedCommandConfirmation(for modes: [ModeConfig]) -> Bool? {

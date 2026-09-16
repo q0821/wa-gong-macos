@@ -393,7 +393,7 @@ private struct VerifiedDeviceShortcutRecorder: View {
             object: verificationID
         )
         verifier.start(
-            selectedSourceID: device.id,
+            selectedDevice: device,
             attributionBroker: attributionBroker
         )
     }

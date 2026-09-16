@@ -200,7 +200,6 @@ private struct EnhancementModelSettingsView: View {
     @AppStorage("SkipShortEnhancement") private var isSkipShortEnhancementEnabled = true
     @AppStorage("ShortEnhancementWordThreshold") private var shortEnhancementWordThreshold = 3
     @AppStorage("EnhancementTimeoutSeconds") private var enhancementTimeoutSeconds = 20
-    @AppStorage("EnhancementRetryOnTimeout") private var retryOnTimeout = false
     @State private var isShortEnhancementExpanded = false
 
     var body: some View {
@@ -232,16 +231,12 @@ private struct EnhancementModelSettingsView: View {
                 }
                 .pickerStyle(.menu)
 
-                Picker("On timeout", selection: $retryOnTimeout) {
-                    Text("Fail immediately").tag(false)
-                    Text("Retry").tag(true)
-                }
-                .pickerStyle(.menu)
+                LabeledContent("On timeout", value: String(localized: "Fail immediately"))
             } header: {
                 HStack(spacing: 4) {
                     Text("Request Timeout")
                     InfoTip(
-                        "Set how long to wait for the AI provider to respond. If no response is received within this duration, you can either fail immediately and paste the original transcription, or retry the request up to 3 attempts."
+                        "Set how long to wait for the AI provider to respond. Timed-out requests are not retried because the provider may already have accepted and billed the request."
                     )
                 }
             }

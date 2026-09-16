@@ -106,6 +106,7 @@ struct KeyboardDeviceIdentityTests {
     }
 }
 
+@Suite(.serialized)
 struct KeyboardDeviceVerificationPolicyTests {
     @Test func bluetoothKeyboardRequiresConnectionVerification() {
         let reference = makeReference(transport: "Bluetooth")
@@ -134,35 +135,61 @@ struct KeyboardDeviceVerificationPolicyTests {
         #expect(KeyboardDeviceVerificationPolicy.availability(for: reference) == .unsupportedTransport)
     }
 
-    @Test func onlyInitialKeyDownFromSelectedConnectionCompletesVerification() {
-        let selectedSourceID = UUID()
+    @Test func onlyInitialKeyDownFromSelectedDeviceScopeCompletesVerification() {
+        let reference = makeReference(transport: "Bluetooth")
+        let selectedDevice = KeyboardDeviceSnapshot(
+            id: UUID(),
+            reference: reference,
+            bindingAvailability: .requiresVerification
+        )
+        let attribution = KeyboardEventAttribution(sourceID: UUID(), device: reference)
 
         #expect(
             KeyboardDeviceVerificationPolicy.accepts(
-                sourceID: selectedSourceID,
+                attribution: attribution,
                 transition: .keyDown,
-                selectedSourceID: selectedSourceID
+                selectedDevice: selectedDevice
             )
         )
         #expect(
             !KeyboardDeviceVerificationPolicy.accepts(
-                sourceID: UUID(),
-                transition: .keyDown,
-                selectedSourceID: selectedSourceID
-            )
-        )
-        #expect(
-            !KeyboardDeviceVerificationPolicy.accepts(
-                sourceID: selectedSourceID,
+                attribution: attribution,
                 transition: .repeatKeyDown,
-                selectedSourceID: selectedSourceID
+                selectedDevice: selectedDevice
             )
         )
         #expect(
             !KeyboardDeviceVerificationPolicy.accepts(
-                sourceID: selectedSourceID,
+                attribution: attribution,
                 transition: .keyUp,
-                selectedSourceID: selectedSourceID
+                selectedDevice: selectedDevice
+            )
+        )
+    }
+
+    @Test func matchingReconnectEndpointIsAcceptedButDifferentTransportIsRejected() {
+        let reference = makeReference(transport: "Bluetooth")
+        let selectedDevice = KeyboardDeviceSnapshot(
+            id: UUID(),
+            reference: reference,
+            bindingAvailability: .requiresVerification
+        )
+
+        #expect(
+            KeyboardDeviceVerificationPolicy.accepts(
+                attribution: KeyboardEventAttribution(sourceID: UUID(), device: reference),
+                transition: .keyDown,
+                selectedDevice: selectedDevice
+            )
+        )
+        #expect(
+            !KeyboardDeviceVerificationPolicy.accepts(
+                attribution: KeyboardEventAttribution(
+                    sourceID: UUID(),
+                    device: makeReference(transport: "USB")
+                ),
+                transition: .keyDown,
+                selectedDevice: selectedDevice
             )
         )
     }
@@ -170,7 +197,7 @@ struct KeyboardDeviceVerificationPolicyTests {
     @Test @MainActor func disconnectStopsActiveVerification() {
         let verifier = KeyboardDeviceVerificationModel()
         verifier.start(
-            selectedSourceID: UUID(),
+            selectedDevice: makeSnapshot(),
             attributionBroker: KeyboardEventAttributionBroker(),
             timeoutNanoseconds: 1_000_000_000
         )
@@ -183,7 +210,7 @@ struct KeyboardDeviceVerificationPolicyTests {
     @Test @MainActor func timeoutEndsVerificationWithRetryableState() async throws {
         let verifier = KeyboardDeviceVerificationModel()
         verifier.start(
-            selectedSourceID: UUID(),
+            selectedDevice: makeSnapshot(),
             attributionBroker: KeyboardEventAttributionBroker(),
             timeoutNanoseconds: 1_000_000
         )
@@ -196,7 +223,7 @@ struct KeyboardDeviceVerificationPolicyTests {
     @Test @MainActor func cancelReturnsVerificationToIdle() {
         let verifier = KeyboardDeviceVerificationModel()
         verifier.start(
-            selectedSourceID: UUID(),
+            selectedDevice: makeSnapshot(),
             attributionBroker: KeyboardEventAttributionBroker()
         )
 
@@ -209,22 +236,23 @@ struct KeyboardDeviceVerificationPolicyTests {
         let verifier = KeyboardDeviceVerificationModel()
         let broker = KeyboardEventAttributionBroker()
         let selectedSourceID = UUID()
+        let reference = makeReference(transport: "Bluetooth")
         let token = ShortcutEventToken(
             eventTimestamp: 99,
             keyCode: 0,
             transition: .keyDown
         )
         verifier.start(
-            selectedSourceID: selectedSourceID,
+            selectedDevice: makeSnapshot(id: selectedSourceID, reference: reference),
             attributionBroker: broker
         )
 
         let shouldConsumeKey = verifier.handleVerificationKeyDown(token: token, isRepeat: false)
-        await Task.yield()
+        try await waitUntilAttributionRequest(in: broker)
         broker.observe(
             KeyboardInputEvent(
                 sourceID: selectedSourceID,
-                device: makeReference(transport: "Bluetooth"),
+                device: reference,
                 usage: 0x04,
                 suggestedCarbonKeyCode: 0,
                 transition: .keyDown,
@@ -244,22 +272,62 @@ struct KeyboardDeviceVerificationPolicyTests {
         #expect(verifier.state == .verified)
     }
 
-    @Test @MainActor func keyFromDifferentConnectionReportsDetectedDevice() async throws {
+    @Test @MainActor func reconnectVerificationAuthorizesObservedMatchingEndpoint() async throws {
         let verifier = KeyboardDeviceVerificationModel()
         let broker = KeyboardEventAttributionBroker()
         let selectedSourceID = UUID()
+        let observedSourceID = UUID()
+        let reference = makeReference(transport: "Bluetooth")
         let token = ShortcutEventToken(
             eventTimestamp: 99,
             keyCode: 0,
             transition: .keyDown
         )
         verifier.start(
-            selectedSourceID: selectedSourceID,
+            selectedDevice: makeSnapshot(id: selectedSourceID, reference: reference),
+            attributionBroker: broker
+        )
+
+        _ = verifier.handleVerificationKeyDown(token: token, isRepeat: false)
+        try await waitUntilAttributionRequest(in: broker)
+        broker.observe(
+            KeyboardInputEvent(
+                sourceID: observedSourceID,
+                device: reference,
+                usage: 0x04,
+                suggestedCarbonKeyCode: 0,
+                transition: .keyDown,
+                timestamp: 100,
+                observedAtNanoseconds: DispatchTime.now().uptimeNanoseconds,
+                pressedUsages: [],
+                modifierUsages: []
+            )
+        )
+        try await waitUntilState(.verified, in: verifier)
+        defer { KeyboardDeviceVerificationRegistry.shared.revoke(sourceID: observedSourceID) }
+
+        #expect(verifier.state == .verified)
+        #expect(KeyboardDeviceVerificationRegistry.shared.isVerified(sourceID: observedSourceID))
+        #expect(!KeyboardDeviceVerificationRegistry.shared.isVerified(sourceID: selectedSourceID))
+    }
+
+    @Test @MainActor func keyFromDifferentConnectionReportsDetectedDevice() async throws {
+        let verifier = KeyboardDeviceVerificationModel()
+        let broker = KeyboardEventAttributionBroker()
+        let selectedSourceID = UUID()
+        let selectedReference = makeReference(transport: "Bluetooth")
+        let token = ShortcutEventToken(
+            eventTimestamp: 99,
+            keyCode: 0,
+            transition: .keyDown
+        )
+        verifier.start(
+            selectedDevice: makeSnapshot(id: selectedSourceID, reference: selectedReference),
             attributionBroker: broker
         )
 
         let shouldConsumeKey = verifier.handleVerificationKeyDown(token: token, isRepeat: false)
-        await Task.yield()
+        try await waitUntilAttributionRequest(in: broker)
         broker.observe(
             KeyboardInputEvent(
                 sourceID: UUID(),
@@ -294,12 +362,26 @@ struct KeyboardDeviceVerificationPolicyTests {
         _ expectedState: KeyboardDeviceVerificationModel.State,
         in verifier: KeyboardDeviceVerificationModel
     ) async throws {
-        for _ in 0..<100 {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while ContinuousClock.now < deadline {
             if verifier.state == expectedState {
                 return
             }
             try await Task.sleep(nanoseconds: 5_000_000)
         }
+    }
+
+    private func waitUntilAttributionRequest(
+        in broker: KeyboardEventAttributionBroker
+    ) async throws {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while ContinuousClock.now < deadline {
+            if broker.hasPendingAttributionRequest {
+                return
+            }
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+        Issue.record("Attribution request was not registered before the deadline")
     }
 
     private func makeReference(transport: String) -> KeyboardDeviceReference {
@@ -311,6 +393,17 @@ struct KeyboardDeviceVerificationPolicyTests {
             serialNumber: nil,
             isBuiltIn: false
         ).reference
+    }
+
+    private func makeSnapshot(
+        id: UUID = UUID(),
+        reference: KeyboardDeviceReference? = nil
+    ) -> KeyboardDeviceSnapshot {
+        KeyboardDeviceSnapshot(
+            id: id,
+            reference: reference ?? makeReference(transport: "Bluetooth"),
+            bindingAvailability: .requiresVerification
+        )
     }
 }
 

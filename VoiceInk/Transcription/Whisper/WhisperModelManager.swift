@@ -41,20 +41,110 @@ private enum WhisperDownloadError: Error {
     case archiveLimitsExceeded
 }
 
-// MARK: - Private download task delegate
+enum WhisperModelImportPolicy {
+    static let maximumFileBytes: Int64 = 4_000_000_000
+    private static let ggmlMagic = Data([0x6c, 0x6d, 0x67, 0x67])
 
-private class TaskDelegate: NSObject, URLSessionTaskDelegate {
-    private let continuation: CheckedContinuation<Void, Never>
-    private let finished = ManagedAtomic(false)
-
-    init(_ continuation: CheckedContinuation<Void, Never>) {
-        self.continuation = continuation
+    static func validate(_ url: URL) throws -> Int64 {
+        guard url.isFileURL,
+              url.pathExtension.lowercased() == "bin",
+              let values = try? url.resourceValues(
+                  forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
+              ),
+              values.isRegularFile == true,
+              values.isSymbolicLink != true,
+              let size = values.fileSize,
+              size > 0,
+              Int64(size) <= maximumFileBytes,
+              url.standardizedFileURL.resolvingSymlinksInPath() == url.standardizedFileURL else {
+            throw CocoaError(.fileReadInvalidFileName)
+        }
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        guard try handle.read(upToCount: ggmlMagic.count) == ggmlMagic else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        return Int64(size)
     }
 
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        if finished.exchange(true, ordering: .acquiring) == false {
-            continuation.resume()
+    static func validateTrustedArtifact(named modelName: String, at url: URL) throws -> Int64 {
+        guard let artifact = WhisperModelArtifactCatalog.artifact(for: modelName) else {
+            throw CocoaError(.fileReadUnknown)
         }
+        let size = try validate(url)
+        guard artifact.modelFile.integrityIsValid(at: url) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        return size
+    }
+}
+
+private final class WhisperDownloadCancellationController: @unchecked Sendable {
+    private enum State {
+        case pending
+        case active(URLSessionDownloadTask, NSKeyValueObservation, @Sendable () -> Void)
+        case finished
+        case canceled
+    }
+
+    private let lock = NSLock()
+    private var state: State = .pending
+
+    func register(
+        task: URLSessionDownloadTask,
+        observation: NSKeyValueObservation,
+        onCancel: @escaping @Sendable () -> Void
+    ) -> Bool {
+        lock.lock()
+        let currentState = state
+        switch currentState {
+        case .pending:
+            state = .active(task, observation, onCancel)
+            lock.unlock()
+            return true
+        case .canceled:
+            lock.unlock()
+            task.cancel()
+            observation.invalidate()
+            onCancel()
+            return false
+        case .finished:
+            lock.unlock()
+            observation.invalidate()
+            return false
+        case .active:
+            lock.unlock()
+            task.cancel()
+            observation.invalidate()
+            onCancel()
+            return false
+        }
+    }
+
+    func finish() {
+        lock.lock()
+        let currentState = state
+        state = .finished
+        lock.unlock()
+        if case .active(_, let observation, _) = currentState {
+            observation.invalidate()
+        }
+    }
+
+    func cancel() {
+        lock.lock()
+        let currentState = state
+        guard case .finished = currentState else {
+            state = .canceled
+            lock.unlock()
+            if case .active(let task, let observation, let onCancel) = currentState {
+                task.cancel()
+                observation.invalidate()
+                onCancel()
+            }
+            return
+        }
+        lock.unlock()
     }
 }
 
@@ -103,7 +193,9 @@ class WhisperModelManager: ObservableObject {
                 at: modelsDirectory, includingPropertiesForKeys: nil)
             availableModels = fileURLs.compactMap { url in
                 guard url.pathExtension == "bin" else { return nil }
-                return WhisperModelFile(name: url.deletingPathExtension().lastPathComponent, url: url)
+                let name = url.deletingPathExtension().lastPathComponent
+                guard WhisperModelArtifactCatalog.artifact(for: name) != nil else { return nil }
+                return WhisperModelFile(name: name, url: url)
             }
         } catch {
             logError("Error loading available models", error)
@@ -119,14 +211,15 @@ class WhisperModelManager: ObservableObject {
         defer { isModelLoading = false }
 
         do {
-            if let artifact = WhisperModelArtifactCatalog.artifact(for: model.name) {
-                let modelURL = model.url
-                let isValid = await Task.detached(priority: .utility) {
-                    artifact.modelFile.integrityIsValid(at: modelURL)
-                }.value
-                try Task.checkCancellation()
-                guard isValid else { throw WhisperDownloadError.invalidArtifactChecksum }
+            guard WhisperModelArtifactCatalog.artifact(for: model.name) != nil else {
+                throw WhisperDownloadError.invalidArtifact
             }
+            let modelURL = model.url
+            let isValid = await Task.detached(priority: .utility) {
+                (try? WhisperModelImportPolicy.validateTrustedArtifact(named: model.name, at: modelURL)) != nil
+            }.value
+            try Task.checkCancellation()
+            guard isValid else { throw WhisperDownloadError.invalidArtifactChecksum }
             whisperContext = try await WhisperContext.createContext(path: model.url.path)
 
             let currentPrompt =
@@ -149,83 +242,88 @@ class WhisperModelManager: ObservableObject {
         progressKey: String
     ) async throws -> Data {
         let destinationURL = modelsDirectory.appendingPathComponent(UUID().uuidString)
+        let cancellation = WhisperDownloadCancellationController()
 
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
-            let finished = ManagedAtomic(false)
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
+                let finished = ManagedAtomic(false)
 
-            func finishOnce(_ result: Result<Data, Error>) {
-                if finished.exchange(true, ordering: .acquiring) == false {
-                    continuation.resume(with: result)
-                }
-            }
-
-            let task = URLSession.shared.downloadTask(with: artifact.downloadURL) { tempURL, response, error in
-                if let error = error {
-                    finishOnce(.failure(error))
-                    return
-                }
-
-                guard let httpResponse = response as? HTTPURLResponse,
-                    (200...299).contains(httpResponse.statusCode),
-                    let tempURL = tempURL
-                else {
-                    finishOnce(.failure(URLError(.badServerResponse)))
-                    return
-                }
-
-                do {
-                    try FileManager.default.moveItem(at: tempURL, to: destinationURL)
-                    guard Self.regularFileSize(at: destinationURL) == artifact.size else {
-                        throw WhisperDownloadError.invalidArtifactSize
-                    }
-                    guard artifact.integrityIsValid(at: destinationURL) else {
-                        throw WhisperDownloadError.invalidArtifactChecksum
-                    }
-                    let data = try Data(contentsOf: destinationURL, options: .mappedIfSafe)
-                    finishOnce(.success(data))
-                    try? FileManager.default.removeItem(at: destinationURL)
-                } catch {
-                    try? FileManager.default.removeItem(at: destinationURL)
-                    finishOnce(.failure(error))
-                }
-            }
-
-            task.resume()
-
-            var lastUpdateTime = Date()
-            var lastProgressValue: Double = 0
-
-            let observation = task.progress.observe(\.fractionCompleted) { progress, _ in
-                if progress.completedUnitCount > artifact.size {
-                    task.cancel()
-                    try? FileManager.default.removeItem(at: destinationURL)
-                    finishOnce(.failure(WhisperDownloadError.oversizedArtifact))
-                    return
-                }
-                let currentTime = Date()
-                let timeSinceLastUpdate = currentTime.timeIntervalSince(lastUpdateTime)
-                let currentProgress = round(progress.fractionCompleted * 100) / 100
-
-                if timeSinceLastUpdate >= 0.5 && abs(currentProgress - lastProgressValue) >= 0.01 {
-                    lastUpdateTime = currentTime
-                    lastProgressValue = currentProgress
-
-                    DispatchQueue.main.async {
-                        self.downloadProgress[progressKey] = currentProgress
-                    }
-                }
-            }
-
-            Task {
-                await withTaskCancellationHandler {
-                    observation.invalidate()
+                func finishOnce(_ result: Result<Data, Error>) {
                     if finished.exchange(true, ordering: .acquiring) == false {
-                        continuation.resume(throwing: CancellationError())
+                        cancellation.finish()
+                        continuation.resume(with: result)
                     }
-                } operation: {
-                    await withCheckedContinuation { (_: CheckedContinuation<Void, Never>) in }
+                }
+
+                let task = URLSession.shared.downloadTask(with: artifact.downloadURL) { tempURL, response, error in
+                    if let error = error {
+                        finishOnce(.failure(error))
+                        return
+                    }
+
+                    guard let httpResponse = response as? HTTPURLResponse,
+                        (200...299).contains(httpResponse.statusCode),
+                        let tempURL = tempURL
+                    else {
+                        finishOnce(.failure(URLError(.badServerResponse)))
+                        return
+                    }
+
+                    do {
+                        try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+                        guard Self.regularFileSize(at: destinationURL) == artifact.size else {
+                            throw WhisperDownloadError.invalidArtifactSize
+                        }
+                        guard artifact.integrityIsValid(at: destinationURL) else {
+                            throw WhisperDownloadError.invalidArtifactChecksum
+                        }
+                        let data = try Data(contentsOf: destinationURL, options: .mappedIfSafe)
+                        try FileManager.default.removeItem(at: destinationURL)
+                        finishOnce(.success(data))
+                    } catch {
+                        try? FileManager.default.removeItem(at: destinationURL)
+                        finishOnce(.failure(error))
+                    }
+                }
+
+                var lastUpdateTime = Date()
+                var lastProgressValue: Double = 0
+
+                let observation = task.progress.observe(\.fractionCompleted) { progress, _ in
+                    if progress.completedUnitCount > artifact.size {
+                        task.cancel()
+                        try? FileManager.default.removeItem(at: destinationURL)
+                        finishOnce(.failure(WhisperDownloadError.oversizedArtifact))
+                        return
+                    }
+                    let currentTime = Date()
+                    let timeSinceLastUpdate = currentTime.timeIntervalSince(lastUpdateTime)
+                    let currentProgress = round(progress.fractionCompleted * 100) / 100
+
+                    if timeSinceLastUpdate >= 0.5 && abs(currentProgress - lastProgressValue) >= 0.01 {
+                        lastUpdateTime = currentTime
+                        lastProgressValue = currentProgress
+
+                        DispatchQueue.main.async {
+                            self.downloadProgress[progressKey] = currentProgress
+                        }
+                    }
+                }
+
+                let shouldResume = cancellation.register(
+                    task: task,
+                    observation: observation,
+                    onCancel: {
+                        try? FileManager.default.removeItem(at: destinationURL)
+                        finishOnce(.failure(CancellationError()))
+                    }
+                )
+                if shouldResume {
+                    task.resume()
                 }
             }
+        } onCancel: {
+            cancellation.cancel()
         }
     }
 
@@ -471,10 +569,10 @@ class WhisperModelManager: ObservableObject {
     // MARK: - Import Local Model
 
     func importWhisperModel(from sourceURL: URL) async {
-        guard sourceURL.pathExtension.lowercased() == "bin" else { return }
-
         let baseName = sourceURL.deletingPathExtension().lastPathComponent
         let destinationURL = modelsDirectory.appendingPathComponent("\(baseName).bin")
+        let stagingURL = modelsDirectory.appendingPathComponent(".import-\(UUID().uuidString).bin")
+        var didCreateDestination = false
 
         if FileManager.default.fileExists(atPath: destinationURL.path) {
             await NotificationManager.shared.showNotification(
@@ -486,8 +584,16 @@ class WhisperModelManager: ObservableObject {
         }
 
         do {
+            let sourceSize = try WhisperModelImportPolicy.validateTrustedArtifact(named: baseName, at: sourceURL)
             try FileManager.default.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
-            try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+            try FileManager.default.copyItem(at: sourceURL, to: stagingURL)
+            let stagedSize = try WhisperModelImportPolicy.validateTrustedArtifact(named: baseName, at: stagingURL)
+            guard stagedSize == sourceSize else { throw CocoaError(.fileReadCorruptFile) }
+            try FileManager.default.moveItem(at: stagingURL, to: destinationURL)
+            didCreateDestination = true
+            guard try WhisperModelImportPolicy.validateTrustedArtifact(named: baseName, at: destinationURL) == sourceSize else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
 
             let newWhisperModel = WhisperModelFile(name: baseName, url: destinationURL)
             availableModels.append(newWhisperModel)
@@ -500,6 +606,20 @@ class WhisperModelManager: ObservableObject {
                 duration: 3.0
             )
         } catch {
+            if FileManager.default.fileExists(atPath: stagingURL.path) {
+                do {
+                    try FileManager.default.removeItem(at: stagingURL)
+                } catch {
+                    logger.error("Failed to remove an incomplete imported model")
+                }
+            }
+            if didCreateDestination {
+                do {
+                    try FileManager.default.removeItem(at: destinationURL)
+                } catch {
+                    logger.error("Failed to remove an invalid imported model")
+                }
+            }
             logError("Failed to import local model", error)
             await NotificationManager.shared.showNotification(
                 title: String(format: String(localized: "Failed to import model: %@"), error.localizedDescription),

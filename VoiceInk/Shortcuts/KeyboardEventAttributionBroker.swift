@@ -127,19 +127,15 @@ final class KeyboardEventAttributionBroker: @unchecked Sendable {
             return cached.attribution
         }
 
-        let transitionCandidates = pendingHIDEvents.indices.filter { index in
+        let exactCandidates = pendingHIDEvents.indices.filter { index in
             transitionMatches(pendingHIDEvents[index].transition, token.transition)
                 && isWithinWindow(pendingHIDEvents[index].observedAtNanoseconds, observedAtNanoseconds)
-        }
-        let exactCandidates = transitionCandidates.filter { index in
-            pendingHIDEvents[index].suggestedCarbonKeyCode == token.keyCode
+                && pendingHIDEvents[index].suggestedCarbonKeyCode == token.keyCode
         }
 
         let selectedIndex: Int?
         if exactCandidates.count == 1 {
             selectedIndex = exactCandidates[0]
-        } else if exactCandidates.isEmpty, transitionCandidates.count == 1 {
-            selectedIndex = transitionCandidates[0]
         } else {
             selectedIndex = nil
         }
@@ -176,6 +172,12 @@ final class KeyboardEventAttributionBroker: @unchecked Sendable {
             cached.attribution.sourceID != sourceID
         }
         lock.unlock()
+    }
+
+    var hasPendingAttributionRequest: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return !pendingRequests.isEmpty
     }
 
     private func resolvePendingRequest(

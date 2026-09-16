@@ -141,8 +141,6 @@ class AudioTranscriptionService: ObservableObject {
                         promptName: enhancementResult.promptName,
                         transcriptionDuration: transcriptionDuration,
                         enhancementDuration: enhancementResult.duration,
-                        aiRequestSystemMessage: enhancementResult.systemMessage,
-                        aiRequestUserMessage: enhancementResult.userMessage,
                         modeName: modeName,
                         modeEmoji: modeEmoji
                     )

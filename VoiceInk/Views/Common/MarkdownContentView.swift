@@ -28,5 +28,12 @@ struct MarkdownContentView: View {
             }
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: alignment)
+            .environment(
+                \.openURL,
+                OpenURLAction { url in
+                    _ = ExternalURLPolicy.confirmAndOpen(url)
+                    return .handled
+                }
+            )
     }
 }

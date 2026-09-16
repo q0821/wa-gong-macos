@@ -176,6 +176,7 @@ class RecordingShortcutManager: ObservableObject {
 
         keyboardDeviceMonitor.onDeviceRemoved = { [weak self] sourceID in
             attributionBroker.removeSource(sourceID)
+            KeyboardDeviceVerificationRegistry.shared.revoke(sourceID: sourceID)
             Task { @MainActor in
                 guard let self else { return }
                 self.shortcutMonitor.releaseActiveShortcuts(from: sourceID)

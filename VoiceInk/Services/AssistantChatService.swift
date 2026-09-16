@@ -67,8 +67,8 @@ final class AssistantChatService {
         transcription.aiEnhancementModelName = modelName ?? provider.defaultModel
         transcription.promptName = promptName
         transcription.enhancementDuration = response.duration
-        transcription.aiRequestSystemMessage = response.systemPrompt
-        transcription.aiRequestUserMessage = response.requestLog
+        transcription.aiRequestSystemMessage = nil
+        transcription.aiRequestUserMessage = nil
         transcription.transcriptionStatus = TranscriptionStatus.completed.rawValue
     }
 
@@ -88,8 +88,6 @@ final class AssistantChatService {
             aiEnhancementModelName: modelName ?? provider.defaultModel,
             promptName: promptName,
             enhancementDuration: response.duration,
-            aiRequestSystemMessage: response.systemPrompt,
-            aiRequestUserMessage: response.requestLog,
             modeName: modeName,
             modeEmoji: modeEmoji,
             transcriptionStatus: .completed

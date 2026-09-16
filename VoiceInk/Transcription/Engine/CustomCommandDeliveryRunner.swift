@@ -67,15 +67,22 @@ enum CustomCommandDeliveryRunner {
             throw CustomCommandDeliveryError.commandNotConfigured
         }
 
-        return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                execute(
-                    command: trimmedCommand,
-                    timeout: timeout,
-                    context: context,
-                    continuation: continuation
-                )
+        try Task.checkCancellation()
+        let cancellation = ProcessCancellationController()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    execute(
+                        command: trimmedCommand,
+                        timeout: timeout,
+                        context: context,
+                        cancellation: cancellation,
+                        continuation: continuation
+                    )
+                }
             }
+        } onCancel: {
+            cancellation.cancel()
         }
     }
 
@@ -83,32 +90,54 @@ enum CustomCommandDeliveryRunner {
         command: String,
         timeout: TimeInterval,
         context: CustomCommandDeliveryContext,
+        cancellation: ProcessCancellationController,
         continuation: CheckedContinuation<CustomCommandDeliveryResult, Error>
     ) {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-lc", command]
-        process.environment = ShellCommandEnvironment.commandEnvironment(
-            additionalEnvironment: context.environment
+        var commandEnvironment = context.environment
+        commandEnvironment["WAGONG_APPROVED_COMMAND"] = command
+        let environment = ShellCommandEnvironment.commandEnvironment(
+            additionalEnvironment: commandEnvironment
         )
 
         let inputPipe = Pipe()
         let outputPipe = Pipe()
         let errorPipe = Pipe()
-        process.standardInput = inputPipe
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
 
         let outputCollector = PipeOutputCollector(handle: outputPipe.fileHandleForReading)
         let errorCollector = PipeOutputCollector(handle: errorPipe.fileHandleForReading)
         let outputCollectors = [outputCollector, errorCollector]
         let inputWriteGroup = DispatchGroup()
+        [
+            inputPipe.fileHandleForWriting.fileDescriptor,
+            outputPipe.fileHandleForReading.fileDescriptor,
+            errorPipe.fileHandleForReading.fileDescriptor,
+        ].forEach { descriptor in
+            _ = fcntl(descriptor, F_SETFD, FD_CLOEXEC)
+        }
 
         let semaphore = DispatchSemaphore(value: 0)
-        process.terminationHandler = { _ in semaphore.signal() }
+        let shellProgram = """
+            eval "$WAGONG_APPROVED_COMMAND"
+            command_status=$?
+            wait
+            exit $command_status
+            """
+        let process: ProcessGroupChild
 
         do {
-            try process.run()
+            process = try ProcessGroupChild.spawn(
+                executable: "/bin/zsh",
+                arguments: ["-lc", shellProgram],
+                environment: environment,
+                standardInput: inputPipe.fileHandleForReading.fileDescriptor,
+                standardOutput: outputPipe.fileHandleForWriting.fileDescriptor,
+                standardError: errorPipe.fileHandleForWriting.fileDescriptor,
+                onExit: { semaphore.signal() }
+            )
+            try? inputPipe.fileHandleForReading.close()
+            try? outputPipe.fileHandleForWriting.close()
+            try? errorPipe.fileHandleForWriting.close()
+            cancellation.register(process: process, semaphore: semaphore)
         } catch {
             try? inputPipe.fileHandleForWriting.close()
             outputCollectors.forEach { $0.stop() }
@@ -116,10 +145,27 @@ enum CustomCommandDeliveryRunner {
             return
         }
 
+        if cancellation.isCanceled {
+            terminate(process, semaphore: semaphore)
+            try? inputPipe.fileHandleForWriting.close()
+            outputCollectors.forEach { $0.stop() }
+            continuation.resume(throwing: CancellationError())
+            return
+        }
+
         let timeoutDeadline = DispatchTime.now() + timeout
         startWritingStandardInput(context.standardInput, to: inputPipe.fileHandleForWriting, group: inputWriteGroup)
 
         let waitResult = semaphore.wait(timeout: timeoutDeadline)
+        if cancellation.isCanceled {
+            terminate(process, semaphore: semaphore)
+            try? inputPipe.fileHandleForWriting.close()
+            _ = waitForCollectors(outputCollectors, timeout: 1)
+            outputCollectors.forEach { $0.stop() }
+            _ = waitForGroup(inputWriteGroup, timeout: 1)
+            continuation.resume(throwing: CancellationError())
+            return
+        }
         if waitResult == .timedOut {
             terminate(process, semaphore: semaphore)
             try? inputPipe.fileHandleForWriting.close()
@@ -178,16 +224,14 @@ enum CustomCommandDeliveryRunner {
         }
     }
 
-    private static func terminate(_ process: Process, semaphore: DispatchSemaphore) {
+    private static func terminate(_ process: ProcessGroupChild, semaphore: DispatchSemaphore) {
         guard process.isRunning else { return }
 
-        let targets = processTreeTargets(rootPID: process.processIdentifier)
-        signalTargets(targets, signal: SIGTERM)
+        signalProcessGroup(process.processIdentifier, signal: SIGTERM)
         let didExitAfterTerminate = semaphore.wait(timeout: .now() + 2) == .success
 
-        let remainingTargets = targets.filter(isProcessRunning)
-        if !remainingTargets.isEmpty {
-            signalTargets(remainingTargets, signal: SIGKILL)
+        if isProcessGroupRunning(process.processIdentifier) {
+            signalProcessGroup(process.processIdentifier, signal: SIGKILL)
         }
 
         if !didExitAfterTerminate,
@@ -198,75 +242,20 @@ enum CustomCommandDeliveryRunner {
         }
     }
 
-    private static func processTreeTargets(rootPID: pid_t) -> [pid_t] {
-        Array(descendants(of: rootPID).reversed()) + [rootPID]
-    }
-
-    private static func signalTargets(_ pids: [pid_t], signal: Int32) {
-        for pid in pids {
-            if kill(pid, signal) != 0 && errno != ESRCH {
-                logger.error(
-                    "Failed to signal custom command process \(pid, privacy: .public): errno \(errno, privacy: .public)"
-                )
-            }
+    private static func signalProcessGroup(_ processGroupID: pid_t, signal: Int32) {
+        if kill(-processGroupID, signal) != 0 && errno != ESRCH {
+            logger.error(
+                "Failed to signal custom command process group \(processGroupID, privacy: .public): errno \(errno, privacy: .public)"
+            )
         }
     }
 
-    private static func isProcessRunning(_ pid: pid_t) -> Bool {
+    private static func isProcessGroupRunning(_ processGroupID: pid_t) -> Bool {
         errno = 0
-        if kill(pid, 0) == 0 {
+        if kill(-processGroupID, 0) == 0 {
             return true
         }
         return errno == EPERM
-    }
-
-    private static func descendants(of rootPID: pid_t) -> [pid_t] {
-        var result: [pid_t] = []
-        var queue = [rootPID]
-        var visited = Set<pid_t>()
-
-        while let parentPID = queue.first {
-            queue.removeFirst()
-            guard visited.insert(parentPID).inserted else { continue }
-
-            let childPIDs = children(of: parentPID)
-            result.append(contentsOf: childPIDs)
-            queue.append(contentsOf: childPIDs)
-        }
-
-        return result
-    }
-
-    private static func children(of parentPID: pid_t) -> [pid_t] {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
-        process.arguments = ["-P", "\(parentPID)"]
-
-        let outputPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = Pipe()
-        let outputCollector = PipeOutputCollector(handle: outputPipe.fileHandleForReading)
-
-        do {
-            try process.run()
-        } catch {
-            outputCollector.stop()
-            return []
-        }
-
-        process.waitUntilExit()
-        _ = waitForCollectors([outputCollector], timeout: 0.5)
-        outputCollector.stop()
-
-        guard process.terminationStatus == 0 else {
-            return []
-        }
-
-        let output = outputCollector.stringValue()
-        return
-            output
-            .split(whereSeparator: \.isNewline)
-            .compactMap { Int32(String($0).trimmingCharacters(in: .whitespacesAndNewlines)) }
     }
 
     private static func waitForGroup(_ group: DispatchGroup, timeout: TimeInterval) -> Bool {
@@ -276,6 +265,157 @@ enum CustomCommandDeliveryRunner {
     private static func waitForCollectors(_ collectors: [PipeOutputCollector], timeout: TimeInterval) -> Bool {
         let deadline = DispatchTime.now() + timeout
         return collectors.allSatisfy { $0.wait(until: deadline) }
+    }
+
+    private final class ProcessCancellationController: @unchecked Sendable {
+        private let lock = NSLock()
+        private var canceled = false
+        private var process: ProcessGroupChild?
+        private var semaphore: DispatchSemaphore?
+
+        var isCanceled: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return canceled
+        }
+
+        func register(process: ProcessGroupChild, semaphore: DispatchSemaphore) {
+            lock.lock()
+            self.process = process
+            self.semaphore = semaphore
+            let shouldCancel = canceled
+            lock.unlock()
+
+            if shouldCancel {
+                Self.terminateRegistered(process: process, semaphore: semaphore)
+            }
+        }
+
+        func cancel() {
+            lock.lock()
+            canceled = true
+            let process = process
+            let semaphore = semaphore
+            lock.unlock()
+
+            guard let process, let semaphore else { return }
+            Self.terminateRegistered(process: process, semaphore: semaphore)
+        }
+
+        private static func terminateRegistered(process: ProcessGroupChild, semaphore: DispatchSemaphore) {
+            DispatchQueue.global(qos: .userInitiated).async {
+                CustomCommandDeliveryRunner.terminate(process, semaphore: semaphore)
+            }
+        }
+    }
+}
+
+private final class ProcessGroupChild: @unchecked Sendable {
+    enum SpawnError: Error {
+        case initialization(Int32)
+        case spawn(Int32)
+    }
+
+    let processIdentifier: pid_t
+    private let lock = NSLock()
+    private var rawWaitStatus: Int32?
+
+    var isRunning: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return rawWaitStatus == nil
+    }
+
+    var terminationStatus: Int32 {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let rawWaitStatus else { return -1 }
+        if (rawWaitStatus & 0x7f) == 0 {
+            return (rawWaitStatus >> 8) & 0xff
+        }
+        return 128 + (rawWaitStatus & 0x7f)
+    }
+
+    private init(processIdentifier: pid_t, onExit: @escaping @Sendable () -> Void) {
+        self.processIdentifier = processIdentifier
+        DispatchQueue.global(qos: .userInitiated).async { [self] in
+            var status: Int32 = 0
+            while waitpid(processIdentifier, &status, 0) == -1 && errno == EINTR {}
+            lock.lock()
+            rawWaitStatus = status
+            lock.unlock()
+            onExit()
+        }
+    }
+
+    static func spawn(
+        executable: String,
+        arguments: [String],
+        environment: [String: String],
+        standardInput: Int32,
+        standardOutput: Int32,
+        standardError: Int32,
+        onExit: @escaping @Sendable () -> Void
+    ) throws -> ProcessGroupChild {
+        var fileActions: posix_spawn_file_actions_t? = nil
+        var attributes: posix_spawnattr_t? = nil
+        var result = posix_spawn_file_actions_init(&fileActions)
+        guard result == 0 else { throw SpawnError.initialization(result) }
+        defer { posix_spawn_file_actions_destroy(&fileActions) }
+
+        result = posix_spawn_file_actions_adddup2(&fileActions, standardInput, STDIN_FILENO)
+        guard result == 0 else { throw SpawnError.initialization(result) }
+        if standardInput != STDIN_FILENO {
+            result = posix_spawn_file_actions_addclose(&fileActions, standardInput)
+            guard result == 0 else { throw SpawnError.initialization(result) }
+        }
+        result = posix_spawn_file_actions_adddup2(&fileActions, standardOutput, STDOUT_FILENO)
+        guard result == 0 else { throw SpawnError.initialization(result) }
+        if standardOutput != STDOUT_FILENO {
+            result = posix_spawn_file_actions_addclose(&fileActions, standardOutput)
+            guard result == 0 else { throw SpawnError.initialization(result) }
+        }
+        result = posix_spawn_file_actions_adddup2(&fileActions, standardError, STDERR_FILENO)
+        guard result == 0 else { throw SpawnError.initialization(result) }
+        if standardError != STDERR_FILENO {
+            result = posix_spawn_file_actions_addclose(&fileActions, standardError)
+            guard result == 0 else { throw SpawnError.initialization(result) }
+        }
+
+        result = posix_spawnattr_init(&attributes)
+        guard result == 0 else { throw SpawnError.initialization(result) }
+        defer { posix_spawnattr_destroy(&attributes) }
+        result = posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETPGROUP))
+        guard result == 0 else { throw SpawnError.initialization(result) }
+        result = posix_spawnattr_setpgroup(&attributes, 0)
+        guard result == 0 else { throw SpawnError.initialization(result) }
+
+        var argumentPointers = ([executable] + arguments).map { strdup($0) } + [nil]
+        var environmentPointers = environment.map { strdup("\($0.key)=\($0.value)") } + [nil]
+        defer {
+            for pointer in argumentPointers {
+                if let pointer { free(pointer) }
+            }
+            for pointer in environmentPointers {
+                if let pointer { free(pointer) }
+            }
+        }
+
+        var pid: pid_t = 0
+        result = argumentPointers.withUnsafeMutableBufferPointer { argumentsBuffer in
+            environmentPointers.withUnsafeMutableBufferPointer { environmentBuffer in
+                posix_spawn(
+                    &pid,
+                    executable,
+                    &fileActions,
+                    &attributes,
+                    argumentsBuffer.baseAddress!,
+                    environmentBuffer.baseAddress!
+                )
+            }
+        }
+        guard result == 0 else { throw SpawnError.spawn(result) }
+        return ProcessGroupChild(processIdentifier: pid, onExit: onExit)
     }
 }
 

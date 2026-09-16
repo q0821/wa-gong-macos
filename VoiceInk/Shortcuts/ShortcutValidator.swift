@@ -22,6 +22,19 @@ enum ShortcutValidationError: Equatable {
 }
 
 enum ShortcutValidator {
+    static func storedShortcutValidationError(for shortcut: Shortcut) -> ShortcutValidationError? {
+        if let error = userRecordingShortcutError(for: shortcut) {
+            return error
+        }
+        if let reservedAction = reservedActionConflicting(with: shortcut) {
+            return .alreadyUsedBy(reservedAction.displayName)
+        }
+        if systemReservedShortcuts.contains(where: { $0.conflicts(with: shortcut) }) {
+            return .reservedBySystem
+        }
+        return nil
+    }
+
     static func validationError(for shortcut: Shortcut, action: ShortcutAction) -> ShortcutValidationError? {
         validationError(
             for: ShortcutBinding(shortcut: shortcut, scope: .allKeyboards),
@@ -46,16 +59,8 @@ enum ShortcutValidator {
         existingBindings: [(action: ShortcutAction, binding: ShortcutBinding)]
     ) -> ShortcutValidationError? {
         let shortcut = candidate.shortcut
-        if let error = userRecordingShortcutError(for: shortcut) {
+        if let error = storedShortcutValidationError(for: shortcut) {
             return error
-        }
-
-        if let reservedAction = reservedActionConflicting(with: shortcut) {
-            return .alreadyUsedBy(reservedAction.displayName)
-        }
-
-        if systemReservedShortcuts.contains(where: { $0.conflicts(with: shortcut) }) {
-            return .reservedBySystem
         }
 
         if let existingAction = storedActionConflicting(

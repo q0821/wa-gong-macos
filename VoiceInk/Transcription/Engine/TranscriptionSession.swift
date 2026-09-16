@@ -149,11 +149,12 @@ final class StreamingTranscriptionSession: TranscriptionSession {
                 }
             } catch {
                 let summary = SensitiveLogSanitizer.errorSummary(error)
-                logger.error("❌ Streaming failed, falling back to batch: \(summary, privacy: .public)")
+                logger.error("❌ Streaming finalization failed without batch replay: \(summary, privacy: .public)")
                 startupTask?.cancel()
                 startupTask = nil
                 startupTaskID = nil
                 streamingService.cancel()
+                throw error
             }
         } else {
             startupTask?.cancel()

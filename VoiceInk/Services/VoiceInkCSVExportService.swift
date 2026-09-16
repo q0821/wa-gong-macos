@@ -27,12 +27,12 @@ class WaGongCSVExportService {
             "Original Transcript,Enhanced Transcript,Enhancement Model,Prompt Name,Transcription Model,Mode,Enhancement Time,Transcription Time,Timestamp,Duration\n"
 
         for transcription in transcriptions {
-            let originalText = escapeCSVString(transcription.text)
-            let enhancedText = escapeCSVString(transcription.enhancedText ?? "")
-            let enhancementModel = escapeCSVString(transcription.aiEnhancementModelName ?? "")
-            let promptName = escapeCSVString(transcription.promptName ?? "")
-            let transcriptionModel = escapeCSVString(transcription.transcriptionModelName ?? "")
-            let mode = escapeCSVString(transcription.modeName ?? "")
+            let originalText = Self.escapeCSVString(transcription.text)
+            let enhancedText = Self.escapeCSVString(transcription.enhancedText ?? "")
+            let enhancementModel = Self.escapeCSVString(transcription.aiEnhancementModelName ?? "")
+            let promptName = Self.escapeCSVString(transcription.promptName ?? "")
+            let transcriptionModel = Self.escapeCSVString(transcription.transcriptionModelName ?? "")
+            let mode = Self.escapeCSVString(transcription.modeName ?? "")
             let enhancementTime = transcription.enhancementDuration ?? 0
             let transcriptionTime = transcription.transcriptionDuration ?? 0
             let timestamp = transcription.timestamp.ISO8601Format()
@@ -46,12 +46,23 @@ class WaGongCSVExportService {
         return csvString
     }
 
-    private func escapeCSVString(_ string: String) -> String {
-        let escapedString = string.replacingOccurrences(of: "\"", with: "\"\"")
+    static func escapeCSVString(_ string: String) -> String {
+        let formulaNeutralized = neutralizeSpreadsheetFormula(in: string)
+        let escapedString = formulaNeutralized.replacingOccurrences(of: "\"", with: "\"\"")
         if escapedString.contains(",") || escapedString.contains("\n") {
             return "\"\(escapedString)\""
         }
         return escapedString
+    }
+
+    private static func neutralizeSpreadsheetFormula(in string: String) -> String {
+        let ignored = CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "\u{FEFF}"))
+        guard let first = string.unicodeScalars.first(where: { !ignored.contains($0) }),
+            "=+-@".unicodeScalars.contains(first)
+        else {
+            return string
+        }
+        return "'\(string)"
     }
 
 }

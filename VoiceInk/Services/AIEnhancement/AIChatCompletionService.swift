@@ -8,7 +8,7 @@ extension AIService {
         hasSystemPrompt: Bool,
         hasMessages: Bool
     ) async {
-        guard provider != .waGongRefine, provider != .ollama, provider != .localCLI else {
+        guard provider != .waGongRefine, provider != .localCLI else {
             return
         }
 

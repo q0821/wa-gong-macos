@@ -172,19 +172,24 @@ enum ModeRuntimeResolver {
             provider: provider,
             modelName: modelName,
             useClipboardContext: false,
-            useSelectedTextContext: provider == .waGongRefine ? false : mode?.useSelectedTextContext ?? true,
+            useSelectedTextContext: provider == .waGongRefine ? false : mode?.useSelectedTextContext ?? false,
             useScreenCaptureContext: provider == .waGongRefine ? false : mode?.useScreenCapture ?? false
         )
     }
 
     static func outputConfiguration(mode: ModeConfig? = nil) -> OutputRuntimeConfiguration {
         let mode = mode ?? ModeManager.shared.currentEffectiveConfiguration
+        let approvedCommand = mode.flatMap { configuration in
+            ModeCustomCommandApprovalStore.isApproved(configuration)
+                ? configuration.customCommand
+                : nil
+        }
 
         return OutputRuntimeConfiguration(
             mode: mode,
             outputMode: mode?.outputMode ?? .paste,
             autoSendKey: mode?.autoSendKey ?? .none,
-            customCommand: mode?.customCommand
+            customCommand: approvedCommand
         )
     }
 

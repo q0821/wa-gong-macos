@@ -14,6 +14,8 @@ DMG_LAYOUT="$DMG_ASSET_DIR/layout.conf"
 DMG_BACKGROUND="$DMG_ASSET_DIR/background.tiff"
 DMG_VOLUME_ICON="$DMG_ASSET_DIR/volume-icon.icns"
 WHISPER_FRAMEWORK="${WAGONG_WHISPER_FRAMEWORK:-$HOME/VoiceInk-Dependencies/whisper.cpp/build-apple/whisper.xcframework}"
+WHISPER_PROVENANCE="${WAGONG_WHISPER_PROVENANCE:-${WHISPER_FRAMEWORK}.provenance}"
+EXPECTED_WHISPER_REVISION="233fe1fc9b48a09e361d3594520838ca266537fe"
 
 DEVELOPER_IDENTITY="${WAGONG_DEVELOPER_IDENTITY:-}"
 NOTARY_PROFILE="${WAGONG_NOTARY_PROFILE:-Wa-Gong-Notarization}"
@@ -21,6 +23,7 @@ SPARKLE_ACCOUNT="${WAGONG_SPARKLE_ACCOUNT:-Wa-Gong}"
 RELEASE_BASE_URL="${WAGONG_RELEASE_BASE_URL:-https://github.com/q0821/wa-gong-macos/releases/download}"
 EXPECTED_FEED_URL="${WAGONG_FEED_URL:-}"
 EXPECTED_BUNDLE_ID="com.jackie-yeh.wagong"
+EXPECTED_TEAM_ID="${WAGONG_EXPECTED_TEAM_ID:-8N33V8XXTX}"
 EXPECTED_MINIMUM_SYSTEM_VERSION="14.4"
 
 XCODE_DEVELOPER_DIR="${WAGONG_XCODE_DEVELOPER_DIR:-${DEVELOPER_DIR:-}}"
@@ -88,6 +91,22 @@ read_plist_value() {
 read_image_property() {
     sips -g "$2" "$1" 2>/dev/null | awk -F': ' -v property="$2" \
         '$1 ~ property { print $2; exit }'
+}
+
+verify_app_signature() {
+    local app_path="$1"
+    local signature_details
+    local signed_team
+
+    codesign --verify --deep --strict --verbose=2 "$app_path"
+    signature_details="$(codesign -d --verbose=4 "$app_path" 2>&1)"
+    signed_team="$(printf '%s\n' "$signature_details" | awk -F= '$1 == "TeamIdentifier" { print $2; exit }')"
+    [[ "$signed_team" == "$EXPECTED_TEAM_ID" ]] \
+        || fail "Unexpected signing Team ID: ${signed_team:-missing}"
+    printf '%s\n' "$signature_details" | grep -F "Authority=$DEVELOPER_IDENTITY" >/dev/null \
+        || fail "Application was not signed by the configured Developer ID identity"
+    printf '%s\n' "$signature_details" | grep -E '^CodeDirectory .*flags=.*runtime' >/dev/null \
+        || fail "Application signature does not enable the hardened runtime"
 }
 
 find_sparkle_tools() {
@@ -172,6 +191,16 @@ if [[ -n "$INPUT_APP" && -n "$INPUT_ARCHIVE" ]]; then
 fi
 if [[ -z "$INPUT_APP" && -z "$INPUT_ARCHIVE" && ! -d "$WHISPER_FRAMEWORK" ]]; then
     fail "Whisper framework not found: $WHISPER_FRAMEWORK. Run: make whisper"
+fi
+if [[ -z "$INPUT_APP" && -z "$INPUT_ARCHIVE" ]]; then
+    [[ -f "$WHISPER_PROVENANCE" ]] || fail "Whisper framework provenance is missing. Rebuild the pinned framework."
+    WHISPER_REVISION="$(sed -n 's/^revision=//p' "$WHISPER_PROVENANCE")"
+    [[ "$WHISPER_REVISION" == "$EXPECTED_WHISPER_REVISION" ]] \
+        || fail "Whisper framework provenance has an unexpected source revision"
+    EXPECTED_WHISPER_SHA="$(sed -n 's/^sha256=//p' "$WHISPER_PROVENANCE")"
+    ACTUAL_WHISPER_SHA="$(find "$WHISPER_FRAMEWORK" -type f -print | LC_ALL=C sort | while IFS= read -r file; do shasum -a 256 "$file"; done | shasum -a 256 | awk '{print $1}')"
+    [[ -n "$EXPECTED_WHISPER_SHA" && "$ACTUAL_WHISPER_SHA" == "$EXPECTED_WHISPER_SHA" ]] \
+        || fail "Whisper framework content does not match its provenance record"
 fi
 [[ -f "$EXPORT_OPTIONS" ]] || fail "Export options not found: $EXPORT_OPTIONS"
 [[ -f "$DMG_LAYOUT" ]] || fail "DMG layout not found: $DMG_LAYOUT"
@@ -306,7 +335,7 @@ esac
 [[ "$BUILD_VERSION" =~ ^[0-9]+$ ]] || fail "CFBundleVersion must be numeric: $BUILD_VERSION"
 
 log "Verifying application signature and Sparkle key"
-codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+verify_app_signature "$APP_PATH"
 KEYCHAIN_PUBLIC_KEY="$("$GENERATE_KEYS" --account "$SPARKLE_ACCOUNT" -p)"
 [[ "$KEYCHAIN_PUBLIC_KEY" == "$APP_PUBLIC_KEY" ]] || fail "Sparkle Keychain public key does not match the app"
 
@@ -373,7 +402,7 @@ MOUNTED_APP="$DMG_MOUNT_DIR/Wa-Gong.app"
     || fail "DMG app build version does not match"
 [[ "$(read_plist_value "$MOUNTED_APP/Contents/Info.plist" SUPublicEDKey)" == "$APP_PUBLIC_KEY" ]] \
     || fail "DMG app Sparkle public key does not match"
-codesign --verify --deep --strict --verbose=2 "$MOUNTED_APP"
+verify_app_signature "$MOUNTED_APP"
 
 hdiutil detach "$DMG_MOUNT_DIR"
 DMG_MOUNTED=0

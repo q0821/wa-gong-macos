@@ -78,7 +78,7 @@ struct ShortcutMonitorDeviceRoutingTests {
         #expect(ups == [.primaryRecording])
     }
 
-    @Test func missingDeviceAttributionKeepsGlobalBindingWorking() async {
+    @Test func missingDeviceAttributionCannotTriggerGlobalBinding() async {
         let monitor = ShortcutMonitor()
         var downs: [ShortcutAction] = []
         monitor.configureForTesting(
@@ -100,7 +100,71 @@ struct ShortcutMonitorDeviceRoutingTests {
         )
         await drainMainQueue()
 
+        #expect(!suppressed)
+        #expect(downs.isEmpty)
+    }
+
+    @Test func attributedPhysicalEventKeepsGlobalBindingWorking() async {
+        let monitor = ShortcutMonitor()
+        let physical = attribution(fingerprint: "physical")
+        var downs: [ShortcutAction] = []
+        monitor.configureForTesting(
+            bindings: [.primaryRecording: [ShortcutBinding(shortcut: shortcut, scope: .allKeyboards)]],
+            onKeyDown: { action, _ in downs.append(action) },
+            onKeyUp: { _, _ in }
+        )
+
+        let suppressed = monitor.handleEvent(
+            kind: .keyDown,
+            keyCode: UInt16(kVK_ANSI_R),
+            modifierFlags: [.option, .command],
+            eventTime: 1,
+            attribution: physical
+        )
+        await drainMainQueue()
+
         #expect(suppressed)
+        #expect(downs == [.primaryRecording])
+    }
+
+    @Test func ambiguousDeviceBindingRequiresCurrentConnectionVerification() async {
+        let monitor = ShortcutMonitor()
+        let sourceID = UUID()
+        let device = KeyboardDeviceReference(
+            fingerprint: "family",
+            vendorID: 1,
+            productID: 2,
+            transport: "bluetooth",
+            displayName: "Keyboard",
+            matchStrength: .modelFamily
+        )
+        let physical = KeyboardEventAttribution(sourceID: sourceID, device: device)
+        var downs: [ShortcutAction] = []
+        monitor.configureForTesting(
+            bindings: [.primaryRecording: [binding(device: device)]],
+            onKeyDown: { action, _ in downs.append(action) },
+            onKeyUp: { _, _ in }
+        )
+
+        #expect(!monitor.handleEvent(
+            kind: .keyDown,
+            keyCode: UInt16(kVK_ANSI_R),
+            modifierFlags: [.option, .command],
+            eventTime: 1,
+            attribution: physical
+        ))
+
+        KeyboardDeviceVerificationRegistry.shared.markVerified(sourceID: sourceID)
+        defer { KeyboardDeviceVerificationRegistry.shared.revoke(sourceID: sourceID) }
+
+        #expect(monitor.handleEvent(
+            kind: .keyDown,
+            keyCode: UInt16(kVK_ANSI_R),
+            modifierFlags: [.option, .command],
+            eventTime: 2,
+            attribution: physical
+        ))
+        await drainMainQueue()
         #expect(downs == [.primaryRecording])
     }
 

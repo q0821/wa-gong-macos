@@ -192,6 +192,7 @@ struct CustomCloudModel: TranscriptionModel, Codable {
     let modelName: String
     let isMultilingualModel: Bool
     let supportedLanguages: [String: String]
+    let legacyAPIKeyForMigration: String?
 
     /// API key retrieved from Keychain by model ID.
     var apiKey: String {
@@ -210,6 +211,7 @@ struct CustomCloudModel: TranscriptionModel, Codable {
         self.modelName = modelName
         self.isMultilingualModel = isMultilingual
         self.supportedLanguages = supportedLanguages ?? LanguageDictionary.forProvider(isMultilingual: isMultilingual)
+        self.legacyAPIKeyForMigration = nil
     }
 
     /// Custom Codable to migrate legacy apiKey from JSON to Keychain.
@@ -229,9 +231,7 @@ struct CustomCloudModel: TranscriptionModel, Codable {
         isMultilingualModel = try container.decode(Bool.self, forKey: .isMultilingualModel)
         supportedLanguages = try container.decode([String: String].self, forKey: .supportedLanguages)
 
-        if let legacyApiKey = try container.decodeIfPresent(String.self, forKey: .apiKey), !legacyApiKey.isEmpty {
-            APIKeyManager.shared.saveCustomModelAPIKey(legacyApiKey, forModelId: id)
-        }
+        legacyAPIKeyForMigration = try container.decodeIfPresent(String.self, forKey: .apiKey)
     }
 
     func encode(to encoder: Encoder) throws {

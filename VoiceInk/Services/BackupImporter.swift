@@ -3,11 +3,14 @@ import SwiftData
 
 enum BackupImportError: LocalizedError {
     case saveFailed(String, Error)
+    case unsafeBackup(String)
 
     var errorDescription: String? {
         switch self {
         case .saveFailed(let item, let error):
             return String(format: String(localized: "Failed to save imported %@: %@"), item, error.localizedDescription)
+        case .unsafeBackup(let reason):
+            return String(format: String(localized: "The settings backup is not safe to import: %@"), reason)
         }
     }
 }
@@ -23,6 +26,7 @@ enum BackupImporter {
         modelContext: ModelContext, transcriptionModelManager: TranscriptionModelManager,
         allowImportedCustomCommands: Bool = false
     ) throws {
+        try BackupImportSecurityPolicy.validate(backup)
         var shouldRepairModePromptSelections = false
 
         if categories.contains(.dictionary) {
@@ -56,7 +60,11 @@ enum BackupImporter {
                 backup.modeConfigs,
                 allowCustomCommands: allowImportedCustomCommands
             )
-            modeManager.configurations = importedModes
+            if allowImportedCustomCommands {
+                modeManager.replaceConfigurationsFromApprovedImport(importedModes)
+            } else {
+                modeManager.configurations = importedModes
+            }
             let importedModeIds = Set(importedModes.map(\.id))
 
             if let shortcuts = backup.modeShortcuts {
@@ -72,7 +80,9 @@ enum BackupImporter {
                 }
             }
 
-            modeManager.saveConfigurations()
+            if !allowImportedCustomCommands {
+                modeManager.saveConfigurations()
+            }
             shouldRepairModePromptSelections = true
 
             if let customEmojis = backup.customEmojis {
@@ -324,6 +334,72 @@ enum BackupImporter {
 }
 
 enum BackupImportSecurityPolicy {
+    static let maximumFileBytes = 10 * 1024 * 1024
+    static let allowedTranscriptionRetentionMinutes: Set<Int> = [0, 60, 24 * 60, 3 * 24 * 60, 7 * 24 * 60]
+    static let allowedAudioRetentionDays: Set<Int> = [1, 3, 7, 14, 30]
+
+    static func validate(_ backup: BackupFile) throws {
+        let limits: [(String, Int, Int)] = [
+            ("custom prompts", backup.customPrompts.count, 1_000),
+            ("modes", backup.modeConfigs.count, 500),
+            ("mode shortcuts", backup.modeShortcuts?.count ?? 0, 500),
+            ("vocabulary words", backup.vocabularyWords?.count ?? 0, 10_000),
+            ("word replacements", backup.wordReplacements?.count ?? 0, 10_000),
+            ("custom emojis", backup.customEmojis?.count ?? 0, 1_000),
+            ("custom models", backup.customCloudModels?.count ?? 0, 500),
+        ]
+        if let exceeded = limits.first(where: { $0.1 > $0.2 }) {
+            throw BackupImportError.unsafeBackup("\(exceeded.0) exceeds the supported item limit")
+        }
+
+        if let minutes = backup.generalSettings?.transcriptionRetentionMinutes,
+            !allowedTranscriptionRetentionMinutes.contains(minutes)
+        {
+            throw BackupImportError.unsafeBackup("transcription retention has an unsupported value")
+        }
+        if let days = backup.generalSettings?.audioRetentionPeriod,
+            !allowedAudioRetentionDays.contains(days)
+        {
+            throw BackupImportError.unsafeBackup("audio retention has an unsupported value")
+        }
+    }
+
+    static func loadFileURL(_ url: URL) throws -> Data {
+        do {
+            return try BoundedRegularFileReader.load(url, maximumBytes: maximumFileBytes)
+        } catch {
+            throw BackupImportError.unsafeBackup("the selected item must be a direct regular file no larger than 10 MB")
+        }
+    }
+
+    static func destructiveCleanupSummary(
+        _ general: GeneralBackup?,
+        defaults: UserDefaults = .standard
+    ) -> String? {
+        guard let general else { return nil }
+        var lines: [String] = []
+        let importsTranscriptionCleanup = general.isTranscriptionCleanupEnabled != nil
+            || general.transcriptionRetentionMinutes != nil
+        let effectiveTranscriptionCleanup = general.isTranscriptionCleanupEnabled
+            ?? defaults.bool(forKey: CleanupSettingsKeys.isTranscriptionCleanupEnabled)
+        if importsTranscriptionCleanup, effectiveTranscriptionCleanup {
+            let minutes = general.transcriptionRetentionMinutes
+                ?? (defaults.object(forKey: CleanupSettingsKeys.transcriptionRetentionMinutes) as? Int)
+                ?? 24 * 60
+            lines.append("Transcript history and related audio will be deleted after \(minutes) minutes.")
+        }
+        let importsAudioCleanup = general.isAudioCleanupEnabled != nil || general.audioRetentionPeriod != nil
+        let effectiveAudioCleanup = general.isAudioCleanupEnabled
+            ?? defaults.bool(forKey: CleanupSettingsKeys.isAudioCleanupEnabled)
+        if importsAudioCleanup, effectiveAudioCleanup {
+            let days = general.audioRetentionPeriod
+                ?? (defaults.object(forKey: CleanupSettingsKeys.audioRetentionPeriod) as? Int)
+                ?? 3
+            lines.append("Audio files will be deleted after \(days) days while transcript history is kept.")
+        }
+        return lines.isEmpty ? nil : lines.joined(separator: "\n")
+    }
+
     static func sanitizedModes(_ modes: [ModeConfig], allowCustomCommands: Bool) -> [ModeConfig] {
         guard !allowCustomCommands else { return modes }
 

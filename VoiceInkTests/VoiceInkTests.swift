@@ -595,7 +595,7 @@ struct VoiceInkTests {
         #expect(ShortcutValidator.validationError(for: shortcut, action: .primaryRecording) == nil)
     }
 
-    @Test func wordReplacementPrefersLongerTermsAndRespectsWordBoundaries() throws {
+    @Test @MainActor func wordReplacementPrefersLongerTermsAndRespectsWordBoundaries() throws {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: WordReplacement.self, configurations: configuration)
         let context = ModelContext(container)

@@ -95,10 +95,7 @@ class CloudTranscriptionService: TranscriptionService {
     // MARK: - Helpers
 
     private func loadAudioData(from url: URL) throws -> Data {
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            throw CloudTranscriptionError.audioFileNotFound
-        }
-        return try Data(contentsOf: url)
+        try AudioUploadPolicy.load(url)
     }
 
     private func requireAPIKey(forProvider provider: String) throws -> String {

@@ -120,10 +120,8 @@ final class TranscriptionDelivery {
         SoundManager.shared.playStopSound()
         await actions.dismiss()
 
-        Task {
-            guard !item.isCanceled() else { return }
-            await runCustomCommand(command: command, commandText: commandText)
-        }
+        guard !item.isCanceled(), !Task.isCancelled else { return }
+        await runCustomCommand(command: command, commandText: commandText)
     }
 
     private func runCustomCommand(command: String, commandText: String) async {
@@ -144,6 +142,8 @@ final class TranscriptionDelivery {
             logger.notice(
                 "Custom command completed duration=\(Self.formattedDuration(duration), privacy: .public)s status=\(result.status, privacy: .public) stdoutBytes=\(stdoutBytes, privacy: .public) stderrBytes=\(stderrBytes, privacy: .public)"
             )
+        } catch is CancellationError {
+            logger.notice("Custom command canceled")
         } catch {
             notifyCustomCommandFailure(error, duration: Date().timeIntervalSince(startTime))
         }
@@ -184,19 +184,17 @@ final class TranscriptionDelivery {
 
         guard !isCanceled() else { return }
 
-        let pasteTask = Task { @MainActor in
-            await actions.pasteAtCursor(pastedText, isCanceled)
-        }
+        let pasteResult = await actions.pasteAtCursor(pastedText, isCanceled)
 
         let autoSendKey = output.outputMode == .paste ? output.autoSendKey : .none
-        Task { @MainActor in
-            let pasteResult = await pasteTask.value
-
-            if pasteResult.didPostPasteCommand, !isCanceled(), autoSendKey.isEnabled {
-                try? await Task.sleep(nanoseconds: 500_000_000)
-                guard !isCanceled() else { return }
-                actions.autoSend(autoSendKey)
+        if pasteResult.didPostPasteCommand, !isCanceled(), !Task.isCancelled, autoSendKey.isEnabled {
+            do {
+                try await Task.sleep(nanoseconds: 500_000_000)
+            } catch {
+                return
             }
+            guard !isCanceled(), !Task.isCancelled else { return }
+            actions.autoSend(autoSendKey)
         }
     }
 

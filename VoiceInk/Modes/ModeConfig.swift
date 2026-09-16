@@ -104,7 +104,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         urlConfigs: [URLConfig]? = nil, triggerGroups: [ModeTriggerGroup]? = nil, triggerWords: [String] = [],
         isAIEnhancementEnabled: Bool, selectedPrompt: String? = nil,
         selectedTranscriptionModelName: String? = nil, isRealtimeTranscriptionEnabled: Bool = true,
-        selectedLanguage: String? = nil, useClipboardContext: Bool = false, useSelectedTextContext: Bool = true,
+        selectedLanguage: String? = nil, useClipboardContext: Bool = false, useSelectedTextContext: Bool = false,
         useScreenCapture: Bool = false,
         isTextFormattingEnabled: Bool = false, selectedAIProvider: String? = nil, selectedAIModel: String? = nil,
         outputMode: ModeOutputMode = .paste, autoSendKey: AutoSendKey = .none, customCommand: ModeCustomCommand? = nil,
@@ -171,16 +171,11 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         selectedLanguage = try container.decodeIfPresent(String.self, forKey: .selectedLanguage)
         isTextFormattingEnabled = try container.decodeIfPresent(Bool.self, forKey: .isTextFormattingEnabled) ?? false
         useClipboardContext = false
-        if let decodedSelectedTextContext = try container.decodeIfPresent(Bool.self, forKey: .useSelectedTextContext) {
-            useSelectedTextContext = decodedSelectedTextContext
-        } else if UserDefaults.standard.object(forKey: "useSelectedTextContext") == nil {
-            useSelectedTextContext = true
-        } else {
-            useSelectedTextContext = UserDefaults.standard.bool(forKey: "useSelectedTextContext")
-        }
+        useSelectedTextContext =
+            try container.decodeIfPresent(Bool.self, forKey: .useSelectedTextContext) ?? false
         useScreenCapture =
             try container.decodeIfPresent(Bool.self, forKey: .useScreenCapture)
-            ?? UserDefaults.standard.bool(forKey: "useScreenCaptureContext")
+            ?? false
         selectedAIProvider = try container.decodeIfPresent(String.self, forKey: .selectedAIProvider)
         selectedAIModel = try container.decodeIfPresent(String.self, forKey: .selectedAIModel)
         outputMode = try container.decodeIfPresent(ModeOutputMode.self, forKey: .outputMode) ?? .paste
@@ -299,7 +294,7 @@ class ModeManager: ObservableObject {
         if let data = migratedModeConfigurationData(for: configKey),
             let configs = try? JSONDecoder().decode([ModeConfig].self, from: data)
         {
-            configurations = configs
+            configurations = configs.map(Self.disablingUnapprovedCustomCommand)
             migrateLoadedModeConfigurationsIfNeeded()
         }
     }
@@ -324,6 +319,7 @@ class ModeManager: ObservableObject {
             }
             configuration.isEnabled = true
         }
+        configuration = Self.authorizingCustomCommand(configuration)
 
         configurations.append(configuration)
         saveConfigurations()
@@ -341,6 +337,7 @@ class ModeManager: ObservableObject {
         let previousEffectiveConfigurationId = currentEffectiveConfiguration?.id
         let previousEnabledConfigIds = enabledConfigurationIds
         ShortcutStore.removeShortcutStorage(for: .mode(id))
+        ModeCustomCommandApprovalStore.revoke(modeID: id)
         configurations.removeAll { $0.id == id }
         let selectedConfiguration = repairActiveConfigurationIfNeeded(
             previousEffectiveConfigurationId: previousEffectiveConfigurationId
@@ -368,6 +365,7 @@ class ModeManager: ObservableObject {
             }
             configuration.isEnabled = true
         }
+        configuration = Self.authorizingCustomCommand(configuration)
 
         configurations[index] = configuration
         saveConfigurations()
@@ -382,24 +380,49 @@ class ModeManager: ObservableObject {
 
     func replaceConfigurations(_ updatedConfigurations: [ModeConfig]) {
         let previousEnabledConfigIds = enabledConfigurationIds
-        configurations = updatedConfigurations
+        configurations = updatedConfigurations.map(Self.disablingUnapprovedCustomCommand)
+        saveConfigurations()
+        postShortcutAvailabilityChangeIfNeeded(previousEnabledConfigIds: previousEnabledConfigIds)
+    }
+
+    func replaceConfigurationsFromApprovedImport(_ updatedConfigurations: [ModeConfig]) {
+        let previousEnabledConfigIds = enabledConfigurationIds
+        configurations = updatedConfigurations.map(Self.authorizingCustomCommand)
         saveConfigurations()
         postShortcutAvailabilityChangeIfNeeded(previousEnabledConfigIds: previousEnabledConfigIds)
     }
 
     func getConfigurationForURL(_ url: String) -> ModeConfig? {
-        let cleanedURL = cleanURL(url)
-
         for config in configurations.filter({ $0.isEnabled }) {
             for urlConfig in config.allURLConfigs {
-                let configURL = cleanURL(urlConfig.url)
-
-                if cleanedURL.contains(configURL) {
+                if ModeURLTriggerMatcher.matches(currentURL: url, configuredURL: urlConfig.url) {
                     return config
                 }
             }
         }
         return nil
+    }
+
+    private static func authorizingCustomCommand(_ configuration: ModeConfig) -> ModeConfig {
+        var configuration = configuration
+        guard ModeCustomCommandApprovalStore.approve(configuration) else {
+            configuration.isEnabled = false
+            configuration.isDefault = false
+            return configuration
+        }
+        return configuration
+    }
+
+    private static func disablingUnapprovedCustomCommand(_ configuration: ModeConfig) -> ModeConfig {
+        guard configuration.outputMode == .customCommand else {
+            return configuration
+        }
+        guard configuration.customCommand?.trimmedCommand == nil
+                || !ModeCustomCommandApprovalStore.isApproved(configuration) else { return configuration }
+        var configuration = configuration
+        configuration.isEnabled = false
+        configuration.isDefault = false
+        return configuration
     }
 
     func getConfigurationForApp(_ bundleId: String) -> ModeConfig? {
@@ -435,6 +458,8 @@ class ModeManager: ObservableObject {
         guard let targetIndex = configurations.firstIndex(where: { $0.id == configId }) else {
             return
         }
+        guard configurations[targetIndex].outputMode != .customCommand
+                || ModeCustomCommandApprovalStore.isApproved(configurations[targetIndex]) else { return }
 
         let previousEnabledConfigIds = enabledConfigurationIds
 
@@ -453,6 +478,8 @@ class ModeManager: ObservableObject {
 
     func enableConfiguration(with id: UUID) {
         if let index = configurations.firstIndex(where: { $0.id == id }) {
+            guard configurations[index].outputMode != .customCommand
+                    || ModeCustomCommandApprovalStore.isApproved(configurations[index]) else { return }
             let previousEnabledConfigIds = enabledConfigurationIds
             configurations[index].isEnabled = true
             saveConfigurations()
@@ -636,5 +663,45 @@ class ModeManager: ObservableObject {
 
     func isEmojiInUse(_ emoji: String) -> Bool {
         return configurations.contains { $0.icon == .emoji(emoji) }
+    }
+}
+
+enum ModeURLTriggerMatcher {
+    static func matches(currentURL: String, configuredURL: String) -> Bool {
+        guard let current = components(for: currentURL),
+            let configured = components(for: configuredURL),
+            let currentHost = current.host?.lowercased(),
+            let configuredHost = configured.host?.lowercased(),
+            currentHost == configuredHost || currentHost.hasSuffix(".\(configuredHost)")
+        else {
+            return false
+        }
+
+        let configuredPath = normalizedPath(configured.path)
+        guard configuredPath != "/" else { return true }
+
+        let currentPath = normalizedPath(current.path)
+        return currentPath == configuredPath || currentPath.hasPrefix("\(configuredPath)/")
+    }
+
+    private static func components(for value: String) -> URLComponents? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let candidate = trimmed.contains("://") ? trimmed : "https://\(trimmed)"
+        guard let components = URLComponents(string: candidate),
+            components.user == nil,
+            components.password == nil,
+            components.host?.isEmpty == false
+        else {
+            return nil
+        }
+        return components
+    }
+
+    private static func normalizedPath(_ path: String) -> String {
+        guard !path.isEmpty else { return "/" }
+        let prefixed = path.hasPrefix("/") ? path : "/\(path)"
+        guard prefixed.count > 1 else { return "/" }
+        return prefixed.hasSuffix("/") ? String(prefixed.dropLast()) : prefixed
     }
 }

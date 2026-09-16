@@ -31,7 +31,10 @@ struct ShortcutBindingStore {
 
     @discardableResult
     func setBindings(_ bindings: [ShortcutBinding], for action: ShortcutAction) -> Bool {
-        guard action.isStored, let data = try? encoder.encode(bindings) else {
+        guard action.isStored,
+            bindings.allSatisfy({ ShortcutValidator.storedShortcutValidationError(for: $0.shortcut) == nil }),
+            let data = try? encoder.encode(bindings)
+        else {
             return false
         }
 
@@ -138,7 +141,8 @@ struct ShortcutBindingStore {
             return .absent
         }
         guard let data = object as? Data,
-            let bindings = try? decoder.decode([ShortcutBinding].self, from: data)
+            let bindings = try? decoder.decode([ShortcutBinding].self, from: data),
+            bindings.allSatisfy({ ShortcutValidator.storedShortcutValidationError(for: $0.shortcut) == nil })
         else {
             return .corrupt
         }

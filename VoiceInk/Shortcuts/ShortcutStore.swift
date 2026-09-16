@@ -16,7 +16,18 @@ enum ShortcutStore {
             return []
         }
         _ = bindingStore.migrateLegacyShortcutIfNeeded(for: action)
-        return bindingStore.bindings(for: action)
+        let stored = bindingStore.bindings(for: action)
+        let actions = storedActionsInPriorityOrder
+        guard let actionIndex = actions.firstIndex(of: action) else { return stored }
+        let higherPriorityEntries = actions[..<actionIndex].flatMap { higherPriorityAction in
+            bindingStore.bindings(for: higherPriorityAction).map { binding in
+                (action: higherPriorityAction, binding: binding)
+            }
+        }
+        return ShortcutConflictPolicy.bindingsWithoutCrossActionConflicts(
+            stored,
+            higherPriorityEntries: higherPriorityEntries
+        )
     }
 
     static func shortcut(for action: ShortcutAction) -> Shortcut? {
@@ -177,6 +188,13 @@ enum ShortcutStore {
         "\(action.userDefaultsKey)_cleared"
     }
 
+    private static var storedActionsInPriorityOrder: [ShortcutAction] {
+        let modes = ModeManager.shared.configurations
+            .map { ShortcutAction.mode($0.id) }
+            .sorted { $0.storageName < $1.storageName }
+        return ShortcutAction.legacyKeyboardShortcutActions + modes
+    }
+
     private static func postChange(for action: ShortcutAction, bindingID: UUID? = nil) {
         let userInfo = bindingID.map { [bindingIDUserInfoKey: $0] }
         NotificationCenter.default.post(
@@ -184,5 +202,19 @@ enum ShortcutStore {
             object: action,
             userInfo: userInfo
         )
+    }
+}
+
+enum ShortcutConflictPolicy {
+    static func bindingsWithoutCrossActionConflicts(
+        _ bindings: [ShortcutBinding],
+        higherPriorityEntries: [(action: ShortcutAction, binding: ShortcutBinding)]
+    ) -> [ShortcutBinding] {
+        bindings.filter { candidate in
+            !higherPriorityEntries.contains { entry in
+                entry.binding.shortcut.conflicts(with: candidate.shortcut)
+                    && entry.binding.scope.overlaps(candidate.scope)
+            }
+        }
     }
 }

@@ -4,6 +4,8 @@ import os
 
 class WhisperTranscriptionService: TranscriptionService {
 
+    static let maximumPCMBytes = 230_400_044
+
     private var whisperContext: WhisperContext?
     private let logger = Logger(subsystem: "com.jackie-yeh.wagong", category: "WhisperTranscriptionService")
     private let modelsDirectory: URL
@@ -94,12 +96,28 @@ class WhisperTranscriptionService: TranscriptionService {
     }
 
     private func readAudioSamples(_ url: URL) throws -> [Float] {
-        let data = try Data(contentsOf: url)
-        let floats = stride(from: 44, to: data.count, by: 2).map {
-            return data[$0..<$0 + 2].withUnsafeBytes {
-                let short = Int16(littleEndian: $0.load(as: Int16.self))
-                return max(-1.0, min(Float(short) / 32767.0, 1.0))
-            }
+        guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+              size <= Self.maximumPCMBytes else { throw CocoaError(.fileReadTooLarge) }
+        return try Self.decodePCMSamples(Data(contentsOf: url, options: .mappedIfSafe))
+    }
+
+    static func decodePCMSamples(_ data: Data) throws -> [Float] {
+        guard data.count >= 44,
+              data.count <= maximumPCMBytes,
+              data.prefix(4) == Data("RIFF".utf8),
+              data[8..<12] == Data("WAVE".utf8),
+              (data.count - 44).isMultiple(of: 2) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+
+        var floats: [Float] = []
+        floats.reserveCapacity((data.count - 44) / 2)
+        var offset = 44
+        while offset < data.count {
+            let value = UInt16(data[offset]) | (UInt16(data[offset + 1]) << 8)
+            let sample = Int16(bitPattern: value)
+            floats.append(max(-1.0, min(Float(sample) / 32767.0, 1.0)))
+            offset += 2
         }
         return floats
     }

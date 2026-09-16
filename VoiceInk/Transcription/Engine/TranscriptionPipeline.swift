@@ -205,8 +205,8 @@ class TranscriptionPipeline {
                             ?? resolvedEnhancementConfiguration.provider?.defaultModel
                         transcription.promptName = enhancementResult.promptName
                         transcription.enhancementDuration = enhancementResult.duration
-                        transcription.aiRequestSystemMessage = enhancementResult.systemMessage
-                        transcription.aiRequestUserMessage = enhancementResult.userMessage
+                        transcription.aiRequestSystemMessage = nil
+                        transcription.aiRequestUserMessage = nil
                         finalText = enhancementResult.text
                     } catch {
                         if shouldCancel() {

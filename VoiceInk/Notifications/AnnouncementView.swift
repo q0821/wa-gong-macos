@@ -3,6 +3,7 @@ import SwiftUI
 struct AnnouncementView: View {
     let title: String
     let description: String
+    let learnMoreHost: String?
     let onClose: () -> Void
     let onLearnMore: () -> Void
 
@@ -37,16 +38,18 @@ struct AnnouncementView: View {
             }
 
             HStack(spacing: 8) {
-                Button(action: onLearnMore) {
-                    Text("Learn more")
+                if let learnMoreHost {
+                    Button(action: onLearnMore) {
+                        Text(String(format: String(localized: "Learn more on %@"), learnMoreHost))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.black)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
 
                 Button(action: onClose) {
                     Text("Dismiss")

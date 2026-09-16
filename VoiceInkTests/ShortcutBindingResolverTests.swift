@@ -137,6 +137,18 @@ struct ShortcutBindingResolverTests {
         #expect(!KeyboardScope.device(first).overlaps(.device(second)))
     }
 
+    @Test func persistedCrossActionDuplicateIsDisabledByPriority() {
+        let first = ShortcutBinding(shortcut: shortcut, scope: .allKeyboards)
+        let duplicate = ShortcutBinding(shortcut: shortcut, scope: .allKeyboards)
+
+        let remaining = ShortcutConflictPolicy.bindingsWithoutCrossActionConflicts(
+            [duplicate],
+            higherPriorityEntries: [(action: .primaryRecording, binding: first)]
+        )
+
+        #expect(remaining.isEmpty)
+    }
+
     private func makeDevice(fingerprint: String, productID: Int) -> KeyboardDeviceReference {
         KeyboardDeviceReference(
             fingerprint: fingerprint,

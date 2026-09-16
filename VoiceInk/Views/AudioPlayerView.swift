@@ -1,5 +1,6 @@
 import AVFoundation
 import SwiftUI
+import os
 
 extension TimeInterval {
     func formatTiming() -> String {
@@ -347,6 +348,7 @@ private enum OperationFeedback: Equatable {
 // MARK: - AudioPlayerView
 
 struct AudioPlayerView: View {
+    private static let logger = Logger(subsystem: "com.jackie-yeh.wagong", category: "AudioPlayerView")
     let url: URL
     let transcription: Transcription?
     var onInfoTap: (() -> Void)?
@@ -623,9 +625,15 @@ struct AudioPlayerView: View {
                         enhancementConfiguration.modelName ?? enhancementConfiguration.provider?.defaultModel
                     transcription.promptName = enhancementResult.promptName
                     transcription.enhancementDuration = enhancementResult.duration
-                    transcription.aiRequestSystemMessage = enhancementResult.systemMessage
-                    transcription.aiRequestUserMessage = enhancementResult.userMessage
-                    try? modelContext.save()
+                    transcription.aiRequestSystemMessage = nil
+                    transcription.aiRequestUserMessage = nil
+                    do {
+                        try modelContext.save()
+                    } catch {
+                        Self.logger.error(
+                            "Failed to save re-enhanced transcription: \(String(describing: type(of: error)), privacy: .public)"
+                        )
+                    }
 
                     isReEnhancing = false
                     showSuccessFeedback(.reEnhanceSuccess, title: String(localized: "Re-enhancement successful"))

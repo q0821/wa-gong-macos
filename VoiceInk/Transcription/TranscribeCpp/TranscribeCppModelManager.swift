@@ -507,6 +507,8 @@ final class TranscribeCppModelManager: ObservableObject {
                 return true
             case .httpStatus(let statusCode):
                 return statusCode == 408 || statusCode == 429 || (500...599).contains(statusCode)
+            case .oversizedDownload:
+                return false
             }
         }
 

@@ -30,7 +30,7 @@ class OllamaService: ObservableObject {
     }
 
     private var baseURLValue: URL? {
-        URL(string: baseURL)
+        CustomEndpointPolicy.validatedURL(baseURL)
     }
 
     @MainActor

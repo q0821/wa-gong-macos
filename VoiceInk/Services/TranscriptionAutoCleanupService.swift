@@ -13,6 +13,10 @@ class TranscriptionAutoCleanupService {
             .appendingPathComponent("Recordings")
     }
 
+    private var deletionPolicy: AudioFileDeletionPolicy {
+        AudioFileDeletionPolicy(recordingsDirectory: recordingsDirectory)
+    }
+
     private init() {}
 
     func startMonitoring(modelContext: ModelContext) {
@@ -29,7 +33,6 @@ class TranscriptionAutoCleanupService {
             Task { [weak self] in
                 guard let self = self, let modelContext = self.modelContext else { return }
                 await self.sweepOldTranscriptions(modelContext: modelContext)
-                await self.cleanupOrphanAudioFiles(modelContext: modelContext)
             }
         }
     }
@@ -64,13 +67,36 @@ class TranscriptionAutoCleanupService {
             return
         }
 
-        if let urlString = transcription.audioFileURL,
-            let url = URL(string: urlString)
-        {
+        guard transcription.transcriptionStatus != TranscriptionStatus.pending.rawValue else {
+            logger.error("Refused to delete a pending transcription")
+            return
+        }
+
+        if transcription.audioFileURL != nil {
+            guard let url = deletionPolicy.safeAudioURL(transcription.audioFileURL) else {
+                logger.error("Refused to delete an audio file outside the safe recording boundary")
+                return
+            }
+            let allTranscriptions: [Transcription]
             do {
-                try FileManager.default.removeItem(at: url)
+                allTranscriptions = try modelContext.fetch(FetchDescriptor<Transcription>())
             } catch {
-                logger.error("Failed to delete audio file: \(error, privacy: .public)")
+                logger.error(
+                    "Refused audio deletion because shared references could not be checked: \(String(describing: type(of: error)), privacy: .public)"
+                )
+                return
+            }
+            let hasOtherReference = allTranscriptions.contains { candidate in
+                candidate.id != transcription.id
+                    && deletionPolicy.safeAudioURL(candidate.audioFileURL)?.path == url.path
+            }
+            if !hasOtherReference, !AudioCleanupManager.isProtected(url) {
+                do {
+                    try FileManager.default.removeItem(at: url)
+                } catch {
+                    logger.error("Failed to delete an audio file: \(String(describing: type(of: error)), privacy: .public)")
+                    return
+                }
             }
         }
 
@@ -99,19 +125,43 @@ class TranscriptionAutoCleanupService {
         do {
             let backgroundContext = ModelContext(modelContainer)
 
-            let descriptor = FetchDescriptor<Transcription>(
-                predicate: #Predicate<Transcription> { transcription in
-                    transcription.timestamp < cutoffDate
-                }
-            )
-            let items = try backgroundContext.fetch(descriptor)
+            let allItems = try backgroundContext.fetch(FetchDescriptor<Transcription>())
+            let items = allItems.filter {
+                $0.timestamp < cutoffDate
+                    && $0.transcriptionStatus != TranscriptionStatus.pending.rawValue
+            }
+            let expiredIDs = Set(items.map(\.id))
+            let groupedReferences = Dictionary(grouping: allItems.compactMap { item -> (String, Transcription)? in
+                guard let url = deletionPolicy.safeAudioURL(item.audioFileURL) else { return nil }
+                return (url.path, item)
+            }, by: { $0.0 })
+            let deletablePaths: Set<String> = Set(groupedReferences.compactMap { path, references in
+                let records = references.map(\.1)
+                guard records.allSatisfy({ expiredIDs.contains($0.id) }),
+                    records.allSatisfy({ $0.transcriptionStatus != TranscriptionStatus.pending.rawValue }),
+                    let url = records.compactMap({ deletionPolicy.safeAudioURL($0.audioFileURL) }).first,
+                    !AudioCleanupManager.isProtected(url)
+                else { return nil }
+                return path
+            })
+            var deletedAudioPaths = Set<String>()
             var deletedCount = 0
             for transcription in items {
-                if let urlString = transcription.audioFileURL,
-                    let url = URL(string: urlString),
-                    FileManager.default.fileExists(atPath: url.path)
-                {
-                    try? FileManager.default.removeItem(at: url)
+                if transcription.audioFileURL != nil {
+                    guard let url = deletionPolicy.safeAudioURL(transcription.audioFileURL) else {
+                        logger.error("Skipped a transcription with an unsafe audio file location")
+                        backgroundContext.delete(transcription)
+                        deletedCount += 1
+                        continue
+                    }
+                    if deletablePaths.contains(url.path), deletedAudioPaths.insert(url.path).inserted {
+                        do {
+                            try FileManager.default.removeItem(at: url)
+                        } catch {
+                            logger.error("Failed to delete an expired audio file: \(String(describing: type(of: error)), privacy: .public)")
+                            continue
+                        }
+                    }
                 }
                 backgroundContext.delete(transcription)
                 deletedCount += 1
@@ -128,49 +178,4 @@ class TranscriptionAutoCleanupService {
         }
     }
 
-    /// Deletes audio files in Recordings directory that have no corresponding Transcription record
-    private func cleanupOrphanAudioFiles(modelContext: ModelContext) async {
-        guard UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isTranscriptionCleanupEnabled) else {
-            return
-        }
-
-        let modelContainer = await MainActor.run { modelContext.container }
-
-        do {
-            let backgroundContext = ModelContext(modelContainer)
-
-            var descriptor = FetchDescriptor<Transcription>()
-            descriptor.propertiesToFetch = [\.audioFileURL]
-
-            let transcriptions = try backgroundContext.fetch(descriptor)
-            let referencedFiles = Set(
-                transcriptions.compactMap { transcription -> String? in
-                    guard let urlString = transcription.audioFileURL,
-                        let url = URL(string: urlString)
-                    else { return nil }
-                    return url.lastPathComponent
-                })
-
-            guard FileManager.default.fileExists(atPath: recordingsDirectory.path) else { return }
-            let filesInDirectory = try FileManager.default.contentsOfDirectory(
-                at: recordingsDirectory,
-                includingPropertiesForKeys: nil
-            )
-
-            var deletedCount = 0
-            for fileURL in filesInDirectory {
-                let fileName = fileURL.lastPathComponent
-                if !referencedFiles.contains(fileName) {
-                    try? FileManager.default.removeItem(at: fileURL)
-                    deletedCount += 1
-                }
-            }
-
-            if deletedCount > 0 {
-                logger.notice("Cleaned up \(deletedCount, privacy: .public) orphan audio file(s)")
-            }
-        } catch {
-            logger.error("Failed during orphan audio cleanup: \(error, privacy: .public)")
-        }
-    }
 }

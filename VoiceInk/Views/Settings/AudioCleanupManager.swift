@@ -2,12 +2,42 @@ import Foundation
 import SwiftData
 import os
 
+private final class AudioCleanupProtectionRegistry: @unchecked Sendable {
+    static let shared = AudioCleanupProtectionRegistry()
+    private let lock = NSLock()
+    private var protectedPaths: [String: Int] = [:]
+
+    func protect(_ url: URL) {
+        let path = url.standardizedFileURL.resolvingSymlinksInPath().path
+        lock.lock()
+        protectedPaths[path, default: 0] += 1
+        lock.unlock()
+    }
+
+    func release(_ url: URL) {
+        let path = url.standardizedFileURL.resolvingSymlinksInPath().path
+        lock.lock()
+        if let count = protectedPaths[path], count > 1 {
+            protectedPaths[path] = count - 1
+        } else {
+            protectedPaths.removeValue(forKey: path)
+        }
+        lock.unlock()
+    }
+
+    func contains(_ url: URL) -> Bool {
+        let path = url.standardizedFileURL.resolvingSymlinksInPath().path
+        lock.lock()
+        defer { lock.unlock() }
+        return protectedPaths[path] != nil
+    }
+}
+
 /// Audio-only retention. All entry points share the same policy and execute on the model's actor.
 @MainActor
 final class AudioCleanupManager {
     static let shared = AudioCleanupManager()
     static let didCleanAudio = Notification.Name("WaGongAudioCleanupCompleted")
-    private static var protectedPaths: [String: Int] = [:]
     private let defaults: UserDefaults
     private let recordingsDirectory: URL
     private let now: () -> Date
@@ -23,17 +53,16 @@ final class AudioCleanupManager {
         self.recordingsDirectory = recordingsDirectory.standardizedFileURL.resolvingSymlinksInPath()
     }
 
-    static func protect(_ url: URL) {
-        protectedPaths[url.standardizedFileURL.resolvingSymlinksInPath().path, default: 0] += 1
+    nonisolated static func protect(_ url: URL) {
+        AudioCleanupProtectionRegistry.shared.protect(url)
     }
 
-    static func release(_ url: URL) {
-        let path = url.standardizedFileURL.resolvingSymlinksInPath().path
-        if let count = protectedPaths[path], count > 1 {
-            protectedPaths[path] = count - 1
-        } else {
-            protectedPaths.removeValue(forKey: path)
-        }
+    nonisolated static func release(_ url: URL) {
+        AudioCleanupProtectionRegistry.shared.release(url)
+    }
+
+    nonisolated static func isProtected(_ url: URL) -> Bool {
+        AudioCleanupProtectionRegistry.shared.contains(url)
     }
 
     func startAutomaticCleanup(modelContext: ModelContext) {
@@ -79,14 +108,7 @@ final class AudioCleanupManager {
     }
 
     private func safeAudioURL(_ string: String?) -> URL? {
-        guard let string, let url = URL(string: string), url.isFileURL else { return nil }
-        let standardized = url.standardizedFileURL
-        guard standardized.deletingLastPathComponent() == recordingsDirectory,
-              standardized.pathExtension.lowercased() == "wav",
-              let values = try? standardized.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]),
-              values.isRegularFile == true, values.isSymbolicLink != true,
-              standardized.resolvingSymlinksInPath() == standardized else { return nil }
-        return standardized
+        AudioFileDeletionPolicy(recordingsDirectory: recordingsDirectory).safeAudioURL(string)
     }
 
     private func directoryFiles() -> [(url: URL, bytes: Int64)] {
@@ -120,7 +142,7 @@ final class AudioCleanupManager {
             // The newest reference controls retention; any pending reference protects a shared file.
             let candidates = grouped.compactMap { path, references -> (String, Date, [Transcription])? in
                 let records = references.map(\.1)
-                guard Self.protectedPaths[path] == nil,
+                guard !AudioCleanupProtectionRegistry.shared.contains(URL(fileURLWithPath: path)),
                       records.allSatisfy({ $0.transcriptionStatus != TranscriptionStatus.pending.rawValue }),
                       let date = records.map(\.timestamp).max() else { return nil }
                 return (path, date, records)
@@ -154,7 +176,7 @@ final class AudioCleanupManager {
         var errors = 0
         for (string, records) in grouped {
             guard records.contains(where: { requestedIDs.contains($0.id) }),
-                  let url = safeAudioURL(string), Self.protectedPaths[url.path] == nil else { continue }
+                  let url = safeAudioURL(string), !Self.isProtected(url) else { continue }
             do {
                 try FileManager.default.removeItem(at: url)
                 for record in records { record.audioFileURL = nil }

@@ -3,6 +3,78 @@ import Testing
 @testable import VoiceInk
 
 struct BackupImportSecurityPolicyTests {
+    @Test func rejectsUnsupportedDestructiveRetentionValues() throws {
+        let data = Data(
+            """
+            {
+              "version": "1.0.0",
+              "customPrompts": [],
+              "modeConfigs": [],
+              "generalSettings": {
+                "isTranscriptionCleanupEnabled": true,
+                "transcriptionRetentionMinutes": -1
+              }
+            }
+            """.utf8
+        )
+        let backup = try JSONDecoder().decode(BackupFile.self, from: data)
+
+        #expect(throws: BackupImportError.self) {
+            try BackupImportSecurityPolicy.validate(backup)
+        }
+    }
+
+    @Test func destructiveCleanupSummaryShowsExactImportedRetention() throws {
+        let data = Data(
+            """
+            {
+              "version": "1.0.0",
+              "customPrompts": [],
+              "modeConfigs": [],
+              "generalSettings": {
+                "isTranscriptionCleanupEnabled": true,
+                "transcriptionRetentionMinutes": 60
+              }
+            }
+            """.utf8
+        )
+        let backup = try JSONDecoder().decode(BackupFile.self, from: data)
+
+        #expect(
+            BackupImportSecurityPolicy.destructiveCleanupSummary(backup.generalSettings)
+                == "Transcript history and related audio will be deleted after 60 minutes."
+        )
+    }
+
+    @Test func destructiveCleanupSummaryUsesCurrentEnabledStateWhenBackupOmitsFlag() throws {
+        let suiteName = "BackupImportSecurityPolicyTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(true, forKey: CleanupSettingsKeys.isTranscriptionCleanupEnabled)
+        defaults.set(24 * 60, forKey: CleanupSettingsKeys.transcriptionRetentionMinutes)
+
+        let data = Data(
+            """
+            {
+              "version": "1.0.0",
+              "customPrompts": [],
+              "modeConfigs": [],
+              "generalSettings": {
+                "transcriptionRetentionMinutes": 60
+              }
+            }
+            """.utf8
+        )
+        let backup = try JSONDecoder().decode(BackupFile.self, from: data)
+
+        #expect(
+            BackupImportSecurityPolicy.destructiveCleanupSummary(
+                backup.generalSettings,
+                defaults: defaults
+            ) == "Transcript history and related audio will be deleted after 60 minutes."
+        )
+    }
+
     @Test func importedCustomCommandStaysDisabledWithoutExplicitApproval() {
         let commandMode = ModeConfig(
             name: "Imported command",

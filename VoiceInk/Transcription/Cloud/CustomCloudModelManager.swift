@@ -66,7 +66,31 @@ class CustomCloudModelManager: ObservableObject {
         }
 
         do {
-            customModels = try JSONDecoder().decode([CustomCloudModel].self, from: data)
+            let decoded = try JSONDecoder().decode([CustomCloudModel].self, from: data)
+            let legacyModels = decoded.filter { model in
+                model.legacyAPIKeyForMigration?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            }
+
+            for model in legacyModels {
+                guard let legacyKey = model.legacyAPIKeyForMigration,
+                    APIKeyManager.shared.saveCustomModelAPIKey(legacyKey, forModelId: model.id)
+                else {
+                    logger.error("Failed to migrate a legacy custom model credential")
+                    customModels = decoded
+                    return
+                }
+            }
+
+            customModels = decoded
+            if !legacyModels.isEmpty {
+                saveCustomModels()
+                guard let sanitizedData = userDefaults.data(forKey: customModelsKey),
+                    !String(decoding: sanitizedData, as: UTF8.self).contains("\"apiKey\"")
+                else {
+                    logger.error("Legacy custom model credential payload was not sanitized")
+                    return
+                }
+            }
         } catch {
             logger.error("Failed to decode custom models: \(error, privacy: .public)")
             customModels = []

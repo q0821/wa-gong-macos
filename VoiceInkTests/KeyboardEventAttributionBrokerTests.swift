@@ -16,7 +16,7 @@ struct KeyboardEventAttributionBrokerTests {
         #expect(attribution?.sourceID == source)
     }
 
-    @Test func remappedModifierCanMatchWhenItIsOnlyTransitionCandidate() {
+    @Test func mismatchedKeyCodeNeverBorrowsOnlyTransitionCandidate() {
         let broker = KeyboardEventAttributionBroker()
         let source = UUID()
         broker.observe(event(sourceID: source, keyCode: 58, transition: .keyDown, observedAt: 1_000))
@@ -26,7 +26,7 @@ struct KeyboardEventAttributionBrokerTests {
             observedAtNanoseconds: 2_000
         )
 
-        #expect(attribution?.sourceID == source)
+        #expect(attribution == nil)
     }
 
     @Test func ambiguousCandidatesNeverGuessSource() {
@@ -85,14 +85,26 @@ struct KeyboardEventAttributionBrokerTests {
         let source = UUID()
         let eventToken = token(keyCode: 15, transition: .keyDown)
 
-        async let attribution = broker.attribution(
-            for: eventToken,
-            waitingUpToNanoseconds: 100_000_000
-        )
-        await Task.yield()
-        broker.observe(event(sourceID: source, keyCode: 15, transition: .keyDown, observedAt: 2_000))
+        let attributionTask = Task {
+            await broker.attribution(
+                for: eventToken,
+                waitingUpToNanoseconds: 100_000_000
+            )
+        }
+        let registrationDeadline = DispatchTime.now().uptimeNanoseconds + 1_000_000_000
+        while !broker.hasPendingAttributionRequest
+            && DispatchTime.now().uptimeNanoseconds < registrationDeadline {
+            await Task.yield()
+        }
+        guard broker.hasPendingAttributionRequest else {
+            attributionTask.cancel()
+            #expect(Bool(false), "Attribution request did not register before the deadline")
+            return
+        }
+        let observedAt = DispatchTime.now().uptimeNanoseconds
+        broker.observe(event(sourceID: source, keyCode: 15, transition: .keyDown, observedAt: observedAt))
 
-        #expect(await attribution?.sourceID == source)
+        #expect(await attributionTask.value?.sourceID == source)
     }
 
     private func token(

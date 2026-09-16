@@ -47,7 +47,7 @@ struct ModeConfigDraft {
             isTextFormattingEnabled = true
             useClipboardContext = false
             useSelectedTextContext = false
-            useScreenCapture = true
+            useScreenCapture = false
             selectedAIProvider = inheritedConfig?.selectedAIProvider
             selectedAIModel = inheritedConfig?.selectedAIModel
             outputMode = .paste

@@ -74,7 +74,17 @@ class CursorPaster {
             return .commandNotPosted
         }
 
-        await wait(prePasteDelay)
+        guard await wait(prePasteDelay) else {
+            if shouldRestoreClipboard {
+                scheduleClipboardRestore(
+                    savedContents,
+                    expectedText: text,
+                    sessionID: sessionID,
+                    on: pasteboard
+                )
+            }
+            return .commandNotPosted
+        }
 
         guard !shouldCancel() else {
             if shouldRestoreClipboard {
@@ -135,7 +145,7 @@ class CursorPaster {
         )
 
         Task { @MainActor in
-            await wait(delay)
+            guard await wait(delay) else { return }
             guard pasteboardStillOwnedByPasteSession(pasteboard, expectedText: expectedText, sessionID: sessionID)
             else {
                 return
@@ -232,7 +242,10 @@ class CursorPaster {
 
         guard !shouldCancel() else { return .commandNotPosted }
         cmdDown.post(tap: .cghidEventTap)
-        await wait(pasteShortcutEventDelay)
+        guard await wait(pasteShortcutEventDelay) else {
+            cmdUp.post(tap: .cghidEventTap)
+            return .commandNotPosted
+        }
 
         guard !shouldCancel() else {
             cmdUp.post(tap: .cghidEventTap)
@@ -240,18 +253,30 @@ class CursorPaster {
         }
 
         vDown.post(tap: .cghidEventTap)
-        await wait(pasteShortcutEventDelay)
+        guard await wait(pasteShortcutEventDelay) else {
+            vUp.post(tap: .cghidEventTap)
+            cmdUp.post(tap: .cghidEventTap)
+            return .commandNotPosted
+        }
         vUp.post(tap: .cghidEventTap)
-        await wait(pasteShortcutEventDelay)
+        guard await wait(pasteShortcutEventDelay) else {
+            cmdUp.post(tap: .cghidEventTap)
+            return .commandNotPosted
+        }
         cmdUp.post(tap: .cghidEventTap)
 
         return .commandPosted
     }
 
-    private static func wait(_ seconds: TimeInterval) async {
-        guard seconds > 0 else { return }
+    private static func wait(_ seconds: TimeInterval) async -> Bool {
+        guard seconds > 0 else { return !Task.isCancelled }
         let nanoseconds = UInt64(seconds * 1_000_000_000)
-        try? await Task.sleep(nanoseconds: nanoseconds)
+        do {
+            try await Task.sleep(nanoseconds: nanoseconds)
+            return !Task.isCancelled
+        } catch {
+            return false
+        }
     }
 
     // MARK: - Auto Send Keys

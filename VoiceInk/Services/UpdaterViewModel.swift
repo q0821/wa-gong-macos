@@ -18,9 +18,15 @@ final class UpdaterViewModel: NSObject, ObservableObject, SPUUpdaterDelegate {
         static let sparkleAutomaticChecks = "SUEnableAutomaticChecks"
     }
 
-    // Wa-Gong does not have a public Sparkle feed yet. Keep the updater package available,
-    // but do not probe or advertise the old upstream feed.
-    private static let hasConfiguredUpdateFeed = false
+    // Release builds use Wa-Gong's public Sparkle feed. Debug builds require an explicit
+    // opt-in so local development does not contact the network unexpectedly.
+    private static var hasConfiguredUpdateFeed: Bool {
+#if DEBUG
+        ProcessInfo.processInfo.environment["WAGONG_ENABLE_LOCAL_SPARKLE_TEST"] == "1"
+#else
+        true
+#endif
+    }
 
     private let defaults: UserDefaults
     private var isUserInitiatedUpdateCheck = false

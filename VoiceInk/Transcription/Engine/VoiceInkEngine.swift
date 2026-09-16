@@ -704,13 +704,16 @@ class WaGongEngine: NSObject, ObservableObject {
     }
 
     func resetRecordingSession() async {
+        if let activePipelineTranscriptionID {
+            canceledPipelineTranscriptionIDs.insert(activePipelineTranscriptionID)
+        }
+        shouldCancelRecording = true
         activePipelineTask?.cancel()
         activePipelineTask = nil
         activePipelineTaskID = nil
         cancelCurrentSession()
         activeRecordingStartID = nil
         activePipelineTranscriptionID = nil
-        canceledPipelineTranscriptionIDs.removeAll()
         shouldCancelRecording = false
         partialTranscript = ""
         assistantSession.reset()

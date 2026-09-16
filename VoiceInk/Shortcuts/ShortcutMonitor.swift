@@ -424,11 +424,16 @@ final class ShortcutMonitor {
         if let attribution,
             let deviceBinding = candidates.first(where: { binding in
                 guard case .device(let storedDevice) = binding.scope else { return false }
-                return storedDevice.matches(attribution.device)
+                guard storedDevice.matches(attribution.device) else { return false }
+                if storedDevice.matchStrength == .modelFamily {
+                    return KeyboardDeviceVerificationRegistry.shared.isVerified(sourceID: attribution.sourceID)
+                }
+                return true
             })
         {
             return deviceBinding
         }
+        guard attribution != nil else { return nil }
         return candidates.first { $0.scope == .allKeyboards }
     }
 

@@ -453,7 +453,7 @@ final class KeyboardDeviceVerificationModel: ObservableObject {
     private var localMonitor: Any?
     private var timeoutTask: Task<Void, Never>?
     private var attributionTask: Task<Void, Never>?
-    private var selectedSourceID: UUID?
+    private var selectedDevice: KeyboardDeviceSnapshot?
     private var attributionBroker: KeyboardEventAttributionBroker?
 
     deinit {
@@ -465,12 +465,12 @@ final class KeyboardDeviceVerificationModel: ObservableObject {
     }
 
     func start(
-        selectedSourceID: UUID,
+        selectedDevice: KeyboardDeviceSnapshot,
         attributionBroker: KeyboardEventAttributionBroker,
         timeoutNanoseconds: UInt64 = 12_000_000_000
     ) {
         cancel()
-        self.selectedSourceID = selectedSourceID
+        self.selectedDevice = selectedDevice
         self.attributionBroker = attributionBroker
         state = .waiting
 
@@ -498,7 +498,7 @@ final class KeyboardDeviceVerificationModel: ObservableObject {
         timeoutTask = nil
         attributionTask?.cancel()
         attributionTask = nil
-        selectedSourceID = nil
+        selectedDevice = nil
         attributionBroker = nil
         state = .idle
     }
@@ -528,17 +528,18 @@ final class KeyboardDeviceVerificationModel: ObservableObject {
             guard !Task.isCancelled,
                 let self,
                 self.state == .waiting,
-                let selectedSourceID = self.selectedSourceID,
+                let selectedDevice = self.selectedDevice,
                 let attribution
             else {
                 return
             }
 
             if KeyboardDeviceVerificationPolicy.accepts(
-                sourceID: attribution.sourceID,
+                attribution: attribution,
                 transition: .keyDown,
-                selectedSourceID: selectedSourceID
+                selectedDevice: selectedDevice
             ) {
+                KeyboardDeviceVerificationRegistry.shared.markVerified(sourceID: attribution.sourceID)
                 self.finish(with: .verified)
             } else {
                 self.finish(
@@ -558,7 +559,7 @@ final class KeyboardDeviceVerificationModel: ObservableObject {
         timeoutTask = nil
         attributionTask?.cancel()
         attributionTask = nil
-        selectedSourceID = nil
+        selectedDevice = nil
         attributionBroker = nil
         state = finalState
     }

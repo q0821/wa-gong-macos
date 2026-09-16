@@ -46,9 +46,7 @@ class OpenAICompatibleTranscriptionService {
     private func buildRequestBody(
         audioURL: URL, modelName: String, boundary: String, context: TranscriptionRequestContext
     ) throws -> Data {
-        guard let audioData = try? Data(contentsOf: audioURL) else {
-            throw CloudTranscriptionError.audioFileNotFound
-        }
+        let audioData = try AudioUploadPolicy.load(audioURL)
 
         let selectedLanguage = LanguageDictionary.whisperLanguageCode(for: context.language ?? "auto")
         let crlf = "\r\n"

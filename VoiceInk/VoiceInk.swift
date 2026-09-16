@@ -87,6 +87,19 @@ struct WaGongApp: App {
         }
 
         container = resolvedContainer
+        do {
+            let removedRequestCount = try TranscriptionPrivacyMigration.removePersistedAIRequestContent(
+                modelContext: resolvedContainer.mainContext)
+            if removedRequestCount > 0 {
+                logger.notice(
+                    "Removed persisted AI request content from \(removedRequestCount, privacy: .public) transcription records"
+                )
+            }
+        } catch {
+            logger.error(
+                "Failed to remove persisted AI request content: \(String(describing: type(of: error)), privacy: .public)"
+            )
+        }
         AudioCleanupManager.shared.startAutomaticCleanup(modelContext: resolvedContainer.mainContext)
         Task { @MainActor in
             await AudioCleanupManager.shared.runAutomaticCleanupIfNeeded(modelContext: resolvedContainer.mainContext)

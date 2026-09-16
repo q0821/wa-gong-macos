@@ -18,7 +18,8 @@ enum CustomEndpointPolicy {
         }
 
         guard scheme == "http" else { return false }
-        return host == "localhost" || host == "127.0.0.1" || host == "::1"
+        let normalizedHost = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        return normalizedHost == "localhost" || normalizedHost == "127.0.0.1" || normalizedHost == "::1"
     }
 
     static func validatedURL(_ endpoint: String) -> URL? {

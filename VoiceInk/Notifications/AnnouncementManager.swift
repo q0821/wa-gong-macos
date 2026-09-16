@@ -11,17 +11,19 @@ final class AnnouncementManager {
     @MainActor
     func showAnnouncement(title: String, description: String?, learnMoreURL: URL?, onDismiss: @escaping () -> Void) {
         dismiss()
+        let validatedLearnMoreURL = ExternalURLPolicy.validatedHTTPSURL(learnMoreURL)
 
         let view = AnnouncementView(
             title: title,
             description: description ?? "",
+            learnMoreHost: validatedLearnMoreURL?.host,
             onClose: { [weak self] in
                 onDismiss()
                 self?.dismiss()
             },
             onLearnMore: { [weak self] in
-                if let url = learnMoreURL {
-                    NSWorkspace.shared.open(url)
+                if let url = validatedLearnMoreURL {
+                    _ = ExternalURLPolicy.confirmAndOpen(url)
                 }
                 onDismiss()
                 self?.dismiss()

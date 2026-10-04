@@ -22,18 +22,24 @@ enum DictionaryService {
             .filter { !$0.isEmpty }
 
         guard !parts.isEmpty else { return nil }
+        guard parts.allSatisfy(VocabularyPolicy.validTerm) else {
+            return String(localized: "Use 1–120 characters per term, without line breaks or control characters.")
+        }
+        guard existing.count + parts.count <= 1_000 else {
+            return String(localized: "The dictionary can contain up to 1,000 terms. Only the provider limit is sent per request.")
+        }
 
         if parts.count == 1, let word = parts.first {
-            if existing.contains(where: { $0.word.lowercased() == word.lowercased() }) {
+            if existing.contains(where: { CustomVocabularyRewriter.matchingKey(for: $0.word) == CustomVocabularyRewriter.matchingKey(for: word) }) {
                 return String(format: String(localized: "'%@' is already in the vocabulary"), word)
             }
             return insertVocabularyWord(word, context: context)
         }
 
-        var addedWords = Set(existing.map { $0.word.lowercased() })
+        var addedWords = Set(existing.map { CustomVocabularyRewriter.matchingKey(for: $0.word) })
         var errors = [String]()
         for word in parts {
-            let lower = word.lowercased()
+            let lower = CustomVocabularyRewriter.matchingKey(for: word)
             if !addedWords.contains(lower) {
                 if let error = insertVocabularyWord(word, context: context) {
                     errors.append(error)
@@ -65,13 +71,13 @@ enum DictionaryService {
         var deletedReplacementCount = 0
 
         if let vocabularyWords = try? context.fetch(FetchDescriptor<VocabularyWord>()) {
-            var seenWords = Set<String>()
+            var seenWords = Set<[String]>()
 
             for vocabularyWord in vocabularyWords.sorted(by: { $0.dateAdded < $1.dateAdded }) {
                 let word = vocabularyWord.word
                 guard !word.isEmpty else { continue }
 
-                if seenWords.insert(word).inserted {
+                if seenWords.insert([word, String(vocabularyWord.isEnabled)]).inserted {
                     continue
                 }
 
@@ -84,7 +90,7 @@ enum DictionaryService {
             var seenReplacements = Set<[String]>()
 
             for wordReplacement in wordReplacements.sorted(by: { $0.dateAdded < $1.dateAdded }) {
-                let key = [wordReplacement.originalText, wordReplacement.replacementText]
+                let key = [wordReplacement.originalText, wordReplacement.replacementText, String(wordReplacement.isEnabled)]
                 guard !wordReplacement.originalText.isEmpty || !wordReplacement.replacementText.isEmpty else {
                     continue
                 }
@@ -115,6 +121,16 @@ enum DictionaryService {
             )
             return false
         }
+    }
+
+    static func replacementValidationError(original: String, replacement: String,
+                                           existing: [WordReplacement], excludingID: UUID? = nil) -> String? {
+        let candidate = CustomVocabularyRule(aliases: VocabularySnapshot.aliases(original), replacement: replacement)
+        let rules = existing.filter { $0.id != excludingID }.map(VocabularySnapshot.rule) + [candidate]
+        guard VocabularySnapshot.rulesAreSafe(rules) else {
+            return String(localized: "These replacements overlap, form a chain, or exceed the size limit. Use independent rules.")
+        }
+        return nil
     }
 
     // MARK: - Word Replacement
@@ -149,6 +165,9 @@ enum DictionaryService {
             }
         }
 
+        if let error = replacementValidationError(original: original, replacement: replacement, existing: existing) {
+            return error
+        }
         let entry = WordReplacement(originalText: original, replacementText: replacement)
         context.insert(entry)
         do {

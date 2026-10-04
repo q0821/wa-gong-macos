@@ -245,7 +245,7 @@ enum BackupImporter {
 
                 let lowercasedWord = word.lowercased()
                 if !existingWordsSet.contains(lowercasedWord) {
-                    modelContext.insert(VocabularyWord(word: word))
+                    modelContext.insert(VocabularyWord(word: word, isEnabled: item.isEnabled ?? true))
                     existingWordsSet.insert(lowercasedWord)
                     insertedWords += 1
                 }
@@ -263,6 +263,13 @@ enum BackupImporter {
                 existingKeys.formUnion(tokens(from: existing.originalText))
             }
 
+            let importedRules = replacements.filter { entry in
+                !tokens(from: entry.key).contains { existingKeys.contains($0) }
+            }.map { CustomVocabularyRule(aliases: VocabularySnapshot.aliases($0.key), replacement: $0.value) }
+            guard VocabularySnapshot.rulesAreSafe(existingReplacements.map(VocabularySnapshot.rule) + importedRules) else {
+                modelContext.rollback()
+                throw BackupImportError.unsafeBackup("word replacements conflict with the existing dictionary")
+            }
             for (original, replacement) in replacements {
                 let trimmedOriginal = original.trimmingCharacters(in: .whitespacesAndNewlines)
                 let trimmedReplacement = replacement.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -352,6 +359,15 @@ enum BackupImportSecurityPolicy {
             throw BackupImportError.unsafeBackup("\(exceeded.0) exceeds the supported item limit")
         }
 
+        if let words = backup.vocabularyWords, !words.allSatisfy({ VocabularyPolicy.validTerm($0.word.trimmingCharacters(in: .whitespacesAndNewlines)) }) {
+            throw BackupImportError.unsafeBackup("vocabulary contains an invalid term")
+        }
+        if let replacements = backup.wordReplacements {
+            let rules = replacements.map { CustomVocabularyRule(aliases: VocabularySnapshot.aliases($0.key), replacement: $0.value) }
+            guard VocabularySnapshot.rulesAreSafe(rules) else {
+                throw BackupImportError.unsafeBackup("word replacements contain unsafe chains or invalid entries")
+            }
+        }
         if let minutes = backup.generalSettings?.transcriptionRetentionMinutes,
             !allowedTranscriptionRetentionMinutes.contains(minutes)
         {

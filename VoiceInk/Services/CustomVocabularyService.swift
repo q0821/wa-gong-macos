@@ -17,14 +17,9 @@ class CustomVocabularyService {
     }
 
     func getCustomVocabularyWords(from context: ModelContext) -> [String]? {
-        let descriptor = FetchDescriptor<VocabularyWord>(sortBy: [SortDescriptor(\VocabularyWord.word)])
-
-        do {
-            let items = try context.fetch(descriptor)
-            let words = items.map { $0.word }
-            return words.isEmpty ? nil : words
-        } catch {
-            return nil
-        }
+        let snapshot = VocabularySnapshot.capture(from: context)
+        guard snapshot.isAvailable else { return nil }
+        let words = VocabularyPolicy.selection(snapshot, supported: true).terms
+        return words.isEmpty ? nil : words
     }
 }

@@ -36,6 +36,17 @@ struct EnhancementRuntimeConfiguration {
     let useSelectedTextContext: Bool
     let useScreenCaptureContext: Bool
 
+    /// Only known same-language cleanup modes enforce fixed spelling after generation.
+    /// Custom prompts/rewrite may translate; assistant responses must not be rewritten.
+    var protectsVocabularyOutput: Bool {
+        guard mode?.outputMode != .respond else { return false }
+        if provider == .waGongRefine { return true }
+        guard let id = prompt?.id else { return false }
+        return [PromptTemplates.defaultPromptId, PromptTemplates.chatPromptId,
+                PromptTemplates.emailPromptId, PromptTemplates.fillerRemovalPromptId,
+                PromptTemplates.businessPolishPromptId].contains(id)
+    }
+
     func replacingPrompt(_ prompt: CustomPrompt) -> EnhancementRuntimeConfiguration {
         EnhancementRuntimeConfiguration(
             mode: mode,

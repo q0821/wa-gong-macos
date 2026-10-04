@@ -1,26 +1,26 @@
 import SwiftUI
 
 struct DictionarySettingsView: View {
-    @State private var selectedSection: DictionarySection = .replacements
+    @State private var selectedSection: DictionarySection = .spellings
     @State private var isShowingSettings = false
     private let dictionaryInfoMessage: LocalizedStringKey =
-        "Word Replacements run after transcription. Vocabulary is used with AI enhancement to better understand names, technical terms, and unique spellings in your transcript."
+        "Add correct names and terms to Vocabulary. Use advanced Word Replacements only for known, unambiguous corrections."
 
     enum DictionarySection: String, CaseIterable, Hashable {
-        case replacements = "Word Replacements"
         case spellings = "Vocabulary"
+        case replacements = "Advanced Word Replacements"
 
         var description: String {
             switch self {
             case .spellings:
                 return String(
                     localized:
-                        "Vocabulary is used only with AI enhancement to preserve important names, technical terms, and unique spellings in the final output."
+                        "Enabled vocabulary is used by supported speech recognition and text cleanup services."
                 )
             case .replacements:
                 return String(
                     localized:
-                        "Word Replacements run after transcription to replace misheard words, phrases, abbreviations, or boilerplate text."
+                        "Advanced replacements change matching text literally and can change unintended meanings. Cleanup modes also protect the final output; assistant and custom rewrite outputs are excluded."
                 )
             }
         }

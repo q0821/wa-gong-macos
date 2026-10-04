@@ -47,7 +47,7 @@ protocol StreamingTranscriptionProvider: AnyObject {
     var stopDisposition: StreamingStopDisposition { get }
 
     /// Connect to the streaming transcription endpoint
-    func connect(model: any TranscriptionModel, language: String?) async throws
+    func connect(model: any TranscriptionModel, language: String?, customVocabulary: [String]) async throws
 
     /// Send a chunk of raw PCM audio data (16-bit, 16kHz, mono, little-endian)
     func sendAudioChunk(_ data: Data) async throws
@@ -64,4 +64,8 @@ protocol StreamingTranscriptionProvider: AnyObject {
 
 extension StreamingTranscriptionProvider {
     var stopDisposition: StreamingStopDisposition { .finalizeStreaming }
+
+    func connect(model: any TranscriptionModel, language: String?) async throws {
+        try await connect(model: model, language: language, customVocabulary: [])
+    }
 }

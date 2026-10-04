@@ -14,6 +14,8 @@ final class Transcription {
 
     var id: UUID = UUID()
     var text: String = ""
+    var rawTranscript: String?
+    var vocabularyDiagnosticsData: Data?
     var enhancedText: String?
     var timestamp: Date = Date()
     var duration: TimeInterval = 0
@@ -63,10 +65,20 @@ final class Transcription {
         self.transcriptionStatus = transcriptionStatus.rawValue
     }
 
+    var vocabularyDiagnostics: VocabularyDiagnostics? {
+        get {
+            guard let data = vocabularyDiagnosticsData else { return nil }
+            return try? JSONDecoder().decode(VocabularyDiagnostics.self, from: data)
+        }
+        set { vocabularyDiagnosticsData = newValue.flatMap { try? JSONEncoder().encode($0) } }
+    }
+
     func markAsCanceledTranscription(
         duration: TimeInterval? = nil,
         modelName: String? = nil
     ) {
+        rawTranscript = nil
+        vocabularyDiagnosticsData = nil
         text = Self.canceledTranscriptionText
         enhancedText = nil
         transcriptionStatus = TranscriptionStatus.canceled.rawValue

@@ -32,7 +32,8 @@ struct GroqProvider: CloudProvider {
             fileName: fileName,
             apiKey: apiKey,
             model: model,
-            language: language
+            language: language,
+            prompt: customVocabulary.isEmpty ? nil : customVocabulary.joined(separator: ", ")
         )
     }
 

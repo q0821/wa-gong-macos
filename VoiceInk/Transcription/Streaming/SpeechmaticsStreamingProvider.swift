@@ -8,12 +8,10 @@ final class SpeechmaticsStreamingProvider: StreamingTranscriptionProvider {
     private let client = LLMkit.SpeechmaticsStreamingClient()
     private var eventsContinuation: AsyncStream<StreamingTranscriptionEvent>.Continuation?
     private var forwardingTask: Task<Void, Never>?
-    private let modelContext: ModelContext
 
     private(set) var transcriptionEvents: AsyncStream<StreamingTranscriptionEvent>
 
     init(modelContext: ModelContext) {
-        self.modelContext = modelContext
         var continuation: AsyncStream<StreamingTranscriptionEvent>.Continuation!
         transcriptionEvents = AsyncStream { continuation = $0 }
         eventsContinuation = continuation
@@ -24,12 +22,12 @@ final class SpeechmaticsStreamingProvider: StreamingTranscriptionProvider {
         eventsContinuation?.finish()
     }
 
-    func connect(model: any TranscriptionModel, language: String?) async throws {
+    func connect(model: any TranscriptionModel, language: String?, customVocabulary: [String]) async throws {
         guard let apiKey = APIKeyManager.shared.getAPIKey(forProvider: "Speechmatics"), !apiKey.isEmpty else {
             throw StreamingTranscriptionError.missingAPIKey
         }
 
-        let vocabulary = getCustomVocabularyTerms()
+        let vocabulary = customVocabulary
 
         // Cancel any existing forwarding task before starting a new one
         forwardingTask?.cancel()
@@ -90,24 +88,7 @@ final class SpeechmaticsStreamingProvider: StreamingTranscriptionProvider {
         }
     }
 
-    private func getCustomVocabularyTerms() -> [String] {
-        let descriptor = FetchDescriptor<VocabularyWord>(sortBy: [SortDescriptor(\.word)])
-        guard let vocabularyWords = try? modelContext.fetch(descriptor) else {
-            return []
-        }
-        var seen = Set<String>()
-        var unique: [String] = []
-        for word in vocabularyWords {
-            let trimmed = word.word.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-            let key = trimmed.lowercased()
-            if !seen.contains(key) {
-                seen.insert(key)
-                unique.append(trimmed)
-            }
-        }
-        return unique
-    }
+
 
     private func mapError(_ error: Error) -> Error {
         guard let llmError = error as? LLMKitError else { return error }

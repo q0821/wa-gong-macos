@@ -18,8 +18,27 @@ struct TranscriptionDetailView: View {
         VStack(spacing: 12) {
             ScrollView {
                 VStack(spacing: 16) {
+                    if let raw = transcription.rawTranscript {
+                        MessageBubble(label: "Raw recognition", text: raw, isEnhanced: false, isRaw: true)
+                    } else {
+                        Text("Raw recognition was not recorded for this entry.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let diagnostics = transcription.vocabularyDiagnostics {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Speech vocabulary: \(diagnostics.recognitionCount)")
+                            Text(diagnostics.recognitionStatus.label)
+                            Text(diagnostics.recognitionPath == "streaming" ? "Streaming recognition" : "File recognition")
+                            Text("Text vocabulary: \(diagnostics.textCount)")
+                            Text(diagnostics.textStatus.label)
+                            if diagnostics.conflictingRules {
+                                Text("Conflicting replacement rules were not applied.")
+                            }
+                        }.font(.caption).foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     MessageBubble(
-                        label: "Original",
+                        label: "After local processing",
                         text: transcription.text,
                         isEnhanced: false
                     )
@@ -65,6 +84,7 @@ private struct MessageBubble: View {
     let label: LocalizedStringKey
     let text: String
     let isEnhanced: Bool
+    var isRaw = false
 
     var body: some View {
         HStack(alignment: .bottom) {
@@ -77,14 +97,23 @@ private struct MessageBubble: View {
                     .padding(.horizontal, 12)
 
                 ScrollView {
-                    MarkdownContentView(
-                        text,
-                        fontSize: 14,
-                        foregroundColor: AppTheme.Text.primary,
-                        alignment: isEnhanced ? .leading : .trailing
-                    )
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
+                    if isRaw {
+                        Text(text)
+                            .font(.system(size: 14))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                    } else {
+                        MarkdownContentView(
+                            text,
+                            fontSize: 14,
+                            foregroundColor: AppTheme.Text.primary,
+                            alignment: isEnhanced ? .leading : .trailing
+                        )
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                    }
                 }
                 .frame(maxHeight: 350)
                 .background {

@@ -140,7 +140,7 @@ class ImportExportService {
         var exportedDictionaryItems: [WordBackup]? = nil
         let vocabularyDescriptor = FetchDescriptor<VocabularyWord>()
         if let items = try? modelContext.fetch(vocabularyDescriptor), !items.isEmpty {
-            exportedDictionaryItems = items.map { WordBackup(word: $0.word) }
+            exportedDictionaryItems = items.map { WordBackup(word: $0.word, isEnabled: $0.isEnabled) }
         }
 
         // Fetch word replacements from SwiftData

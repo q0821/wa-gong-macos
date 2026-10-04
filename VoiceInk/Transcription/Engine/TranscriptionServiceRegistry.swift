@@ -56,10 +56,11 @@ class TranscriptionServiceRegistry {
         logger.debug(
             "Transcribing with \(model.displayName, privacy: .public) using \(String(describing: type(of: service)), privacy: .public)"
         )
-        let scopedContext = context.scoped(to: model)
+        let snapshot = context.vocabulary ?? VocabularySnapshot.capture(from: modelContext)
+        let scopedContext = context.withVocabulary(snapshot).scoped(to: model)
         let transcriptionContext: TranscriptionRequestContext
         if model.provider == .whisper {
-            let vocabulary = CustomVocabularyService.shared.getCustomVocabularyWords(from: modelContext) ?? []
+            let vocabulary = VocabularyPolicy.recognition(snapshot, provider: model.provider, model: model.name).terms
             transcriptionContext = scopedContext.appendingCustomVocabulary(vocabulary)
         } else {
             transcriptionContext = scopedContext
@@ -70,10 +71,10 @@ class TranscriptionServiceRegistry {
 
     /// Creates a streaming or file-based session for the resolved transcription configuration.
     func createSession(
-        for configuration: TranscriptionRuntimeConfiguration, onPartialTranscript: ((String) -> Void)? = nil
+        for configuration: TranscriptionRuntimeConfiguration, vocabularySnapshot: VocabularySnapshot? = nil, onPartialTranscript: ((String) -> Void)? = nil
     ) -> TranscriptionSession {
         let model = configuration.model
-        let customVocabularyWords = CustomVocabularyService.shared.getCustomVocabularyWords(from: modelContext) ?? []
+        let snapshot = vocabularySnapshot ?? VocabularySnapshot.capture(from: modelContext)
 
         if shouldUseRealtimeTranscription(for: configuration) {
             let streamingService = StreamingTranscriptionService(
@@ -85,12 +86,12 @@ class TranscriptionServiceRegistry {
             return StreamingTranscriptionSession(
                 streamingService: streamingService,
                 fallbackService: fallback,
-                customVocabularyWords: customVocabularyWords
+                vocabularySnapshot: snapshot
             )
         } else {
             return FileTranscriptionSession(
                 service: service(for: model.provider),
-                customVocabularyWords: customVocabularyWords
+                vocabularySnapshot: snapshot
             )
         }
     }

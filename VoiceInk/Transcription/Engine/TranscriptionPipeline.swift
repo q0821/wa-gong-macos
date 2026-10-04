@@ -54,6 +54,7 @@ class TranscriptionPipeline {
         transcriptionConfiguration: TranscriptionRuntimeConfiguration,
         formattingConfiguration resolveFormattingConfiguration: @escaping () -> TranscriptionFormattingConfiguration,
         session: TranscriptionSession?,
+        vocabularySnapshot: VocabularySnapshot? = nil,
         triggerWordModeSelection: @escaping (String) -> String? = { _ in nil },
         enhancementConfiguration: @escaping () -> EnhancementRuntimeConfiguration?,
         recordingContextSnapshot: @escaping () async -> RecordingContextSnapshot? = { nil },
@@ -67,6 +68,9 @@ class TranscriptionPipeline {
         AudioCleanupManager.protect(audioURL)
         defer { AudioCleanupManager.release(audioURL) }
         let model = transcriptionConfiguration.model
+        let vocabulary = vocabularySnapshot ?? session?.vocabularySnapshot ?? VocabularySnapshot.capture(from: modelContext)
+        var vocabularyDiagnostics = VocabularyDiagnostics(snapshot: vocabulary,
+            recognition: VocabularyPolicy.recognition(vocabulary, provider: model.provider, model: model.name))
         var finalText: String?
         var responseError: String?
         var outputForDelivery: OutputRuntimeConfiguration?
@@ -109,9 +113,11 @@ class TranscriptionPipeline {
                 text = try await serviceRegistry.transcribe(
                     audioURL: audioURL,
                     model: model,
-                    context: transcriptionConfiguration.requestContext
+                    context: transcriptionConfiguration.requestContext.withVocabulary(vocabulary)
                 )
             }
+            let rawTranscript = text
+            vocabularyDiagnostics = session?.vocabularyDiagnostics ?? vocabularyDiagnostics
             text = TranscriptionOutputFilter.filter(text)
             let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
 
@@ -140,11 +146,18 @@ class TranscriptionPipeline {
                 text = ParagraphFormatter.format(text)
             }
 
-            text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
+            text = vocabulary.replacing(text)
             let cleanedText = text
 
             let actualDuration = await AudioFileMetadata.duration(for: audioURL)
 
+            if shouldCancel() {
+                await finishCanceledTranscription()
+                return
+            }
+
+            transcription.rawTranscript = rawTranscript
+            transcription.vocabularyDiagnostics = vocabularyDiagnostics
             transcription.text = cleanedText
             transcription.duration = actualDuration
             transcription.transcriptionModelName = model.displayName
@@ -170,6 +183,14 @@ class TranscriptionPipeline {
                     !shouldRespondInRecorder && isSkipShortEnhancementEnabled
                     && WordCounter.count(in: text) <= shortEnhancementWordThreshold
 
+                if resolvedEnhancementConfiguration?.isEnabled == true && shouldSkipEnhancement {
+                    vocabularyDiagnostics.textStatus = .skippedShortText
+                } else if let configuration = resolvedEnhancementConfiguration, configuration.isEnabled,
+                          enhancementService?.isConfigured(for: configuration) != true {
+                    vocabularyDiagnostics.textStatus = .notConfigured
+                }
+                transcription.vocabularyDiagnostics = vocabularyDiagnostics
+
                 if let enhancementService,
                     let resolvedEnhancementConfiguration,
                     resolvedEnhancementConfiguration.isEnabled,
@@ -189,10 +210,16 @@ class TranscriptionPipeline {
 
                     do {
                         let contextSnapshot = await recordingContextSnapshot()
+                        let textSelection = VocabularyPolicy.text(vocabulary, provider: resolvedEnhancementConfiguration.provider)
+                        vocabularyDiagnostics.textStatus = textSelection.status
+                        vocabularyDiagnostics.textCount = textSelection.count
+                        transcription.vocabularyDiagnostics = vocabularyDiagnostics
                         let enhancementResult = try await enhancementService.enhance(
                             textForAI,
                             configuration: resolvedEnhancementConfiguration,
                             contextSnapshot: contextSnapshot,
+                            vocabulary: vocabulary,
+                            protectVocabulary: !shouldRespondInRecorder,
                             shouldCancel: shouldCancel
                         )
                         if shouldCancel() {
@@ -213,6 +240,8 @@ class TranscriptionPipeline {
                             await finishCanceledTranscription()
                             return
                         }
+                        vocabularyDiagnostics.textStatus = .failed
+                        transcription.vocabularyDiagnostics = vocabularyDiagnostics
                         let errorDescription = SensitiveLogSanitizer.redact(
                             EnhancementFailureFormatter.description(for: error)
                         )

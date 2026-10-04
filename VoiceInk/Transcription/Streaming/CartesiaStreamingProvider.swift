@@ -10,12 +10,10 @@ final class CartesiaStreamingProvider: StreamingTranscriptionProvider {
     private var forwardingTask: Task<Void, Never>?
     private let finalizationLock = NSLock()
     private var didRequestFinalization = false
-    private let modelContext: ModelContext
 
     private(set) var transcriptionEvents: AsyncStream<StreamingTranscriptionEvent>
 
     init(modelContext: ModelContext) {
-        self.modelContext = modelContext
         var continuation: AsyncStream<StreamingTranscriptionEvent>.Continuation!
         transcriptionEvents = AsyncStream { continuation = $0 }
         eventsContinuation = continuation
@@ -26,7 +24,7 @@ final class CartesiaStreamingProvider: StreamingTranscriptionProvider {
         eventsContinuation?.finish()
     }
 
-    func connect(model: any TranscriptionModel, language _: String?) async throws {
+    func connect(model: any TranscriptionModel, language _: String?, customVocabulary: [String]) async throws {
         guard let apiKey = APIKeyManager.shared.getAPIKey(forProvider: "Cartesia"), !apiKey.isEmpty else {
             throw StreamingTranscriptionError.missingAPIKey
         }

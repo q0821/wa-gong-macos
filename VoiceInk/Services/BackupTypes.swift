@@ -96,9 +96,11 @@ struct GeneralBackup: Codable {
 
 struct WordBackup: Codable {
     let word: String
+    let isEnabled: Bool?
 
-    init(word: String) {
+    init(word: String, isEnabled: Bool? = true) {
         self.word = word
+        self.isEnabled = isEnabled
     }
 }
 

@@ -4,6 +4,9 @@ import os
 /// Encapsulates a single recording-to-transcription lifecycle (streaming or file-based).
 @MainActor
 protocol TranscriptionSession: AnyObject {
+    var vocabularySnapshot: VocabularySnapshot { get }
+    var vocabularyDiagnostics: VocabularyDiagnostics? { get }
+
     /// Prepares the session. Returns an audio chunk callback for streaming, or nil for file-based.
     func prepare(configuration: TranscriptionRuntimeConfiguration) async throws -> ((Data) -> Void)?
 
@@ -14,26 +17,32 @@ protocol TranscriptionSession: AnyObject {
     func cancel()
 }
 
+extension TranscriptionSession {
+    var vocabularySnapshot: VocabularySnapshot { .empty }
+    var vocabularyDiagnostics: VocabularyDiagnostics? { nil }
+}
+
 // MARK: - File-Based Session
 
 /// File-based session: records to file, uploads after stop.
 @MainActor
 final class FileTranscriptionSession: TranscriptionSession {
     private let service: TranscriptionService
-    private let customVocabularyWords: [String]
+    let vocabularySnapshot: VocabularySnapshot
+    private(set) var vocabularyDiagnostics: VocabularyDiagnostics?
     private var model: (any TranscriptionModel)?
     private var context: TranscriptionRequestContext = .currentDefaults
 
-    init(service: TranscriptionService, customVocabularyWords: [String] = []) {
+    init(service: TranscriptionService, vocabularySnapshot: VocabularySnapshot = .empty) {
         self.service = service
-        self.customVocabularyWords = customVocabularyWords
+        self.vocabularySnapshot = vocabularySnapshot
     }
 
     func prepare(configuration: TranscriptionRuntimeConfiguration) async throws -> ((Data) -> Void)? {
         self.model = configuration.model
-        let scopedContext = configuration.requestContext.scoped(to: configuration.model)
+        let scopedContext = configuration.requestContext.withVocabulary(vocabularySnapshot).scoped(to: configuration.model)
         self.context = configuration.model.provider == .whisper
-            ? scopedContext.appendingCustomVocabulary(customVocabularyWords)
+            ? scopedContext.appendingCustomVocabulary(VocabularyPolicy.recognition(vocabularySnapshot, provider: configuration.model.provider, model: configuration.model.name).terms)
             : scopedContext
         return nil
     }
@@ -42,6 +51,8 @@ final class FileTranscriptionSession: TranscriptionSession {
         guard let model = model else {
             throw WaGongEngineError.transcriptionFailed
         }
+        vocabularyDiagnostics = VocabularyDiagnostics(snapshot: vocabularySnapshot,
+            recognition: VocabularyPolicy.recognition(vocabularySnapshot, provider: model.provider, model: model.name))
         return try await service.transcribe(audioURL: audioURL, model: model, context: context)
     }
 
@@ -57,7 +68,8 @@ final class FileTranscriptionSession: TranscriptionSession {
 final class StreamingTranscriptionSession: TranscriptionSession {
     private let streamingService: StreamingTranscriptionService
     private let fallbackService: TranscriptionService
-    private let customVocabularyWords: [String]
+    let vocabularySnapshot: VocabularySnapshot
+    private(set) var vocabularyDiagnostics: VocabularyDiagnostics?
     private var model: (any TranscriptionModel)?
     private var context: TranscriptionRequestContext = .currentDefaults
     private var streamingFailed = false
@@ -68,22 +80,24 @@ final class StreamingTranscriptionSession: TranscriptionSession {
     init(
         streamingService: StreamingTranscriptionService,
         fallbackService: TranscriptionService,
-        customVocabularyWords: [String] = []
+        vocabularySnapshot: VocabularySnapshot = .empty
     ) {
         self.streamingService = streamingService
         self.fallbackService = fallbackService
-        self.customVocabularyWords = customVocabularyWords
+        self.vocabularySnapshot = vocabularySnapshot
     }
 
     func prepare(configuration: TranscriptionRuntimeConfiguration) async throws -> ((Data) -> Void)? {
         let model = configuration.model
-        let scopedContext = configuration.requestContext.scoped(to: model)
+        let scopedContext = configuration.requestContext.withVocabulary(vocabularySnapshot).scoped(to: model)
         let context = model.provider == .whisper
-            ? scopedContext.appendingCustomVocabulary(customVocabularyWords)
+            ? scopedContext.appendingCustomVocabulary(VocabularyPolicy.recognition(vocabularySnapshot, provider: configuration.model.provider, model: configuration.model.name).terms)
             : scopedContext
 
         self.model = model
         self.context = context
+        vocabularyDiagnostics = VocabularyDiagnostics(snapshot: vocabularySnapshot,
+            recognition: VocabularyPolicy.recognition(vocabularySnapshot, provider: model.provider, model: model.name, streaming: true), streaming: true)
         logger.notice("Streaming session prepare model=\(model.displayName, privacy: .public)")
 
         // Return callback immediately; WebSocket connects in background
@@ -163,6 +177,8 @@ final class StreamingTranscriptionSession: TranscriptionSession {
             streamingService.cancel()
         }
 
+        vocabularyDiagnostics = VocabularyDiagnostics(snapshot: vocabularySnapshot,
+            recognition: VocabularyPolicy.recognition(vocabularySnapshot, provider: model.provider, model: model.name))
         let fallbackStart = Date()
         logger.notice(
             "Using batch fallback for \(model.displayName, privacy: .public) file=\(audioURL.lastPathComponent, privacy: .public)"

@@ -20,7 +20,7 @@ final class FluidAudioNemotronStreamingProvider: StreamingTranscriptionProvider 
         eventsContinuation?.finish()
     }
 
-    func connect(model: any TranscriptionModel, language: String?) async throws {
+    func connect(model: any TranscriptionModel, language: String?, customVocabulary: [String]) async throws {
         let cacheDirectory = FluidAudioModelManager.nemotronCacheDirectory(for: model.name)
         let manager = StreamingNemotronMultilingualAsrManager()
         let continuation = eventsContinuation

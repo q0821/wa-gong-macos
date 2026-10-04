@@ -20,7 +20,7 @@ final class FluidAudioUnifiedStreamingProvider: StreamingTranscriptionProvider {
         eventsContinuation?.finish()
     }
 
-    func connect(model: any TranscriptionModel, language: String?) async throws {
+    func connect(model: any TranscriptionModel, language: String?, customVocabulary: [String]) async throws {
         let manager = StreamingUnifiedAsrManager(
             config: FluidAudioModelManager.parakeetUnifiedStreamingConfig,
             encoderPrecision: FluidAudioModelManager.parakeetUnifiedPrecision

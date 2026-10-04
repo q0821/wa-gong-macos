@@ -272,6 +272,7 @@ class WaGongEngine: NSObject, ObservableObject {
 
                             self.recordingState = .starting
 
+                            self.currentVocabularySnapshot = VocabularySnapshot.capture(from: self.modelContext)
                             try await self.recorder.startRecording(toOutputFile: permanentURL)
 
                             guard self.activeRecordingStartID == startID,
@@ -334,6 +335,7 @@ class WaGongEngine: NSObject, ObservableObject {
                             if self.serviceRegistry.shouldUseRealtimeTranscription(for: transcriptionConfiguration) {
                                 let session = self.serviceRegistry.createSession(
                                     for: transcriptionConfiguration,
+                                    vocabularySnapshot: self.currentVocabularySnapshot,
                                     onPartialTranscript: { [weak self] partial in
                                         Task { @MainActor in
                                             guard let self,
@@ -523,7 +525,7 @@ class WaGongEngine: NSObject, ObservableObject {
     // MARK: - Recording Context
 
     private func startRecordingContextCapture() {
-        clearActiveRecordingContext()
+        clearActiveRecordingContext(preservingVocabulary: true)
 
         guard let enhancementService,
             let aiService = enhancementService.getAIService()
@@ -543,7 +545,10 @@ class WaGongEngine: NSObject, ObservableObject {
         activeRecordingContextTasks = RecordingContextCaptureService.startCapture(into: store, plan: plan)
     }
 
-    private func clearActiveRecordingContext() {
+    private var currentVocabularySnapshot: VocabularySnapshot?
+
+    private func clearActiveRecordingContext(preservingVocabulary: Bool = false) {
+        if !preservingVocabulary { currentVocabularySnapshot = nil }
         activeRecordingContextTasks.forEach { $0.cancel() }
         activeRecordingContextTasks.removeAll()
         activeRecordingContextStore = nil
@@ -580,6 +585,7 @@ class WaGongEngine: NSObject, ObservableObject {
                 ModeRuntimeResolver.transcriptionFormattingConfiguration()
             },
             session: session,
+            vocabularySnapshot: currentVocabularySnapshot,
             triggerWordModeSelection: { [weak self] text in
                 self?.selectTriggerWordModeIfNeeded(for: text)
             },

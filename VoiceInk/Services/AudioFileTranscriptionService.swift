@@ -64,6 +64,8 @@ class AudioTranscriptionService: ObservableObject {
                 for: model,
                 realtimeEnabled: mode?.isRealtimeTranscriptionEnabled
             )
+            let vocabulary = VocabularySnapshot.capture(from: modelContext)
+            var vocabularyDiagnostics = VocabularyDiagnostics(snapshot: vocabulary, recognition: VocabularyPolicy.recognition(vocabulary, provider: model.provider, model: model.name))
             let requestContext = TranscriptionRequestContext(
                 language: language,
                 prompt: model.provider == .whisper ? WhisperPrompt.resolvedPrompt(for: language) : nil
@@ -72,8 +74,10 @@ class AudioTranscriptionService: ObservableObject {
             let modeEmoji = (mode?.isEnabled == true) ? mode?.icon.value : nil
 
             let transcriptionStart = Date()
-            var text = try await serviceRegistry.transcribe(audioURL: url, model: model, context: requestContext)
+            var text = try await serviceRegistry.transcribe(audioURL: url, model: model, context: requestContext.withVocabulary(vocabulary))
             let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
+            try Task.checkCancellation()
+            let rawTranscript = text
             text = TranscriptionOutputFilter.filter(text)
             text = text.trimmingCharacters(in: .whitespacesAndNewlines)
             let formattingConfiguration = ModeRuntimeResolver.transcriptionFormattingConfiguration(mode: mode)
@@ -82,7 +86,7 @@ class AudioTranscriptionService: ObservableObject {
                 text = ParagraphFormatter.format(text)
             }
 
-            text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
+            text = vocabulary.replacing(text)
             let cleanedText = text
 
             let audioAsset = AVURLAsset(url: url)
@@ -119,6 +123,11 @@ class AudioTranscriptionService: ObservableObject {
                     }
                 }
 
+            if let enhancementConfiguration, enhancementConfiguration.isEnabled,
+                enhancementService?.isConfigured(for: enhancementConfiguration) != true {
+                vocabularyDiagnostics.textStatus = .notConfigured
+            }
+
             // Apply AI enhancement if enabled
             if let enhancementService = enhancementService,
                 let enhancementConfiguration,
@@ -126,9 +135,13 @@ class AudioTranscriptionService: ObservableObject {
                 enhancementService.isConfigured(for: enhancementConfiguration)
             {
                 do {
+                    let selection = VocabularyPolicy.text(vocabulary, provider: enhancementConfiguration.provider)
+                    vocabularyDiagnostics.textStatus = selection.status
+                    vocabularyDiagnostics.textCount = selection.count
                     let enhancementResult = try await enhancementService.enhance(
                         text,
-                        configuration: enhancementConfiguration
+                        configuration: enhancementConfiguration,
+                        vocabulary: vocabulary
                     )
                     let newTranscription = Transcription(
                         text: originalText,
@@ -144,6 +157,9 @@ class AudioTranscriptionService: ObservableObject {
                         modeName: modeName,
                         modeEmoji: modeEmoji
                     )
+                    try Task.checkCancellation()
+                    newTranscription.rawTranscript = rawTranscript
+                    newTranscription.vocabularyDiagnostics = vocabularyDiagnostics
                     modelContext.insert(newTranscription)
                     do {
                         try modelContext.save()
@@ -160,7 +176,11 @@ class AudioTranscriptionService: ObservableObject {
                         transcription: newTranscription,
                         enhancementFailure: nil
                     )
+                } catch is CancellationError {
+                    throw CancellationError()
                 } catch {
+                    try Task.checkCancellation()
+                    vocabularyDiagnostics.textStatus = .failed
                     let failureDescription = EnhancementFailureFormatter.description(for: error)
                     let failureMessage = EnhancementFailureFormatter.message(description: failureDescription)
                     let newTranscription = Transcription(
@@ -174,6 +194,9 @@ class AudioTranscriptionService: ObservableObject {
                         modeName: modeName,
                         modeEmoji: modeEmoji
                     )
+                    try Task.checkCancellation()
+                    newTranscription.rawTranscript = rawTranscript
+                    newTranscription.vocabularyDiagnostics = vocabularyDiagnostics
                     modelContext.insert(newTranscription)
                     do {
                         try modelContext.save()
@@ -203,6 +226,9 @@ class AudioTranscriptionService: ObservableObject {
                     modeName: modeName,
                     modeEmoji: modeEmoji
                 )
+                try Task.checkCancellation()
+                newTranscription.rawTranscript = rawTranscript
+                newTranscription.vocabularyDiagnostics = vocabularyDiagnostics
                 modelContext.insert(newTranscription)
                 do {
                     try modelContext.save()

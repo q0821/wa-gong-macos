@@ -140,6 +140,9 @@ class AudioTranscriptionManager: ObservableObject {
                 throw TranscriptionError.noModelSelected
             }
             let currentModel = transcriptionConfiguration.model
+            let vocabulary = VocabularySnapshot.capture(from: modelContext)
+            var vocabularyDiagnostics = VocabularyDiagnostics(snapshot: vocabulary,
+                recognition: VocabularyPolicy.recognition(vocabulary, provider: currentModel.provider, model: currentModel.name))
 
             // Phase: Loading
             item.status = .processing(phase: .loading)
@@ -176,9 +179,11 @@ class AudioTranscriptionManager: ObservableObject {
             var text = try await serviceRegistry.transcribe(
                 audioURL: permanentURL,
                 model: currentModel,
-                context: transcriptionConfiguration.requestContext
+                context: transcriptionConfiguration.requestContext.withVocabulary(vocabulary)
             )
             let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
+            try Task.checkCancellation()
+            let rawTranscript = text
             text = TranscriptionOutputFilter.filter(text)
             text = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -189,7 +194,7 @@ class AudioTranscriptionManager: ObservableObject {
                 text = ParagraphFormatter.format(text)
             }
 
-            text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
+            text = vocabulary.replacing(text)
             let cleanedText = text
             try Task.checkCancellation()
 
@@ -207,6 +212,11 @@ class AudioTranscriptionManager: ObservableObject {
                     }
                 }
 
+            if let enhancementConfiguration, enhancementConfiguration.isEnabled,
+                engine.enhancementService?.isConfigured(for: enhancementConfiguration) != true {
+                vocabularyDiagnostics.textStatus = .notConfigured
+            }
+
             if let enhancementService = engine.enhancementService,
                 let enhancementConfiguration,
                 enhancementConfiguration.isEnabled,
@@ -214,9 +224,13 @@ class AudioTranscriptionManager: ObservableObject {
             {
                 item.status = .processing(phase: .enhancing)
                 do {
+                    let selection = VocabularyPolicy.text(vocabulary, provider: enhancementConfiguration.provider)
+                    vocabularyDiagnostics.textStatus = selection.status
+                    vocabularyDiagnostics.textCount = selection.count
                     let enhancementResult = try await enhancementService.enhance(
                         text,
-                        configuration: enhancementConfiguration
+                        configuration: enhancementConfiguration,
+                        vocabulary: vocabulary
                     )
                     transcription = Transcription(
                         text: cleanedText,
@@ -232,7 +246,11 @@ class AudioTranscriptionManager: ObservableObject {
                         modeName: modeMetadata.name,
                         modeEmoji: modeMetadata.emoji
                     )
+                } catch is CancellationError {
+                    throw CancellationError()
                 } catch {
+                    try Task.checkCancellation()
+                    vocabularyDiagnostics.textStatus = .failed
                     let failureMessage = EnhancementFailureFormatter.message(for: error)
                     transcription = Transcription(
                         text: cleanedText,
@@ -259,6 +277,9 @@ class AudioTranscriptionManager: ObservableObject {
                 )
             }
 
+            try Task.checkCancellation()
+            transcription.rawTranscript = rawTranscript
+            transcription.vocabularyDiagnostics = vocabularyDiagnostics
             modelContext.insert(transcription)
             try modelContext.save()
             NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)

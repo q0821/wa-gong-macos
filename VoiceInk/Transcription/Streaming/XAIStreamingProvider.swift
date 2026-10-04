@@ -21,7 +21,7 @@ final class XAIStreamingProvider: StreamingTranscriptionProvider {
         eventsContinuation?.finish()
     }
 
-    func connect(model: any TranscriptionModel, language: String?) async throws {
+    func connect(model: any TranscriptionModel, language: String?, customVocabulary: [String]) async throws {
         guard let apiKey = APIKeyManager.shared.getAPIKey(forProvider: "xAI"), !apiKey.isEmpty else {
             throw StreamingTranscriptionError.missingAPIKey
         }

@@ -3,6 +3,7 @@ import Foundation
 struct TranscriptionRequestContext {
     let language: String?
     let prompt: String?
+    var vocabulary: VocabularySnapshot? = nil
 
     static var currentDefaults: TranscriptionRequestContext {
         let language =
@@ -34,12 +35,18 @@ struct TranscriptionRequestContext {
             .filter { !$0.isEmpty }
             .joined(separator: "\n\n")
 
-        return TranscriptionRequestContext(language: language, prompt: combinedPrompt)
+        return TranscriptionRequestContext(language: language, prompt: combinedPrompt, vocabulary: vocabulary)
+    }
+
+    func withVocabulary(_ snapshot: VocabularySnapshot) -> TranscriptionRequestContext {
+        var copy = self
+        copy.vocabulary = snapshot
+        return copy
     }
 
     func scoped(to model: any TranscriptionModel) -> TranscriptionRequestContext {
         guard model.provider == .whisper else {
-            return TranscriptionRequestContext(language: language, prompt: nil)
+            return TranscriptionRequestContext(language: language, prompt: nil, vocabulary: vocabulary)
         }
 
         return self

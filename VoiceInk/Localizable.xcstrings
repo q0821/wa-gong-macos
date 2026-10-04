@@ -1,6 +1,239 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Text cleanup skipped for short text" : { "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "短文字設定略過了文字整理" } } } },
+    "Text service is not configured" : { "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "文字服務尚未設定完成" } } } },
+    "Advanced Word Replacements" : { "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "進階文字替換" } } } },
+    "Vocabulary included" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已納入詞彙提示"
+          }
+        }
+      }
+    },
+    "Vocabulary partly included (limit reached)" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "部分詞彙未納入（服務限制或格式限制）"
+          }
+        }
+      }
+    },
+    "No enabled vocabulary" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有已啟用的詞彙"
+          }
+        }
+      }
+    },
+    "Vocabulary unavailable" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前無法讀取詞庫"
+          }
+        }
+      }
+    },
+    "Vocabulary not supported by this model" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此模型不支援詞彙提示"
+          }
+        }
+      }
+    },
+    "Vocabulary processing not requested" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此次未執行文字整理"
+          }
+        }
+      }
+    },
+    "Vocabulary request failed" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文字整理請求失敗"
+          }
+        }
+      }
+    },
+    "Use 1–120 characters per term, without line breaks or control characters." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每個詞彙請輸入 1 至 120 字，不可包含換行或控制字元。"
+          }
+        }
+      }
+    },
+    "The dictionary can contain up to 1,000 terms. Only the provider limit is sent per request." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "詞庫最多可保存 1,000 個詞彙，每次只會傳送服務商限制內的數量。"
+          }
+        }
+      }
+    },
+    "These replacements overlap, form a chain, or exceed the size limit. Use independent rules." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "替換規則有衝突、連鎖替換或超過長度限制，請使用彼此獨立的規則。"
+          }
+        }
+      }
+    },
+    "Enabled terms are sent to supported speech and text services you select. Models may limit the number of terms; see history for actual usage. Wa-Gong Refine does not use vocabulary hints." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "啟用的正確詞會傳給所選且支援的語音辨識與文字整理服務。模型可能限制詞數，實際採用情況請查看歷史紀錄。Wa-Gong Refine 不使用詞彙提示。"
+          }
+        }
+      }
+    },
+    "Failed to save vocabulary changes." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法保存詞彙變更，已恢復原設定。"
+          }
+        }
+      }
+    },
+    "Add correct names and terms to Vocabulary. Use advanced Word Replacements only for known, unambiguous corrections." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在自訂詞彙加入正確的人名、品牌或專有名詞。已確認且沒有歧義的錯字，才使用進階文字替換。"
+          }
+        }
+      }
+    },
+    "Enabled vocabulary is used by supported speech recognition and text cleanup services." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已啟用的詞彙會用於支援的語音辨識與文字整理服務。"
+          }
+        }
+      }
+    },
+    "Advanced replacements change matching text literally and can change unintended meanings. Cleanup modes also protect the final output; assistant and custom rewrite outputs are excluded." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "進階替換會直接改寫符合的文字，可能誤改其他語意。一般整理模式也會保護最終結果，助理與自訂改寫結果不強制替換。"
+          }
+        }
+      }
+    },
+    "Raw recognition" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始辨識"
+          }
+        }
+      }
+    },
+    "Raw recognition was not recorded for this entry." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這筆歷史沒有保存原始辨識內容。"
+          }
+        }
+      }
+    },
+    "Speech vocabulary: %lld" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "語音提示詞數：%lld"
+          }
+        }
+      }
+    },
+    "Text vocabulary: %lld" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文字整理詞數：%lld"
+          }
+        }
+      }
+    },
+    "Streaming recognition" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "即時辨識"
+          }
+        }
+      }
+    },
+    "File recognition" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "檔案辨識"
+          }
+        }
+      }
+    },
+    "Conflicting replacement rules were not applied." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "替換規則有衝突或超過限制，此次未套用，原有規則仍保留。"
+          }
+        }
+      }
+    },
+    "After local processing" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本機處理後"
+          }
+        }
+      }
+    },
     "Connecting microphone" : {
       "localizations" : {
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在連接麥克風" } }

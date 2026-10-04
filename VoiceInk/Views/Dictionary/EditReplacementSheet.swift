@@ -131,31 +131,18 @@ struct EditReplacementSheet: View {
             .filter { !$0.isEmpty }
         guard !tokens.isEmpty, !newReplacement.isEmpty else { return }
 
-        // Check for duplicates (excluding current replacement)
-        let newTokensPairs = tokens.map { (original: $0, lowercased: $0.lowercased()) }
-
-        let descriptor = FetchDescriptor<WordReplacement>()
-        if let allReplacements = try? modelContext.fetch(descriptor) {
-            for existingReplacement in allReplacements {
-                // Skip checking against itself
-                if existingReplacement.persistentModelID == replacement.persistentModelID {
-                    continue
-                }
-
-                let existingTokens = existingReplacement.originalText
-                    .split(separator: ",")
-                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-                    .filter { !$0.isEmpty }
-
-                for tokenPair in newTokensPairs {
-                    if existingTokens.contains(tokenPair.lowercased) {
-                        alertMessage = String(
-                            format: String(localized: "'%@' already exists in word replacements"), tokenPair.original)
-                        showAlert = true
-                        return
-                    }
-                }
+        do {
+            let existing = try modelContext.fetch(FetchDescriptor<WordReplacement>())
+            if let error = DictionaryService.replacementValidationError(original: newOriginal,
+                replacement: newReplacement, existing: existing, excludingID: replacement.id) {
+                alertMessage = error
+                showAlert = true
+                return
             }
+        } catch {
+            alertMessage = String(localized: "Vocabulary unavailable")
+            showAlert = true
+            return
         }
 
         // Update the replacement
@@ -166,6 +153,7 @@ struct EditReplacementSheet: View {
             try modelContext.save()
             dismiss()
         } catch {
+            modelContext.rollback()
             alertMessage = String(format: String(localized: "Failed to save changes: %@"), error.localizedDescription)
             showAlert = true
         }

@@ -7,6 +7,8 @@ enum VocabularySortMode: String {
 }
 
 struct VocabularyView: View {
+    @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
+    @ObservedObject private var modeManager = ModeManager.shared
     @Query private var vocabularyWords: [VocabularyWord]
     @Environment(\.modelContext) private var modelContext
     @State private var newWord = ""
@@ -42,6 +44,17 @@ struct VocabularyView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            Text("Enabled terms are sent to supported speech and text services you select. Models may limit the number of terms; see history for actual usage. Wa-Gong Refine does not use vocabulary hints.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let mode = modeManager.currentEffectiveConfiguration,
+               let model = transcriptionModelManager.allAvailableModels.first(where: { $0.name == mode.selectedTranscriptionModelName }) {
+                let snapshot = VocabularySnapshot(terms: sortedItems.filter(\.isEnabled).map(\.word))
+                let selection = VocabularyPolicy.recognition(snapshot, provider: model.provider, model: model.name,
+                    streaming: TranscriptionRealtimeSupport.isEnabled(for: model, modeValue: mode.isRealtimeTranscriptionEnabled))
+                Text(model.displayName + "：" + selection.status.label)
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             HStack(spacing: 8) {
                 TextField("", text: $newWord, prompt: Text("Add word to vocabulary"))
                     .textFieldStyle(.roundedBorder)
@@ -77,9 +90,7 @@ struct VocabularyView: View {
 
                     FlowLayout(spacing: 8) {
                         ForEach(sortedItems) { item in
-                            VocabularyWordView(item: item) {
-                                removeWord(item)
-                            }
+                            VocabularyWordView(item: item, onToggle: { toggleWord(item) }, onDelete: { removeWord(item) })
                         }
                     }
                     .padding(.vertical, 4)
@@ -108,6 +119,16 @@ struct VocabularyView: View {
         newWord = ""
     }
 
+    private func toggleWord(_ word: VocabularyWord) {
+        word.isEnabled.toggle()
+        do { try modelContext.save() }
+        catch {
+            modelContext.rollback()
+            alertMessage = String(localized: "Failed to save vocabulary changes.")
+            showAlert = true
+        }
+    }
+
     private func removeWord(_ word: VocabularyWord) {
         modelContext.delete(word)
 
@@ -124,16 +145,17 @@ struct VocabularyView: View {
 
 struct VocabularyWordView: View {
     let item: VocabularyWord
+    let onToggle: () -> Void
     let onDelete: () -> Void
     @State private var isDeleteHovered = false
 
     var body: some View {
         HStack(spacing: 6) {
-            Text(item.word)
-                .font(.system(size: 13))
-                .lineLimit(1)
-                .foregroundColor(.primary)
-
+            Toggle(isOn: Binding(get: { item.isEnabled }, set: { _ in onToggle() })) {
+                Text(item.word)
+            }
+            .toggleStyle(.checkbox)
+            .accessibilityLabel(Text(item.word))
             Button(action: onDelete) {
                 Image(systemName: "xmark.circle.fill")
                     .symbolRenderingMode(.hierarchical)

@@ -69,7 +69,7 @@ class CloudTranscriptionService: TranscriptionService {
                 throw CloudTranscriptionError.unsupportedProvider
             }
             let apiKey = try requireAPIKey(forProvider: cloudProvider.providerKey)
-            let vocabulary = getCustomDictionaryTerms()
+            let vocabulary = VocabularyPolicy.recognition(context.vocabulary ?? .empty, provider: model.provider, model: model.name).terms
             await announceExternalTranscriptionRequest(
                 destination: PrivacyRequestSummary.transcriptionDestination(for: model.provider),
                 modelName: model.name,
@@ -109,25 +109,6 @@ class CloudTranscriptionService: TranscriptionService {
         let lang = context.language ?? "auto"
         let apiLanguage = LanguageDictionary.whisperLanguageCode(for: lang)
         return (apiLanguage == "auto" || apiLanguage.isEmpty) ? nil : apiLanguage
-    }
-
-    private func getCustomDictionaryTerms() -> [String] {
-        let descriptor = FetchDescriptor<VocabularyWord>(sortBy: [SortDescriptor(\.word)])
-        guard let vocabularyWords = try? modelContext.fetch(descriptor) else {
-            return []
-        }
-        var seen = Set<String>()
-        var unique: [String] = []
-        for word in vocabularyWords {
-            let trimmed = word.word.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-            let key = trimmed.lowercased()
-            if !seen.contains(key) {
-                seen.insert(key)
-                unique.append(trimmed)
-            }
-        }
-        return unique
     }
 
     private func announceExternalTranscriptionRequest(

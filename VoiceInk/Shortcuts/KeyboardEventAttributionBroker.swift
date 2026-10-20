@@ -34,10 +34,16 @@ final class KeyboardEventAttributionBroker: @unchecked Sendable {
     private var pendingRequests: [UUID: PendingAttributionRequest] = [:]
     private let matchingWindowNanoseconds: UInt64
     private let maximumPendingEvents: Int
+    private let monotonicNow: @Sendable () -> UInt64
 
-    init(matchingWindowNanoseconds: UInt64 = 50_000_000, maximumPendingEvents: Int = 32) {
+    init(
+        matchingWindowNanoseconds: UInt64 = 50_000_000,
+        maximumPendingEvents: Int = 32,
+        monotonicNow: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds }
+    ) {
         self.matchingWindowNanoseconds = matchingWindowNanoseconds
         self.maximumPendingEvents = maximumPendingEvents
+        self.monotonicNow = monotonicNow
     }
 
     func observe(_ event: KeyboardInputEvent) {
@@ -50,7 +56,12 @@ final class KeyboardEventAttributionBroker: @unchecked Sendable {
             pendingHIDEvents.removeFirst(pendingHIDEvents.count - maximumPendingEvents)
         }
 
-        for (requestID, request) in Array(pendingRequests) {
+        // Multiple modifier transitions may be waiting when HID delivery is delayed.
+        // Resolve in CG event order, never in Dictionary iteration order.
+        let orderedRequests = pendingRequests.sorted {
+            $0.value.token.eventTimestamp < $1.value.token.eventTimestamp
+        }
+        for (requestID, request) in orderedRequests {
             if let attribution = attributionLocked(
                 for: request.token,
                 observedAtNanoseconds: event.observedAtNanoseconds
@@ -68,13 +79,14 @@ final class KeyboardEventAttributionBroker: @unchecked Sendable {
 
     func attribution(
         for token: ShortcutEventToken,
-        observedAtNanoseconds: UInt64 = DispatchTime.now().uptimeNanoseconds
+        observedAtNanoseconds: UInt64? = nil
     ) -> KeyboardEventAttribution? {
         lock.lock()
         defer { lock.unlock() }
 
-        prune(now: observedAtNanoseconds)
-        return attributionLocked(for: token, observedAtNanoseconds: observedAtNanoseconds)
+        let now = observedAtNanoseconds ?? monotonicNow()
+        prune(now: now)
+        return attributionLocked(for: token, observedAtNanoseconds: now)
     }
 
     func attribution(
@@ -88,7 +100,7 @@ final class KeyboardEventAttributionBroker: @unchecked Sendable {
         let requestID = UUID()
         return await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
-                let now = DispatchTime.now().uptimeNanoseconds
+                let now = monotonicNow()
                 lock.lock()
                 prune(now: now)
 

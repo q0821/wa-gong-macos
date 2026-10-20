@@ -24,15 +24,35 @@ final class ShortcutMonitor {
     private var onKeyDown: ((ShortcutAction, TimeInterval) -> Void)?
     private var onKeyUp: ((ShortcutAction, TimeInterval) -> Void)?
     private var onShortcutInterrupted: ((ShortcutAction, TimeInterval) -> Void)?
+    private struct PendingEvent {
+        let id: UUID
+        let kind: EventKind
+        let keyCode: UInt16
+        let modifiers: NSEvent.ModifierFlags
+        let time: TimeInterval
+        var resolved = false
+        var attribution: KeyboardEventAttribution?
+        var task: Task<Void, Never>?
+    }
+
+    // Retain only bounded, in-memory shortcut candidates. Never replay or suppress
+    // an event whose physical source was unknown at the event-tap callback.
+    private var pendingEvents: [PendingEvent] = []
+    private var generation: UInt64 = 0
     private var eventTap: CFMachPort?
     private var eventTapRunLoopSource: CFRunLoopSource?
     private let attributionBroker: KeyboardEventAttributionBroker?
+    private let monotonicNow: @Sendable () -> UInt64
     private let logger = Logger(subsystem: "com.jackie-yeh.wagong", category: "ShortcutMonitor")
 
     private static let shortcutInterruptionWindow: TimeInterval = 1.0
 
-    init(attributionBroker: KeyboardEventAttributionBroker? = nil) {
+    init(
+        attributionBroker: KeyboardEventAttributionBroker? = nil,
+        monotonicNow: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds }
+    ) {
         self.attributionBroker = attributionBroker
+        self.monotonicNow = monotonicNow
     }
 
     deinit {
@@ -100,6 +120,7 @@ final class ShortcutMonitor {
     }
 
     func stop() {
+        cancelPendingEvents()
         if let eventTapRunLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), eventTapRunLoopSource, .commonModes)
             self.eventTapRunLoopSource = nil
@@ -118,6 +139,7 @@ final class ShortcutMonitor {
     }
 
     func releaseActiveShortcuts(from sourceID: UUID) {
+        cancelPendingEvents()
         let eventTime = ProcessInfo.processInfo.systemUptime
         for action in Array(shortcuts.keys) {
             guard var state = shortcuts[action], state.isDown, state.activeSourceID == sourceID else {
@@ -184,7 +206,7 @@ final class ShortcutMonitor {
         return true
     }
 
-    private func handleCGEvent(type: CGEventType, event: CGEvent) -> Bool {
+    func handleCGEvent(type: CGEventType, event: CGEvent) -> Bool {
         guard let eventKind = EventKind(type) else {
             return false
         }
@@ -197,16 +219,83 @@ final class ShortcutMonitor {
             transition: eventKind.tokenTransition
         )
         let attribution = attributionBroker?.attribution(for: token)
+        let eventTime = ProcessInfo.processInfo.systemUptime
+        if let attributionBroker, attribution == nil || !pendingEvents.isEmpty {
+            let relevant = shortcuts.values.contains { state in
+                state.isDown || state.bindings.contains { binding in
+                    binding.shortcut.keyCode == keyCode
+                }
+            }
+            guard relevant || !pendingEvents.isEmpty else { return false }
+            guard pendingEvents.count < 32 else {
+                logger.error("Shortcut attribution queue overflow; pending actions cancelled")
+                resetPressedShortcutsAfterTapInterruption()
+                return false
+            }
+            let id = UUID()
+            let currentGeneration = generation
+            let deadline = monotonicNow() + 75_000_000
+            pendingEvents.append(PendingEvent(
+                id: id, kind: eventKind, keyCode: keyCode, modifiers: modifierFlags,
+                time: eventTime, resolved: attribution != nil, attribution: attribution
+            ))
+            if attribution == nil {
+                let monotonicNow = self.monotonicNow
+                let task = Task { @MainActor [weak self] in
+                    let now = monotonicNow()
+                    let result: KeyboardEventAttribution?
+                    if now < deadline {
+                        result = await attributionBroker.attribution(
+                            for: token, waitingUpToNanoseconds: deadline - now
+                        )
+                    } else {
+                        result = nil
+                    }
+                    guard !Task.isCancelled, let self, self.generation == currentGeneration,
+                        let index = self.pendingEvents.firstIndex(where: { $0.id == id })
+                    else { return }
+                    self.pendingEvents[index].attribution =
+                        monotonicNow() <= deadline ? result : nil
+                    self.pendingEvents[index].resolved = true
+                    self.drainPendingEvents()
+                }
+                pendingEvents[pendingEvents.count - 1].task = task
+            }
+            drainPendingEvents()
+            return false
+        }
         return handleEvent(
             kind: eventKind,
             keyCode: keyCode,
             modifierFlags: modifierFlags,
-            eventTime: ProcessInfo.processInfo.systemUptime,
+            eventTime: eventTime,
             attribution: attribution
         )
     }
 
+    func waitForPendingAttributionForTesting() async {
+        let tasks = pendingEvents.compactMap(\.task)
+        for task in tasks { await task.value }
+    }
+
+    private func cancelPendingEvents() {
+        generation &+= 1
+        pendingEvents.forEach { $0.task?.cancel() }
+        pendingEvents.removeAll()
+    }
+
+    private func drainPendingEvents() {
+        while let first = pendingEvents.first, first.resolved {
+            pendingEvents.removeFirst()
+            _ = handleEvent(
+                kind: first.kind, keyCode: first.keyCode, modifierFlags: first.modifiers,
+                eventTime: first.time, attribution: first.attribution
+            )
+        }
+    }
+
     private func resetPressedShortcutsAfterTapInterruption() {
+        cancelPendingEvents()
         let eventTime = ProcessInfo.processInfo.systemUptime
         let pressedActions = shortcuts.compactMap { action, state in
             state.isDown ? action : nil
@@ -425,10 +514,16 @@ final class ShortcutMonitor {
             let deviceBinding = candidates.first(where: { binding in
                 guard case .device(let storedDevice) = binding.scope else { return false }
                 guard storedDevice.matches(attribution.device) else { return false }
-                if storedDevice.matchStrength == .modelFamily {
+                // Use the same transport policy as the recorder. USB model-family
+                // bindings are supported directly; Bluetooth requires this connection's proof.
+                switch KeyboardDeviceVerificationPolicy.availability(for: attribution.device) {
+                case .supported:
+                    return true
+                case .requiresVerification:
                     return KeyboardDeviceVerificationRegistry.shared.isVerified(sourceID: attribution.sourceID)
+                case .unsupportedTransport:
+                    return false
                 }
-                return true
             })
         {
             return deviceBinding
@@ -452,19 +547,25 @@ final class ShortcutMonitor {
     }
 
     private func dispatchKeyDown(for action: ShortcutAction, eventTime: TimeInterval) {
-        DispatchQueue.main.async { [onKeyDown] in
+        let currentGeneration = generation
+        DispatchQueue.main.async { [weak self, onKeyDown] in
+            guard let self, self.generation == currentGeneration else { return }
             onKeyDown?(action, eventTime)
         }
     }
 
     private func dispatchKeyUp(for action: ShortcutAction, eventTime: TimeInterval) {
-        DispatchQueue.main.async { [onKeyUp] in
+        let currentGeneration = generation
+        DispatchQueue.main.async { [weak self, onKeyUp] in
+            guard let self, self.generation == currentGeneration else { return }
             onKeyUp?(action, eventTime)
         }
     }
 
     private func dispatchShortcutInterrupted(for action: ShortcutAction, eventTime: TimeInterval) {
-        DispatchQueue.main.async { [onShortcutInterrupted] in
+        let currentGeneration = generation
+        DispatchQueue.main.async { [weak self, onShortcutInterrupted] in
+            guard let self, self.generation == currentGeneration else { return }
             onShortcutInterrupted?(action, eventTime)
         }
     }

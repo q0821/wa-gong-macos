@@ -6,6 +6,8 @@ import Foundation
 final class SystemInfoService {
     static let shared = SystemInfoService()
 
+    weak var recordingShortcutManager: RecordingShortcutManager?
+
     private init() {}
 
     func getSystemInfoString() -> String {
@@ -33,6 +35,7 @@ final class SystemInfoService {
             Available Audio Devices: \(getAvailableAudioDevices())
 
             HOTKEY SETTINGS:
+            \(getKeyboardDiagnostics())
             Primary Shortcut: \(getPrimaryShortcut())
             Secondary Shortcut: \(getSecondaryShortcut())
             Middle-Click Recording: \(UserDefaults.standard.bool(forKey: "isMiddleClickToggleEnabled"))
@@ -164,6 +167,19 @@ final class SystemInfoService {
         return devices.map { $0.name }.joined(separator: ", ")
     }
 
+    private func getKeyboardDiagnostics() -> String {
+        guard let manager = recordingShortcutManager else {
+            return "Keyboard Diagnostics: Unavailable (manager not initialized)"
+        }
+        let monitor = manager.keyboardMonitor
+        return KeyboardDiagnosticsSnapshot(
+            permission: monitor.permissionStatus,
+            monitorStatus: monitor.status,
+            connectedCount: monitor.connectedDevices.count,
+            bindingCount: manager.deviceBindingCount
+        ).report
+    }
+
     private func getPrimaryShortcut() -> String {
         shortcutDescription(for: .primaryRecording)
     }
@@ -173,7 +189,12 @@ final class SystemInfoService {
     }
 
     private func shortcutDescription(for action: ShortcutAction) -> String {
-        ShortcutStore.shortcut(for: action)?.displayString ?? ""
+        let bindings = ShortcutStore.bindings(for: action)
+        guard !bindings.isEmpty else { return "Not configured" }
+        return bindings.map { binding in
+            let scope = binding.scope == .allKeyboards ? "All keyboards" : "Device-specific"
+            return "\(scope): \(binding.shortcut.displayString)"
+        }.joined(separator: "; ")
     }
 
     private func getCurrentTranscriptionModel() -> String {

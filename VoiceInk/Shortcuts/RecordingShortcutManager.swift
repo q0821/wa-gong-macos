@@ -206,6 +206,8 @@ class RecordingShortcutManager: ObservableObject {
             }
         }
 
+        SystemInfoService.shared.recordingShortcutManager = self
+
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 100_000_000)
             self.refreshShortcutMonitoring()

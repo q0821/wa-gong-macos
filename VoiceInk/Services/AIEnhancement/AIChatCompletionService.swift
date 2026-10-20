@@ -97,7 +97,7 @@ extension AIService {
             )
         case .waGongRefine:
             throw EnhancementError.customError(
-                String(localized: "Wa-Gong Refine only supports transcript cleanup.")
+                String(localized: "VoiceInk Refine only supports transcript cleanup.")
             )
         case .ollama:
             result = try await enhanceWithOllama(

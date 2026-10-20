@@ -326,10 +326,12 @@ struct ConfigurationRow: View {
                     let modelName = config.selectedAIModel,
                     !modelName.isEmpty
                 {
+                    let displayModelName = config.selectedAIProvider.flatMap(AIProvider.init(rawValue:)) == .waGongRefine
+                        ? WaGongRefineService.modelName : modelName
                     HStack(spacing: 4) {
                         Image(systemName: "cpu")
                             .font(.system(size: 10))
-                        Text(modelName.count > 20 ? String(modelName.prefix(18)) + "..." : modelName)
+                        Text(displayModelName.count > 20 ? String(displayModelName.prefix(18)) + "..." : displayModelName)
                             .font(.caption)
                     }
                     .padding(.horizontal, 6)

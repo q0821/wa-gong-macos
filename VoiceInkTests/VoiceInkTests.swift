@@ -193,9 +193,14 @@ struct VoiceInkTests {
         )
     }
 
-    @Test func legacyRefineProviderNameMigratesToWaGong() {
+    @Test func refineUsesOriginalBrandingWithoutChangingStoredProviderIdentity() {
         #expect(AIProvider(rawValue: "VoiceInk Refine") == .waGongRefine)
+        #expect(AIProvider(rawValue: "Wa-Gong Refine") == .waGongRefine)
         #expect(AIProvider.waGongRefine.rawValue == "Wa-Gong Refine")
+        #expect(AIProvider.waGongRefine.displayName == "VoiceInk Refine")
+        #expect(WaGongRefineService.modelName == "VoiceInk Refine V1")
+        #expect(AIProvider.waGongRefine.defaultModel == "VoiceInk Refine V1")
+        #expect(WaGongRefineService.repositoryID == "beingpax/VoiceInk-Refine-V1")
     }
 
     @Test func trustIsFinalOnboardingStageWithoutLicenseStep() {

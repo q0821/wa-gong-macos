@@ -395,7 +395,7 @@ struct ModelManagementView: View {
     }
 
     private func confirmDeleteWaGongRefineModel() {
-        alertTitle = String(localized: "Delete Wa-Gong Refine?")
+        alertTitle = String(localized: "Delete VoiceInk Refine?")
         alertMessage = String(
             localized: "The model will need to be downloaded again before a Mode can use it."
         )

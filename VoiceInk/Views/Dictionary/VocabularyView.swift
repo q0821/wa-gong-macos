@@ -44,7 +44,7 @@ struct VocabularyView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Enabled terms are sent to supported speech and text services you select. Models may limit the number of terms; see history for actual usage. Wa-Gong Refine does not use vocabulary hints.")
+            Text("Enabled terms are sent to supported speech and text services you select. Models may limit the number of terms; see history for actual usage. VoiceInk Refine does not use vocabulary hints.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if let mode = modeManager.currentEffectiveConfiguration,

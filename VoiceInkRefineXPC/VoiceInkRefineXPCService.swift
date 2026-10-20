@@ -21,7 +21,7 @@ final class WaGongRefineXPCService: NSObject, WaGongRefineXPCProtocol {
             reply(
                 makeWaGongRefineXPCError(
                     .invalidRequest,
-                    description: "Wa-Gong Refine received an invalid prepare request."
+                    description: "VoiceInk Refine received an invalid prepare request."
                 )
             )
             return
@@ -48,7 +48,7 @@ final class WaGongRefineXPCService: NSObject, WaGongRefineXPCProtocol {
             reply(
                 makeWaGongRefineXPCError(
                     .connectionFailed,
-                    description: "Wa-Gong Refine is shutting down."
+                    description: "VoiceInk Refine is shutting down."
                 )
             )
             return
@@ -70,7 +70,7 @@ final class WaGongRefineXPCService: NSObject, WaGongRefineXPCProtocol {
                 nil,
                 makeWaGongRefineXPCError(
                     .invalidRequest,
-                    description: "Wa-Gong Refine received an invalid enhancement request."
+                    description: "VoiceInk Refine received an invalid enhancement request."
                 )
             )
             return
@@ -105,7 +105,7 @@ final class WaGongRefineXPCService: NSObject, WaGongRefineXPCProtocol {
                 nil,
                 makeWaGongRefineXPCError(
                     .connectionFailed,
-                    description: "Wa-Gong Refine is shutting down."
+                    description: "VoiceInk Refine is shutting down."
                 )
             )
             return

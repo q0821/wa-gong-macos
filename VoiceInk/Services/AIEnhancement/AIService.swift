@@ -15,6 +15,7 @@ enum AIProvider: String, CaseIterable {
     case soniox = "Soniox"
     case speechmatics = "Speechmatics"
     case assemblyAI = "AssemblyAI"
+    // Preserve the persisted provider key; third-party branding belongs in displayName.
     case waGongRefine = "Wa-Gong Refine"
     case ollama = "Ollama"
     case localCLI = "Local CLI"
@@ -37,7 +38,7 @@ enum AIProvider: String, CaseIterable {
         case .anthropic:
             return "Claude"
         case .waGongRefine:
-            return "Wa-Gong Refine"
+            return WaGongRefineService.providerName
         default:
             return rawValue
         }

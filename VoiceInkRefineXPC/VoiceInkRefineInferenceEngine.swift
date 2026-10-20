@@ -16,11 +16,11 @@ enum WaGongRefineInferenceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unavailable:
-            return "Wa-Gong Refine requires Apple silicon."
+            return "VoiceInk Refine requires Apple silicon."
         case .modelNotLoaded:
-            return "Wa-Gong Refine could not load the selected model."
+            return "VoiceInk Refine could not load the selected model."
         case .emptyOutput:
-            return "Wa-Gong Refine returned an empty response."
+            return "VoiceInk Refine returned an empty response."
         }
     }
 }

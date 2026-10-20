@@ -113,7 +113,7 @@ actor WaGongRefineXPCClient {
                             .failure(
                                 makeWaGongRefineXPCError(
                                     .connectionFailed,
-                                    description: "Could not create the Wa-Gong Refine XPC proxy."
+                                    description: "Could not create the VoiceInk Refine XPC proxy."
                                 )
                             )
                         )
@@ -182,7 +182,7 @@ actor WaGongRefineXPCClient {
                             .failure(
                                 makeWaGongRefineXPCError(
                                     .connectionFailed,
-                                    description: "Could not create the Wa-Gong Refine XPC proxy."
+                                    description: "Could not create the VoiceInk Refine XPC proxy."
                                 )
                             )
                         )
@@ -200,7 +200,7 @@ actor WaGongRefineXPCClient {
                                     makeWaGongRefineXPCError(
                                         .invalidResponse,
                                         description:
-                                            "Wa-Gong Refine returned an empty response."
+                                            "VoiceInk Refine returned an empty response."
                                     )
                                 )
                             )
@@ -219,7 +219,7 @@ actor WaGongRefineXPCClient {
             guard response.requestID == request.requestID else {
                 throw makeWaGongRefineXPCError(
                     .invalidResponse,
-                    description: "Wa-Gong Refine returned a mismatched response."
+                    description: "VoiceInk Refine returned a mismatched response."
                 )
             }
 
@@ -444,20 +444,20 @@ actor WaGongRefineXPCClient {
         let description: String
         switch code {
         case .invalidRequest:
-            description = String(localized: "Wa-Gong Refine received an invalid request.")
+            description = String(localized: "VoiceInk Refine received an invalid request.")
         case .inferenceFailed:
             switch operation {
             case .prepare:
-            description = String(localized: "Wa-Gong Refine could not prepare the model.")
+            description = String(localized: "VoiceInk Refine could not prepare the model.")
             case .enhance:
                 description = String(
-                    localized: "Wa-Gong Refine could not complete the enhancement."
+                    localized: "VoiceInk Refine could not complete the enhancement."
                 )
             }
         case .invalidResponse:
-            description = String(localized: "Wa-Gong Refine returned an invalid response.")
+            description = String(localized: "VoiceInk Refine returned an invalid response.")
         case .connectionFailed:
-            description = String(localized: "Could not communicate with Wa-Gong Refine.")
+            description = String(localized: "Could not communicate with VoiceInk Refine.")
         }
 
         return makeWaGongRefineXPCError(code, description: description)
@@ -476,7 +476,7 @@ actor WaGongRefineXPCClient {
             operationName = "enhance"
         }
         logger.error(
-            "Wa-Gong Refine XPC \(operationName, privacy: .public) failed domain=\(nsError.domain, privacy: .public) code=\(nsError.code, privacy: .public) description=\(nsError.localizedDescription, privacy: .public)"
+            "VoiceInk Refine XPC \(operationName, privacy: .public) failed domain=\(nsError.domain, privacy: .public) code=\(nsError.code, privacy: .public) description=\(nsError.localizedDescription, privacy: .public)"
         )
     }
 
@@ -491,7 +491,7 @@ actor WaGongRefineXPCClient {
         connectionID = nil
         cancelIdleShutdown()
         logger.error(
-            "Wa-Gong Refine XPC connection interrupted id=\(identifier.uuidString, privacy: .public)"
+            "VoiceInk Refine XPC connection interrupted id=\(identifier.uuidString, privacy: .public)"
         )
     }
 

@@ -15,9 +15,9 @@ enum WaGongRefineError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unavailable:
-            return String(localized: "Wa-Gong Refine requires an Apple silicon Mac with at least 16 GB of memory.")
+            return String(localized: "VoiceInk Refine requires an Apple silicon Mac with at least 16 GB of memory.")
         case .modelNotDownloaded:
-            return String(localized: "Wa-Gong Refine is not downloaded.")
+            return String(localized: "VoiceInk Refine is not downloaded.")
         }
     }
 }
@@ -25,8 +25,8 @@ enum WaGongRefineError: LocalizedError {
 final class WaGongRefineService: ObservableObject {
     static let shared = WaGongRefineService()
 
-    static let providerName = "Wa-Gong Refine"
-    static let modelName = "Wa-Gong Refine V1"
+    static let providerName = "VoiceInk Refine"
+    static let modelName = "VoiceInk Refine V1"
     static let systemPrompt = """
         Transform raw ASR input into polished text. Preserve the original meaning and tone. Handle punctuation, capitalization, and spoken formatting cues properly. Remove fillers, repetitions, false starts, and discarded self-corrections. Output only the final text.
         """
@@ -144,7 +144,7 @@ final class WaGongRefineService: ObservableObject {
             NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
         } catch {
             downloadError = error.localizedDescription
-            logger.error("Failed to delete Wa-Gong Refine: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to delete VoiceInk Refine: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -248,7 +248,7 @@ final class WaGongRefineService: ObservableObject {
                 downloadError = nil
             } catch {
                 downloadError = error.localizedDescription
-                logger.error("Failed to download Wa-Gong Refine: \(error.localizedDescription, privacy: .public)")
+                logger.error("Failed to download VoiceInk Refine: \(error.localizedDescription, privacy: .public)")
             }
         #else
             downloadError = WaGongRefineError.unavailable.localizedDescription

@@ -140,12 +140,12 @@
         }
       }
     },
-    "Enabled terms are sent to supported speech and text services you select. Models may limit the number of terms; see history for actual usage. Wa-Gong Refine does not use vocabulary hints." : {
+    "Enabled terms are sent to supported speech and text services you select. Models may limit the number of terms; see history for actual usage. VoiceInk Refine does not use vocabulary hints." : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "啟用的正確詞會傳給所選且支援的語音辨識與文字整理服務。模型可能限制詞數，實際採用情況請查看歷史紀錄。Wa-Gong Refine 不使用詞彙提示。"
+            "value" : "啟用的正確詞會傳給所選且支援的語音辨識與文字整理服務。模型可能限制詞數，實際採用情況請查看歷史紀錄。VoiceInk Refine 不使用詞彙提示。"
           }
         }
       }
@@ -6823,24 +6823,24 @@
         }
       }
     },
-    "Could not communicate with Wa-Gong Refine." : {
+    "Could not communicate with VoiceInk Refine." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die Kommunikation mit Wa-Gong Refine ist fehlgeschlagen."
+            "value" : "Die Kommunikation mit VoiceInk Refine ist fehlgeschlagen."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "无法与 Wa-Gong Refine 通信。"
+            "value" : "无法与 VoiceInk Refine 通信。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "無法與 Wa-Gong Refine 通信。"
+            "value" : "無法與 VoiceInk Refine 通信。"
           }
         }
       }
@@ -7379,24 +7379,24 @@
         }
       }
     },
-    "Custom prompts aren't available with Wa-Gong Refine. Select a Mode that uses another AI provider." : {
+    "Custom prompts aren't available with VoiceInk Refine. Select a Mode that uses another AI provider." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Eigene Prompts sind mit Wa-Gong Refine nicht verfügbar. Wähle einen Modus mit einem anderen KI-Anbieter."
+            "value" : "Eigene Prompts sind mit VoiceInk Refine nicht verfügbar. Wähle einen Modus mit einem anderen KI-Anbieter."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine 不支持自定义提示词。请选择使用其他 AI 提供商的模式。"
+            "value" : "VoiceInk Refine 不支持自定义提示词。请选择使用其他 AI 提供商的模式。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine 不支援自訂提示詞。請選擇使用其他 AI 供應商的模式。"
+            "value" : "VoiceInk Refine 不支援自訂提示詞。請選擇使用其他 AI 供應商的模式。"
           }
         }
       }
@@ -7916,24 +7916,24 @@
         }
       }
     },
-    "Delete Wa-Gong Refine?" : {
+    "Delete VoiceInk Refine?" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine löschen?"
+            "value" : "VoiceInk Refine löschen?"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "删除 Wa-Gong Refine？"
+            "value" : "删除 VoiceInk Refine？"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "刪除 Wa-Gong Refine？"
+            "value" : "刪除 VoiceInk Refine？"
           }
         }
       }
@@ -25043,156 +25043,156 @@
         }
       }
     },
-    "Wa-Gong Refine could not complete the enhancement." : {
+    "VoiceInk Refine could not complete the enhancement." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine konnte die Verbesserung nicht abschließen."
+            "value" : "VoiceInk Refine konnte die Verbesserung nicht abschließen."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine 无法完成润色。"
+            "value" : "VoiceInk Refine 无法完成润色。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine 無法完成潤飾。"
+            "value" : "VoiceInk Refine 無法完成潤飾。"
           }
         }
       }
     },
-    "Wa-Gong Refine could not prepare the model." : {
+    "VoiceInk Refine could not prepare the model." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine konnte das Modell nicht vorbereiten."
+            "value" : "VoiceInk Refine konnte das Modell nicht vorbereiten."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine 无法准备模型。"
+            "value" : "VoiceInk Refine 无法准备模型。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine 無法準備模型。"
+            "value" : "VoiceInk Refine 無法準備模型。"
           }
         }
       }
     },
-    "Wa-Gong Refine is not downloaded." : {
+    "VoiceInk Refine is not downloaded." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine wurde nicht heruntergeladen."
+            "value" : "VoiceInk Refine wurde nicht heruntergeladen."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "尚未下载 Wa-Gong Refine。"
+            "value" : "尚未下载 VoiceInk Refine。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "尚未下載 Wa-Gong Refine。"
+            "value" : "尚未下載 VoiceInk Refine。"
           }
         }
       }
     },
-    "Wa-Gong Refine only supports transcript cleanup." : {
+    "VoiceInk Refine only supports transcript cleanup." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine unterstützt nur die Transkriptbereinigung."
+            "value" : "VoiceInk Refine unterstützt nur die Transkriptbereinigung."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine 仅支持转录文本清理。"
+            "value" : "VoiceInk Refine 仅支持转录文本清理。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine 僅支援轉錄文字清理。"
+            "value" : "VoiceInk Refine 僅支援轉錄文字清理。"
           }
         }
       }
     },
-    "Wa-Gong Refine received an invalid request." : {
+    "VoiceInk Refine received an invalid request." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine hat eine ungültige Anfrage erhalten."
+            "value" : "VoiceInk Refine hat eine ungültige Anfrage erhalten."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine 收到了无效请求。"
+            "value" : "VoiceInk Refine 收到了无效请求。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine 收到了無效請求。"
+            "value" : "VoiceInk Refine 收到了無效請求。"
           }
         }
       }
     },
-    "Wa-Gong Refine requires an Apple silicon Mac with at least 16 GB of memory." : {
+    "VoiceInk Refine requires an Apple silicon Mac with at least 16 GB of memory." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine erfordert einen Mac mit Apple-Chip und mindestens 16 GB Arbeitsspeicher."
+            "value" : "VoiceInk Refine erfordert einen Mac mit Apple-Chip und mindestens 16 GB Arbeitsspeicher."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine 需要配备 Apple 芯片且内存至少为 16 GB 的 Mac。"
+            "value" : "VoiceInk Refine 需要配备 Apple 芯片且内存至少为 16 GB 的 Mac。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine 需要配備 Apple 晶片且記憶體至少為 16 GB 的 Mac。"
+            "value" : "VoiceInk Refine 需要配備 Apple 晶片且記憶體至少為 16 GB 的 Mac。"
           }
         }
       }
     },
-    "Wa-Gong Refine returned an invalid response." : {
+    "VoiceInk Refine returned an invalid response." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine hat eine ungültige Antwort zurückgegeben."
+            "value" : "VoiceInk Refine hat eine ungültige Antwort zurückgegeben."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine 返回了无效响应。"
+            "value" : "VoiceInk Refine 返回了无效响应。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wa-Gong Refine 回傳了無效回應。"
+            "value" : "VoiceInk Refine 回傳了無效回應。"
           }
         }
       }

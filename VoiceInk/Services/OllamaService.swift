@@ -90,17 +90,24 @@ class OllamaService: ObservableObject {
         let requestModel = (trimmedModel?.isEmpty == false ? trimmedModel : nil) ?? selectedModel
 
         do {
-            return try await OllamaClient.generate(
-                baseURL: url,
-                model: requestModel,
-                prompt: text,
-                systemPrompt: systemPrompt,
-                temperature: defaultTemperature,
-                think: false,
-                timeout: timeout
+            return try await OllamaRefinementClient.generate(
+                baseURL: url, model: requestModel, prompt: text, system: systemPrompt,
+                temperature: defaultTemperature, timeout: timeout
             )
-        } catch let error as LLMKitError {
-            throw mapLLMKitError(error)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as URLError {
+            if error.code == .cancelled { throw CancellationError() }
+            if error.code == .timedOut { throw LocalAIError.timeout }
+            throw LocalAIError.serviceUnavailable
+        } catch let error as OllamaRefinementError {
+            switch error {
+            case .httpStatus(404): throw LocalAIError.modelNotFound
+            case .httpStatus(500): throw LocalAIError.serverError
+            case .inputTooLong: throw LocalAIError.inputTooLong
+            case .invalidRequest: throw LocalAIError.invalidRequest
+            default: throw LocalAIError.invalidResponse
+            }
         }
     }
 
@@ -133,6 +140,8 @@ enum LocalAIError: Error, LocalizedError {
     case invalidResponse
     case modelNotFound
     case serverError
+    case cleanupProtectionFailed
+    case inputTooLong
     case invalidRequest
     case timeout
 
@@ -148,6 +157,10 @@ enum LocalAIError: Error, LocalizedError {
             return String(localized: "Selected model not found")
         case .serverError:
             return String(localized: "Ollama server error")
+        case .cleanupProtectionFailed:
+            return String(localized: "Local cleanup changed protected words or language. The original transcript is preserved.")
+        case .inputTooLong:
+            return String(localized: "Text exceeds the local model input limit. Use a shorter recording.")
         case .invalidRequest:
             return String(localized: "System prompt is required")
         case .timeout:

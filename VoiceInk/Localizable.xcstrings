@@ -1,6 +1,8 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Local cleanup changed protected words or language. The original transcript is preserved." : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "本機整理改變了受保護的詞語或語言，已保留原始轉錄。"}}}},
+    "Text exceeds the local model input limit. Use a shorter recording." : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "文字超過本機模型的輸入上限，請使用較短的錄音。"}}}},
     "The speech model reached its output limit. Try a shorter recording" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "語音模型已達輸出上限，請改用較短的錄音。"}}}},
     "The local speech model is busy. Wait for the current request to finish" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "本機語音模型忙碌中，請等目前的請求結束後再試。"}}}},
     "This local speech service accepts WAV recordings up to 30 seconds" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "這個本機語音服務只接受最長 30 秒的 WAV 錄音。"}}}},

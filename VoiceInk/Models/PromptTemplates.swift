@@ -129,6 +129,10 @@ enum PromptTemplates {
         Set(all.map(\.id))
     }
 
+    static func isUnmodifiedDefaultCleanup(_ prompt: CustomPrompt) -> Bool {
+        prompt.id == defaultPromptId && prompt.promptText == defaultPrompt.promptText && prompt.useSystemInstructions
+    }
+
     static func isBuiltInPrompt(id: UUID) -> Bool {
         builtInPromptIDs.contains(id)
     }

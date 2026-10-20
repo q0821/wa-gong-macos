@@ -2,9 +2,10 @@ import Foundation
 import LLMkit
 
 struct ReasoningConfig {
-    // Gemini 3.1 Pro Preview does not support "minimal".
+    // Gemini 3.1 Pro Preview and 3.8 Flash reject "minimal".
     static let geminiLowThinkingModels: Set<String> = [
         "gemini-3.1-pro-preview",
+        "gemini-3.8-flash",
     ]
 
     // These models support "minimal", optimized for low-latency instruction following.

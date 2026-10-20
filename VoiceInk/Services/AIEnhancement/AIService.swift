@@ -137,6 +137,7 @@ enum AIProvider: String, CaseIterable {
         case .gemini:
             return [
                 "gemini-3.6-flash",
+                "gemini-3.8-flash",
                 "gemini-3.5-flash-lite",
                 "gemini-3.5-flash",
                 "gemini-3.1-pro-preview",
@@ -146,6 +147,7 @@ enum AIProvider: String, CaseIterable {
         case .anthropic:
             return [
                 "claude-sonnet-5",
+                "claude-haiku-5-5",
                 "claude-haiku-4-5",
             ]
         case .openAI:

@@ -1,0 +1,56 @@
+{
+  "ollama": {
+    "url": "https://github.com/ollama/ollama/releases/download/v0.40.5/ollama-darwin.tgz",
+    "filename": "ollama-darwin-v0.40.5.tgz",
+    "bytes": 174448498,
+    "sha256": "75f9907dafa2fd4c61b5967de2ebb81ccc17eb28da9172edbad0dbc717474dcf"
+  },
+  "qwen": {
+    "url": "https://huggingface.co/handy-computer/Qwen3-ASR-0.6B-gguf/resolve/28c66fba077f1359a42b52c55b618a24cdb6e0e7/Qwen3-ASR-0.6B-Q8_0.gguf",
+    "filename": "Qwen3-ASR-0.6B-Q8_0.gguf",
+    "bytes": 850423456,
+    "sha256": "f081b2d5e23bd669d92cc331d722a8a0681943b8e6f34b48996fd5c319b5acd8"
+  },
+  "tea": {
+    "url": "https://huggingface.co/mukiwu/TEA-ASR-1.1-transcribe-gguf/resolve/83f5b0668c4718db9f16e43940c83bef7e61df61/TEA-ASR-1.1-Q6_K.gguf",
+    "filename": "TEA-ASR-1.1-Q6_K.gguf",
+    "bytes": 1692286464,
+    "sha256": "2417fa52d49f852bfc11704190e10ddb681c343a661a3a3d1bb213876c780b68"
+  },
+  "ollama-layer-0": {
+    "url": "https://registry.ollama.ai/v2/library/qwen3.5/blobs/sha256:08f9698c1116d2ba3d2c1751f6e98919823e13bb28ff5eb7451c7bc9b40907c5",
+    "filename": "sha256-08f9698c1116d2ba3d2c1751f6e98919823e13bb28ff5eb7451c7bc9b40907c5",
+    "bytes": 177,
+    "sha256": "08f9698c1116d2ba3d2c1751f6e98919823e13bb28ff5eb7451c7bc9b40907c5"
+  },
+  "ollama-layer-1": {
+    "url": "https://registry.ollama.ai/v2/library/qwen3.5/blobs/sha256:f836f08f921193f4d6b6a6952dba0a6fb116759d26a757bcb395d570d73976ca",
+    "filename": "sha256-f836f08f921193f4d6b6a6952dba0a6fb116759d26a757bcb395d570d73976ca",
+    "bytes": 921704832,
+    "sha256": "f836f08f921193f4d6b6a6952dba0a6fb116759d26a757bcb395d570d73976ca"
+  },
+  "ollama-layer-2": {
+    "url": "https://registry.ollama.ai/v2/library/qwen3.5/blobs/sha256:02d45dc1cf451ba2475ac33b301c2dd8f985abe4c182ce04a1f2f5bf0260278d",
+    "filename": "sha256-02d45dc1cf451ba2475ac33b301c2dd8f985abe4c182ce04a1f2f5bf0260278d",
+    "bytes": 5629109120,
+    "sha256": "02d45dc1cf451ba2475ac33b301c2dd8f985abe4c182ce04a1f2f5bf0260278d"
+  },
+  "ollama-layer-3": {
+    "url": "https://registry.ollama.ai/v2/library/qwen3.5/blobs/sha256:b507b9c2f6ca642bffcd06665ea7c91f235fd32daeefdf875a0f938db05fb315",
+    "filename": "sha256-b507b9c2f6ca642bffcd06665ea7c91f235fd32daeefdf875a0f938db05fb315",
+    "bytes": 13,
+    "sha256": "b507b9c2f6ca642bffcd06665ea7c91f235fd32daeefdf875a0f938db05fb315"
+  },
+  "ollama-layer-4": {
+    "url": "https://registry.ollama.ai/v2/library/qwen3.5/blobs/sha256:50cbab8a892c5f2993b8c7351a99182507472def3b1374558308605d99b86b32",
+    "filename": "sha256-50cbab8a892c5f2993b8c7351a99182507472def3b1374558308605d99b86b32",
+    "bytes": 11343,
+    "sha256": "50cbab8a892c5f2993b8c7351a99182507472def3b1374558308605d99b86b32"
+  },
+  "ollama-layer-5": {
+    "url": "https://registry.ollama.ai/v2/library/qwen3.5/blobs/sha256:9371364b27a52acac9d87f88bd93c9db1174d8d6ec57f6888925cdc1788871ff",
+    "filename": "sha256-9371364b27a52acac9d87f88bd93c9db1174d8d6ec57f6888925cdc1788871ff",
+    "bytes": 65,
+    "sha256": "9371364b27a52acac9d87f88bd93c9db1174d8d6ec57f6888925cdc1788871ff"
+  }
+}

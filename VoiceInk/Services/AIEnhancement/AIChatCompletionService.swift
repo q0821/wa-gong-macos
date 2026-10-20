@@ -62,17 +62,17 @@ extension AIService {
         let result: String
         switch provider {
         case .gemini:
-            result = try await GeminiLLMClient.chatCompletion(
+            result = try await NativeRefinementClient.chatCompletion(
+                provider: provider,
                 apiKey: try chatAPIKey(for: provider, modelName: resolvedModel),
                 model: resolvedModel,
                 messages: messages,
                 systemPrompt: systemPrompt,
-                thinkingLevel: ReasoningConfig.geminiThinkingLevel(for: resolvedModel),
-                store: false,
                 timeout: timeout
             )
         case .anthropic:
-            result = try await AnthropicLLMClient.chatCompletion(
+            result = try await NativeRefinementClient.chatCompletion(
+                provider: provider,
                 apiKey: try chatAPIKey(for: provider, modelName: resolvedModel),
                 model: resolvedModel,
                 messages: messages,

@@ -127,7 +127,7 @@ commit 必須包含 `Co-Authored-By:` 與 `Human-Review: 僅下指令`，除非�
 - `tools/taiwan-asr/verify_service.py`
 - `tools/taiwan-asr/verify_transport.swift`
 
-## 排除並保留原狀
+## 模型提交階段先行排除的項目（後續處理見文末）
 
 - `AGENTS.md`
 - `CLAUDE.md`
@@ -165,3 +165,17 @@ commit 必須包含 `Co-Authored-By:` 與 `Human-Review: 僅下指令`，除非�
 - Python ASR 工具測試：`/tmp/wagong-model-batch-python-asr-tests.log`。
 - Python GGUF 工具測試：`/tmp/wagong-model-batch-python-local-tests.log`。
 - 本機 commit 均附 `Co-Authored-By: Codex <noreply@openai.com>` 與 `Human-Review: 僅下指令`。
+
+## 剩餘項目納入版控（2026-10-21）
+
+使用者已授權修正剩餘版控項目。鍵盤來源配對與狀態診斷、專案規則現已分批提交；`default.profraw` 停止追蹤，實際本機檔案仍保留，`*.profraw` 與 `*.profdata` 由 `.gitignore` 排除。
+
+- `654dda0`：fix: 保守處理 USB 快速鍵的延遲來源配對。
+- `5eefc27`：feat: 補齊鍵盤監控與裝置綁定診斷。
+- `eb93581`：chore: 納入共用專案代理規則入口。
+
+含鍵盤修改的完整候選來源未簽署建置通過，隔離契約測試 57 項、11 suites 通過，未啟動 App 宿主或替換目前 App。來源與測試日誌見 `docs/USB_SHORTCUT_FIX.md`。
+
+本機 commit 均附 AI 協作與 `Human-Review: 僅下指令`。未 push、merge 或發布。規則內容保持原樣，只納入版控，未以本輪檔案核對代替 Claude Code／Codex 各自新主 session 的生效驗收。
+
+同一把 USB 鍵盤、完整錄音與跨 App 交付仍待實機驗收；Gemini 逾時、Claude 輸出污染與模型清單改版待辦仍未修正。

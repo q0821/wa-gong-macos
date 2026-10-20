@@ -8,6 +8,10 @@ xcuserdata/
 ## Obj-C/Swift specific
 *.hmap
 
+# LLVM profiling and test coverage output is generated locally.
+*.profraw
+*.profdata
+
 ## App packaging
 *.ipa
 *.dSYM.zip

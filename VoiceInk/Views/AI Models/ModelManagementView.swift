@@ -30,6 +30,8 @@ struct ModelManagementView: View {
     @StateObject private var customAIProviderManager = CustomAIProviderManager.shared
     @ObservedObject private var warmupCoordinator = WhisperModelWarmupCoordinator.shared
     @ObservedObject private var waGongRefineService = WaGongRefineService.shared
+    @ObservedObject private var transcribeCppModelManager = TranscribeCppModelManager.shared
+    @AppStorage("LocalSpeechModelCatalogFilter") private var localSpeechFilterValue = "chinese"
 
     @State private var selectedFilter: ModelFilter = .local
     @State private var activePanel: ModelManagementPanel?
@@ -242,11 +244,26 @@ struct ModelManagementView: View {
     }
 
     private var localModelsSection: some View {
-        VStack(spacing: 12) {
-            WaGongRefineModelCardView(
-                service: waGongRefineService,
-                deleteAction: confirmDeleteWaGongRefineModel
-            )
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Speech recognition models")
+                .font(.headline)
+
+            Picker("Speech model filter", selection: Binding(
+                get: { localSpeechFilter },
+                set: { localSpeechFilterValue = $0.rawValue }
+            )) {
+                ForEach(LocalSpeechModelFilter.allCases) { filter in
+                    Text(filter.title).tag(filter)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            if localModels.isEmpty {
+                Text("No speech models match this filter. Choose All speech models to browse available models.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 12)
+            }
 
             ForEach(appleSpeechModels, id: \.id) { model in
                 localModelCard(model)
@@ -257,6 +274,15 @@ struct ModelManagementView: View {
             }
 
             importLocalModelButton
+
+            Text("Text cleanup models")
+                .font(.headline)
+                .padding(.top, 12)
+
+            WaGongRefineModelCardView(
+                service: waGongRefineService,
+                deleteAction: confirmDeleteWaGongRefineModel
+            )
 
             LocalEnhancementServiceManagementView()
                 .environmentObject(aiService)
@@ -352,6 +378,26 @@ struct ModelManagementView: View {
             ($0.provider == .whisper || $0.provider == .nativeApple || $0.provider == .fluidAudio
                 || $0.provider == .transcribeCpp)
                 && transcriptionModelManager.isAvailableOnCurrentOS($0)
+                && localSpeechFilter.includes($0, isInstalled: isLocalModelInstalled($0))
+        }
+    }
+
+    private var localSpeechFilter: LocalSpeechModelFilter {
+        LocalSpeechModelFilter(storedValue: localSpeechFilterValue)
+    }
+
+    private func isLocalModelInstalled(_ model: any TranscriptionModel) -> Bool {
+        switch model.provider {
+        case .whisper:
+            return whisperModelManager.availableModels.contains { $0.name == model.name }
+        case .fluidAudio:
+            return fluidAudioModelManager.isFluidAudioModelDownloaded(named: model.name)
+        case .transcribeCpp:
+            return transcribeCppModelManager.isModelDownloaded(named: model.name)
+        case .nativeApple:
+            return transcriptionModelManager.isAvailableOnCurrentOS(model)
+        default:
+            return false
         }
     }
 

@@ -1,6 +1,13 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Supports Chinese" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "支援中文"}}}},
+    "Installed speech models" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "已安裝"}}}},
+    "All speech models" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "全部模型"}}}},
+    "Speech model filter" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "語音模型篩選"}}}},
+    "Speech recognition models" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "語音辨識模型"}}}},
+    "Text cleanup models" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "文字整理模型"}}}},
+    "No speech models match this filter. Choose All speech models to browse available models." : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "沒有符合此篩選的語音模型，請切換至「全部模型」查看其他選項。"}}}},
     "Delivering transcript…" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "正在交付文字…"}}}},
     "TEA requires an Apple silicon Mac." : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "TEA 需要搭載 Apple 晶片的 Mac。"}}}},
     "Download or import the TEA model first." : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "請先下載或匯入 TEA 模型。"}}}},

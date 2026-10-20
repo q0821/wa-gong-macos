@@ -42,8 +42,9 @@ struct TranscribeCppModelArtifact: Sendable {
         let checksumURL = directory.appendingPathComponent(".\(fileName).sha256", isDirectory: false)
 
         guard
-            let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+            let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]),
             values.isRegularFile == true,
+            values.isSymbolicLink != true,
             let size = values.fileSize,
             Int64(size) == expectedFileSize
         else {
@@ -81,6 +82,16 @@ struct TranscribeCppModelArtifact: Sendable {
 }
 
 enum TranscribeCppModelCatalog {
+    static let tea = TranscribeCppModelArtifact(
+        modelName: "tea-asr-1.1-q6-k", fileName: "TEA-ASR-1.1-Q6_K.gguf",
+        repository: "mukiwu/TEA-ASR-1.1-transcribe-gguf",
+        repositoryRevision: "83f5b0668c4718db9f16e43940c83bef7e61df61",
+        expectedFileSize: 1_692_286_464,
+        expectedSHA256: "2417fa52d49f852bfc11704190e10ddb681c343a661a3a3d1bb213876c780b68",
+        architectureHint: "qwen3_asr", maximumChunkSeconds: 30,
+        boundarySearchSeconds: 0, boundaryEnergyWindowSamples: 0
+    )
+
     static let cohereTranscribe = TranscribeCppModelArtifact(
         modelName: "cohere-transcribe",
         fileName: "cohere-transcribe-03-2026-Q4_K_M.gguf",
@@ -95,7 +106,8 @@ enum TranscribeCppModelCatalog {
     )
 
     private static let artifactsByModelName = [
-        cohereTranscribe.modelName: cohereTranscribe
+        cohereTranscribe.modelName: cohereTranscribe,
+        tea.modelName: tea
     ]
 
     static func artifact(for modelName: String) -> TranscribeCppModelArtifact? {

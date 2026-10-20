@@ -141,9 +141,9 @@ struct TranscribeCppModel: TranscriptionModel, Sendable {
     let description: String
     let provider: ModelProvider = .transcribeCpp
     let size: String
-    let speed: Double
-    let accuracy: Double
-    let ramUsage: Double
+    let speed: Double?
+    let accuracy: Double?
+    let ramUsage: Double?
     let publisher: String
     let supportedLanguages: [String: String]
 

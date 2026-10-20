@@ -1,8 +1,13 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct TranscribeCppModelCardView: View {
     let model: TranscribeCppModel
     @ObservedObject private var modelManager = TranscribeCppModelManager.shared
+    @State private var importingTEA = false
+    @State private var confirmingTEADeletion = false
+    @State private var importError: String?
+    private var isTEA: Bool { model.name == TranscribeCppModelCatalog.tea.modelName }
 
     private var isDownloaded: Bool { modelManager.isModelDownloaded(model) }
     private var isDownloading: Bool { modelManager.isModelDownloading(model) }
@@ -28,16 +33,18 @@ struct TranscribeCppModelCardView: View {
                 HStack(spacing: 12) {
                     Label(model.language, systemImage: "globe")
                     Label(model.size, systemImage: "internaldrive")
-                    HStack(spacing: 3) {
+                    if let speed = model.speed { HStack(spacing: 3) {
                         Text("Speed")
-                        progressDotsWithNumber(value: model.speed * 10)
+                        progressDotsWithNumber(value: speed * 10)
                     }
                     .fixedSize(horizontal: true, vertical: false)
-                    HStack(spacing: 3) {
+                    }
+                    if let accuracy = model.accuracy { HStack(spacing: 3) {
                         Text("Accuracy")
-                        progressDotsWithNumber(value: model.accuracy * 10)
+                        progressDotsWithNumber(value: accuracy * 10)
                     }
                     .fixedSize(horizontal: true, vertical: false)
+                    }
                 }
                 .font(.system(size: 11))
                 .foregroundColor(Color(.secondaryLabelColor))
@@ -46,18 +53,49 @@ struct TranscribeCppModelCardView: View {
                 Text(model.description)
                     .font(.system(size: 11))
                     .foregroundColor(Color(.secondaryLabelColor))
-                    .lineLimit(2)
+                    .lineLimit(isTEA ? nil : 2)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 4)
 
                 progressSection
+                if isTEA {
+                    #if !arch(arm64)
+                    Text("TEA requires an Apple silicon Mac.").font(.caption).foregroundStyle(.secondary)
+                    #endif
+                    Text("TEA: on-device recognition, up to 30 seconds. Optional cloud cleanup sends transcript text to your selected provider.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Text("MIT (TEA adaptation); Apache-2.0 (Qwen base). GGUF conversion by mukiwu.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                    if let error = modelManager.teaInstallError ?? importError {
+                        Text(error).font(.caption).foregroundStyle(.red)
+                    }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             actionSection
+                .disabled(isTEA && !Self.supportsTEA)
         }
         .padding(16)
         .background(AppMaterialCardBackground())
+        .fileImporter(isPresented: $importingTEA, allowedContentTypes: [.data]) { result in
+            switch result {
+            case .success(let url): Task { await modelManager.installTEA(source: url) }
+            case .failure:
+                importError = String(localized: "Could not open the selected TEA model file.")
+            }
+        }
+        .confirmationDialog("Delete TEA model?", isPresented: $confirmingTEADeletion) {
+            Button("Delete Model", role: .destructive) { modelManager.deleteModel(model) }
+        }
+    }
+
+    private static var supportsTEA: Bool {
+        #if arch(arm64)
+        true
+        #else
+        false
+        #endif
     }
 
     @ViewBuilder
@@ -98,7 +136,8 @@ struct TranscribeCppModelCardView: View {
 
                 Menu {
                     Button(role: .destructive) {
-                        modelManager.deleteModel(model)
+                        if isTEA { confirmingTEADeletion = true }
+                        else { modelManager.deleteModel(model) }
                     } label: {
                         Label("Delete Model", systemImage: "trash")
                     }
@@ -116,6 +155,13 @@ struct TranscribeCppModelCardView: View {
                 .menuIndicator(.hidden)
                 .frame(width: 20, height: 20)
             } else {
+                if isTEA, isDownloading {
+                    Button("Cancel") { modelManager.cancelTEAInstallation() }
+                }
+                if isTEA, !isDownloading {
+                    Button("Import TEA Model…") { importingTEA = true; importError = nil }
+                        .accessibilityLabel("Import downloaded TEA GGUF model")
+                }
                 Button {
                     Task { await modelManager.downloadModel(model) }
                 } label: {

@@ -34,10 +34,10 @@ source_fingerprint() {
             git rev-parse HEAD
             printf 'TRACKED\0'
             git diff --binary HEAD -- \
-                VoiceInk Shared VoiceInk.xcodeproj LocalBuild.xcconfig Makefile scripts/test-app.sh
+                VoiceInk Shared TEAWorker VoiceInk.xcodeproj LocalBuild.xcconfig Makefile scripts/test-app.sh
             printf 'UNTRACKED\0'
             git ls-files --others --exclude-standard -z -- \
-                VoiceInk Shared VoiceInk.xcodeproj LocalBuild.xcconfig Makefile scripts/test-app.sh |
+                VoiceInk Shared TEAWorker VoiceInk.xcodeproj LocalBuild.xcconfig Makefile scripts/test-app.sh |
                 while IFS= read -r -d '' file; do
                     printf '%s\0' "$file"
                     if [ -L "$file" ]; then

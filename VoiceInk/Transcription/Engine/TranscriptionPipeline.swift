@@ -315,6 +315,11 @@ class TranscriptionPipeline {
             return
         }
 
+        let isTEA = transcriptionConfiguration.model.name == TranscribeCppModelCatalog.tea.modelName
+        if isTEA, transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue {
+            TEARuntimePhase.delivering.publish()
+        }
+        let deliveryStart = ContinuousClock.now
         await delivery.deliver(
             TranscriptionDelivery.Request(
                 transcription: transcription,
@@ -346,6 +351,10 @@ class TranscriptionPipeline {
             return
         }
 
+        if isTEA {
+            TEARuntimePhase.ready.publish()
+            logger.notice("TEA output delivery elapsed=\(deliveryStart.duration(to: .now).formatted(.units(allowed: [.seconds])), privacy: .public)")
+        }
         saveTranscriptionAndPostCompletion()
     }
 

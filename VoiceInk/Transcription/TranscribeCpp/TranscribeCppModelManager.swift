@@ -279,6 +279,8 @@ final class TranscribeCppModelManager: ObservableObject {
     var onModelsChanged: (() -> Void)?
 
     private var activeDownloadIDs: [String: UUID] = [:]
+    private var teaInstallTask: Task<Void, Error>?
+    @Published private(set) var teaInstallError: String?
     private let logger = Logger(
         subsystem: "com.jackie-yeh.wagong",
         category: "TranscribeCppModelManager"
@@ -303,6 +305,10 @@ final class TranscribeCppModelManager: ObservableObject {
     }
 
     func downloadModel(_ model: TranscribeCppModel) async {
+        if model.name == TranscribeCppModelCatalog.tea.modelName {
+            await installTEA(source: nil)
+            return
+        }
         guard
             let artifact = TranscribeCppModelCatalog.artifact(for: model.name),
             activeDownloadIDs[model.name] == nil,
@@ -451,6 +457,40 @@ final class TranscribeCppModelManager: ObservableObject {
             }
         }
     }
+
+    func installTEA(source: URL?) async {
+        let name = TranscribeCppModelCatalog.tea.modelName
+        guard activeDownloadIDs[name] == nil else { return }
+        let id = UUID()
+        activeDownloadIDs[name] = id
+        teaInstallError = nil
+        downloadStatuses[name] = .init(fractionCompleted: 0, message: String(localized: "Verifying and installing TEA..."), isIndeterminate: source != nil)
+        let task = Task {
+            try await TEAModelInstaller.install(source: source) { [weak self] fraction in
+                Task { @MainActor in
+                    guard self?.activeDownloadIDs[name] == id else { return }
+                    self?.downloadStatuses[name] = .init(fractionCompleted: fraction,
+                        message: String(localized: "Downloading and verifying TEA..."), isIndeterminate: fraction >= 0.99)
+                }
+            }
+        }
+        teaInstallTask = task
+        defer {
+            teaInstallTask = nil
+            activeDownloadIDs[name] = nil
+            downloadStatuses[name] = nil
+            onModelsChanged?()
+        }
+        do { try await task.value }
+        catch is CancellationError { return }
+        catch {
+            if task.isCancelled { return }
+            logger.error("TEA installation failed; no source URL or file content logged")
+            teaInstallError = String(localized: "TEA installation failed. Check free disk space and import or download the correct model again.")
+        }
+    }
+
+    func cancelTEAInstallation() { teaInstallTask?.cancel() }
 
     func deleteModel(_ model: TranscribeCppModel) {
         guard let artifact = TranscribeCppModelCatalog.artifact(for: model.name) else { return }

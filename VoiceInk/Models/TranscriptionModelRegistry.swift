@@ -2,6 +2,15 @@ import Foundation
 
 enum TranscriptionModelRegistry {
 
+    static let teaModel = TranscribeCppModel(
+        name: TranscribeCppModelCatalog.tea.modelName,
+        displayName: "TEA-ASR 1.1",
+        description: String(localized: "Taiwan Mandarin recognition on your Mac. Chinese and English, up to 30 seconds. Original: JacobLinCool/TEA-ASR-1.1; GGUF conversion: mukiwu."),
+        size: "1.69 GB", speed: nil, accuracy: nil, ramUsage: nil,
+        publisher: "TEA-ASR contributors / mukiwu",
+        supportedLanguages: ["auto": "Auto-detect", "zh": "Chinese", "en": "English"]
+    )
+
     static var models: [any TranscriptionModel] {
         return predefinedModels + CustomCloudModelManager.shared.customModels
     }
@@ -85,6 +94,8 @@ enum TranscriptionModelRegistry {
                 publisher: "Cohere",
                 supportedLanguages: LanguageDictionary.cohereTranscribe
             ),
+
+            teaModel,
 
             // Local Models
             WhisperModel(

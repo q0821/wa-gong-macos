@@ -76,6 +76,7 @@ struct StaticVisualizer: View {
 // MARK: - Processing Status Display
 
 struct ProcessingStatusDisplay: View {
+    @ObservedObject private var teaActivity = TEARuntimeActivity.shared
     enum Mode {
         case transcribing
         case enhancing
@@ -85,8 +86,14 @@ struct ProcessingStatusDisplay: View {
     let color: Color
 
     private var label: LocalizedStringKey {
+        if teaActivity.phase == .delivering { return "Delivering transcript…" }
         switch mode {
-        case .transcribing: return "Transcribing"
+        case .transcribing:
+            switch teaActivity.phase {
+            case .loading: return "Loading TEA…"
+            case .recognizing: return "Recognizing with TEA…"
+            default: return "Transcribing"
+            }
         case .enhancing: return "Enhancing"
         }
     }

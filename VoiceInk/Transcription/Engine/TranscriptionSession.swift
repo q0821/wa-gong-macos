@@ -32,6 +32,7 @@ final class FileTranscriptionSession: TranscriptionSession {
     private(set) var vocabularyDiagnostics: VocabularyDiagnostics?
     private var model: (any TranscriptionModel)?
     private var context: TranscriptionRequestContext = .currentDefaults
+    private var teaPreparation: Task<Void, Error>?
 
     init(service: TranscriptionService, vocabularySnapshot: VocabularySnapshot = .empty) {
         self.service = service
@@ -40,6 +41,9 @@ final class FileTranscriptionSession: TranscriptionSession {
 
     func prepare(configuration: TranscriptionRuntimeConfiguration) async throws -> ((Data) -> Void)? {
         self.model = configuration.model
+        if configuration.model.name == TranscribeCppModelCatalog.tea.modelName {
+            teaPreparation = Task { try await TEARuntimeManager.shared.prepare() }
+        }
         let scopedContext = configuration.requestContext.withVocabulary(vocabularySnapshot).scoped(to: configuration.model)
         self.context = configuration.model.provider == .whisper
             ? scopedContext.appendingCustomVocabulary(VocabularyPolicy.recognition(vocabularySnapshot, provider: configuration.model.provider, model: configuration.model.name).terms)
@@ -51,13 +55,21 @@ final class FileTranscriptionSession: TranscriptionSession {
         guard let model = model else {
             throw WaGongEngineError.transcriptionFailed
         }
+        if model.name == TranscribeCppModelCatalog.tea.modelName {
+            try await teaPreparation?.value
+            try Task.checkCancellation()
+        }
         vocabularyDiagnostics = VocabularyDiagnostics(snapshot: vocabularySnapshot,
             recognition: VocabularyPolicy.recognition(vocabularySnapshot, provider: model.provider, model: model.name))
         return try await service.transcribe(audioURL: audioURL, model: model, context: context)
     }
 
     func cancel() {
-        // No-op for file-based transcription
+        if model?.name == TranscribeCppModelCatalog.tea.modelName {
+            teaPreparation?.cancel()
+            teaPreparation = nil
+            Task { await TEARuntimeManager.shared.cancel() }
+        }
     }
 }
 

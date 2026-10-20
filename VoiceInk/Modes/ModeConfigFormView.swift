@@ -229,6 +229,10 @@ struct ModeConfigFormView: View {
             }
 
             languagePicker
+            if draft.selectedTranscriptionModelName == TranscribeCppModelCatalog.tea.modelName {
+                Text("TEA recognizes Chinese and English on your Mac. Recordings must be 30 seconds or shorter.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
 
             ExpandableSettingsRow(
                 title: "Transcription Formatting",
@@ -405,6 +409,11 @@ struct ModeConfigFormView: View {
 
                 if let provider = configuredSelectedAIProvider {
                     aiModelPicker(for: provider)
+                    if draft.selectedTranscriptionModelName == TranscribeCppModelCatalog.tea.modelName,
+                       provider == .gemini || provider == .anthropic {
+                        Text("Audio is recognized on this Mac. Transcript text is sent to your selected cloud cleanup provider.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     if provider != .waGongRefine {
                         promptPicker
                         contextAwarenessRow

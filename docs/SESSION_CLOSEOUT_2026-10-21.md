@@ -1,5 +1,43 @@
 # 本次收尾與候選提交範圍（2026-10-21）
 
+## 最後交接：正式位置替換與模型清理
+
+本節依本機收據記錄 2026-10-21 已執行的結果；以下各節保留分批提交時的歷史狀態。「未重裝／未 push」等舊敘述不代表本節之後的狀態。
+
+### 安裝與驗證範圍
+
+- 正式位置：`/Applications/Wa-Gong.app`，版本 1.0.1，Build ID `LOCAL-20261020T183055Z-0eb0cd9`。
+- 原始碼：`0eb0cd9327884b68bfc271cb8facab06eb76c30c`，來源指紋 `ad32efa0472264fd23c81462d2be2d9947e8940c9b85d995c6de51f9bf47c673`。後續文件提交不改變 App 程式碼。
+- 選用正常 Release，未使用 `LOCAL_BUILD`；既有 Developer ID 與 Team `8N33V8XXTX`、Bundle ID `com.jackie-yeh.wagong` 保持不變。簽章不附時間戳，未提交公證，不宣稱可公開發布。
+- 最終收據查證時間 `2026-10-21T02:41:59+08:00`：僅正式 App 執行，測試 App 關閉。主 App 的 `codesign --verify --deep --strict` 通過；helper manifest／Team 通過，最終 entitlements 與原正式版完全相同，包含 Production iCloud 與既有 Keychain 群組。這些檢查不代表雲端同步或真實 Provider 已驗收。
+- 實際安裝的 helper 在網路拒絕 sandbox 與私有 pipe 中成功載入保留的 TEA，完成回收；此探針未錄音、未辨識、未呼叫雲端，雲端請求數為 0。
+- 提交來源的測試版完整宿主測試為 243 項：241 通過、0 失敗、2 項既有略過。報告 `.local-build/Logs/Test/Test-VoiceInk-2026.10.21_02-19-08-+0800.xcresult`；日誌 `/tmp/wagong-committed-test-app-install-20261021.log`。正式 Release 建置另通過，日誌 `/tmp/wagong-production-build-20261021.log`。
+- Release 首輪因建置指令錯誤清空 Swift compilation conditions，造成套件編譯失敗；移除該覆寫後成功，未修改套件或原始碼。失敗紀錄保留於 `/tmp/wagong-production-build-20261021-failed-flags.log`。
+
+### 備份與保留決策
+
+- 原正式 App 保留為 `/Applications/.Wa-Gong.previous-20261021.app`；獨立備份 `.local-build/production-replacement-20261021/backup/Wa-Gong.app`，原 Build ID `LOCAL-20261005T004831Z-2042dbc`。兩者 strict 簽章驗證通過。
+- 已從備份建立還原副本，比對 executable SHA／Build ID 與驗證簽章；交換及反向復原流程在拋棄式 App 副本實測。正式 App 啟動成功，未執行實際回滾。測試用副本已移除，兩份真正備份仍保留。
+- 保留正式 App 備份，否決為回收空間直接刪除，因為仍需提供可驗證的前版產物。
+- 操作收據 `.local-build/production-replacement-20261021/metadata.json` 與 `model-cleanup-receipt.json` 保留本機，不進 Git；簽署設定與 profile 也不納入版控。
+
+### 模型清理結果
+
+本輪在正式 helper 載入保留模型成功後，依使用者授權移除以下兩檔。刪除前以已知開啟檔案驗證量測方法，再核對來源未被開啟。
+
+| 移除檔案（相對專案） | bytes | 原因 |
+| --- | ---: | --- |
+| `tools/local-model-probe/.runtime/TEA-ASR-1.1-Q6_K.gguf` | 1,692,286,464 | 與 App 管理模型完整 SHA-256 相同的重複檔案 |
+| `tools/local-model-probe/.runtime/Qwen3-ASR-0.6B-Q8_0.gguf` | 850,423,456 | 現有模式未引用，使用者已選擇本機 TEA 搭配雲端整理 |
+
+合計 2,542,709,920 bytes，約 2.54 GB。保留 `~/Library/Application Support/com.jackie-yeh.wagong/TranscribeCpp/tea-asr-1.1-q6-k/TEA-ASR-1.1-Q6_K.gguf`，SHA-256 `2417fa52d49f852bfc11704190e10ddb681c343a661a3a3d1bb213876c780b68`。共用 FluidAudio Parakeet 快取約 461 MiB 保留，因為尚未確定其他 App 的使用情況；未刪除錄音、歷史、設定或金鑰。這輪不同於先前約 12.8 GiB 的 Ollama／舊 ASR 快取清理。
+
+### 本次文件收尾與未結案
+
+本次只修改 `handoff.md` 與本文件，再依「收尾」授權提交並推送 `origin` 的 `feat/local-tea-model-workflow`。不合併／推送 `main`，不建立 PR 或發布。本次未更動 App 原始碼，未重跑完整測試；以差異檢查及操作收據核對文件。
+
+仍未結案：Gemini 逾時根因與錄音整理接線、Claude 額外說明放行、模型選單精簡，以及 Majestouch USB 右 Control／真實錄音／取消／休眠／VoiceOver／跨 App 交付與品質效能實機驗收。各項重啟條件見 `handoff.md` 及雲端整理 Issue，不把本次安裝或測試成功視為以上問題已解決。
+
 ## 分批提交前狀態
 
 - 分支：`main`，HEAD `06a876d45730ea3373292bf191b498c8d4602e17`。

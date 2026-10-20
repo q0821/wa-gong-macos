@@ -2,13 +2,17 @@
 
 更新日期：2026-10-21。原始測試交接為 2026-10-16，以下新增最新進度；舊章節保留當時狀態，不代表目前服務是否正在執行。
 
-## 收尾與待辦（2026-10-21）
+## 目前交接狀態（2026-10-21）
 
-- 分批提交前的收尾查核：`scripts/test-app.sh status` 仍為 `CURRENT`、`Running: MATCH`，Build ID `T-20261020-153150-124F8A70`。最近完整測試為 241 通過、0 失敗、2 項既有略過，本次只補文件，未重跑或將舊測試冒充新測試。
-- 使用者回報 Gemini 整理約 30 秒後失敗。metadata 已確認兩次 `gemini-3.8-flash` 約 20.6／20.9 秒逾時，TEA 轉錄等待約 9／2 秒。改用 Claude 後回報可回應，但一筆夾入額外英文說明，後續短句較正常。完整證據、接線缺口與未修項目見 [雲端文字整理問題](docs/issues/雲端文字整理逾時與輸出污染.md)。不記錄完整轉錄或私人資料。
-- 模型清單：使用者回報加上中文篩選後仍雜亂。下一步先確認是「AI 模型 → 本機」還是「模式設定」選單；待同意後再做常用模型主畫面、其他已安裝收合與另外瀏覽全部模型。本次尚未實作，不把現有篩選當成使用者已驗收。
-- 模型清理後本次 `df -h .` 可用約 16 GiB；保留現用 TEA／Qwen GGUF、錄音與歷史，未追加清理。
-- 使用者已授權依序分批提交模型、鍵盤／診斷及專案規則，均在 `feat/local-tea-model-workflow`；測試產物停止追蹤並保留本機檔案。未 push 或發布，詳見本檔末尾提交紀錄及 [本次收尾清單](docs/SESSION_CLOSEOUT_2026-10-21.md)。
+- 正式位置 `/Applications/Wa-Gong.app` 已替換為一般 Release 建置，版本 1.0.1，Build ID `LOCAL-20261020T183055Z-0eb0cd9`，來源 commit `0eb0cd9327884b68bfc271cb8facab06eb76c30c`。本次收尾僅更新文件，不改變已安裝的程式碼。這是本機替換，尚未公證或公開發布。
+- 安裝收據最後查證時間為 `2026-10-21T02:41:59+08:00`：只有正式位置的同 Bundle ID App 執行；主 App／helper 簽章、manifest、原正式版 entitlements 一致性，以及正式 helper 載入已安裝 TEA 通過。這不包含真實麥克風、雲端整理、iCloud 同步或跨 App 交付驗收。
+- 現在可在模式的語音辨識選擇內建 `TEA-ASR 1.1`，文字整理選擇已設定的 Claude 或 Gemini。TEA 已在 App 管理目錄，不需重新下載、匯入或手動啟動 Python。舊自訂 `tea-gguf` 仍是手動服務來源，不會自動遷移。
+- 已依授權刪除探針目錄中的重複 TEA GGUF 及未使用 Qwen ASR GGUF，共 2,542,709,920 bytes。保留 App 管理的 TEA，完整 SHA-256 與刪除前的 TEA 相同；保留共用 FluidAudio 快取、錄音、歷史與設定。下方舊匯入路徑已不適用。
+- 舊正式 App 保留於 `/Applications/.Wa-Gong.previous-20261021.app`，另有 `.local-build/production-replacement-20261021/backup/Wa-Gong.app`。兩份簽章已驗證，備份還原副本及拋棄式副本交換／復原測試通過；未對實際正式 App 執行回滾。
+- 提交來源的完整宿主測試為 243 項，241 通過、0 失敗、2 項既有略過；一般 Release 建置另通過。這次文件收尾未重跑完整測試。測試 App 仍保留但已關閉，與正式 App 共用 Bundle ID／資料位置，不可同時執行。
+- Gemini 約 20 秒逾時、Claude 額外英文說明放行仍未修正。錄音整理仍走既有 SDK，新的單次請求 client 只接聊天。後續短句正常不代表問題修好，詳見 [雲端文字整理問題](docs/issues/雲端文字整理逾時與輸出污染.md)。
+- 模型清單仍雜亂，下一輪先確認是模型管理頁或模式選單，再核准精簡介面。同一把 Majestouch USB 右 Control、真實錄音、取消、休眠、VoiceOver、跨 App 交付與品質／效能仍待實機驗收。
+- 分支為 `feat/local-tea-model-workflow`，本次收尾依授權推送功能分支；不合併 `main`、不建立 PR、不發布。完整安裝、清理與測試證據見 [本次收尾清單](docs/SESSION_CLOSEOUT_2026-10-21.md)。以下較早章節保留歷史狀態，以本節為準。
 
 ## 最新進度與規格入口（2026-10-20）
 
@@ -24,7 +28,7 @@
 - 使用者回報直接下載 TEA 顯示安裝失敗。當時以相同目錄及 `volumeAvailableCapacityForImportantUsage` API 唯讀查得可用空間 2,193,383,424 bytes，安裝門檻為 4,913,511,936 bytes，前置檢查不通過，下載與匯入都會被阻擋。畫面目前只有籠統安裝錯誤，尚未修改此檢查或訊息；後續已依授權清理舊模型，見下一項。
 - 使用者「好請移除掉沒有要用的模型」授權後，透過獨立 Ollama 端點 `127.0.0.1:11435` 移除 `qwen3.5:9b`，並移除 `tools/taiwan-asr/.runtime/hf/hub/` 下的 Breeze-ASR-25 與 TEA-ASR-1.1 舊模型快取。核對前約占 12.8 GiB；清理後 `df -h .` 可用空間由約 1.9 GiB 增至約 15 GiB，Ollama 模型清單為空，兩個快取目錄不存在。保留 TEA GGUF（1,692,286,464 bytes）、Qwen ASR GGUF（850,423,456 bytes）、Python 環境、建置檔、App 設定、錄音與歷史資料。未停止手動服務，後續若選用已移除的舊模型，需重新下載。刪除紀錄 `/tmp/wagong-unused-model-removal-20261020.json`。
 
-### 新版 App 內測試步驟
+### 先前匯入步驟（歷史紀錄，現用 TEA 已安裝）
 
 1. 開啟「AI 模型 → 本機」，找到 `TEA-ASR 1.1`，按匯入。
 2. 檔案選擇器按 `Command-Shift-G`，輸入 `/Users/hd/WORK/case/wa-gong/wa-gong-macos/tools/local-model-probe/.runtime/`，選擇 `TEA-ASR-1.1-Q6_K.gguf`。匯入會複製並驗證，保留來源，不需重新下載。

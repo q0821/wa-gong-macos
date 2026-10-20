@@ -242,6 +242,9 @@ struct CustomTranscriptionModelEditorPanel: View {
                             CustomModelTextField(
                                 label: "Model Name", placeholder: "gpt-4o-mini-transcribe", text: $modelName)
                             CustomModelToggleRow(title: "Multilingual Model", isOn: $isMultilingual)
+                            Text("Testing sends built-in speech audio to this service and may incur charges. Local models may take longer on first use.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             ConnectionTestRow(
                                 state: connectionTest, isDisabled: !canTestConnection, action: runConnectionTest)
                         }

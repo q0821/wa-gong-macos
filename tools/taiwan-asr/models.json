@@ -1,0 +1,16 @@
+{
+  "breeze": {
+    "repository": "MediaTek-Research/Breeze-ASR-25",
+    "revision": "cffe7ccb404d025296a00758d0a33468bec3a9d0",
+    "weights_bytes": 3086761032,
+    "weights_sha256": "c5d952b3bc03ea277209aff0ef5b5c4c055d74449ff794c02d8f4e315fdef6b6",
+    "license": "Apache-2.0"
+  },
+  "tea": {
+    "repository": "JacobLinCool/TEA-ASR-1.1",
+    "revision": "bda08df76d4fd6b487b4a1dd7f0bddf8541696f8",
+    "weights_bytes": 4076191640,
+    "weights_sha256": "1e9db0943be34be1e6d13b9a895dfccfe941de045bba1b502d8449431ee79ea2",
+    "license": "MIT; base Qwen3-ASR weights retain Apache-2.0 obligations"
+  }
+}

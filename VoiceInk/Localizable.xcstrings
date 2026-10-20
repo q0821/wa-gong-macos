@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "The speech model reached its output limit. Try a shorter recording" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "語音模型已達輸出上限，請改用較短的錄音。"}}}},
+    "The local speech model is busy. Wait for the current request to finish" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "本機語音模型忙碌中，請等目前的請求結束後再試。"}}}},
+    "This local speech service accepts WAV recordings up to 30 seconds" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "這個本機語音服務只接受最長 30 秒的 WAV 錄音。"}}}},
+    "The local speech model timed out. Check the service and try again" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "本機語音模型處理逾時，請確認服務狀態後再試。"}}}},
+    "The requested speech model is not available on this service" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "此服務找不到指定的語音模型。"}}}},
+    "Testing sends built-in speech audio to this service and may incur charges. Local models may take longer on first use." : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "測試會傳送內建語音音檔至此服務，可能產生費用。本機模型首次使用可能需要較長時間。"}}}},
+    "The built-in transcription test audio is unavailable" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "找不到內建的轉錄測試音檔。"}}}},
+    "Transcription test canceled" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "已取消轉錄測試。"}}}},
+    "Transcription test failed. Check the service and try again" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "轉錄測試失敗，請確認服務狀態後再試。"}}}},
+    "Transcription request failed" : {"localizations": {"zh-Hant": {"stringUnit": {"state": "translated", "value": "轉錄請求失敗。"}}}},
     "Text cleanup skipped for short text" : { "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "短文字設定略過了文字整理" } } } },
     "Text service is not configured" : { "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "文字服務尚未設定完成" } } } },
     "Advanced Word Replacements" : { "localizations" : { "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "進階文字替換" } } } },

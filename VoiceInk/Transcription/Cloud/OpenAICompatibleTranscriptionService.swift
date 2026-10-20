@@ -1,86 +1,90 @@
 import Foundation
 
 class OpenAICompatibleTranscriptionService {
-    func transcribe(audioURL: URL, model: CustomCloudModel, context: TranscriptionRequestContext) async throws -> String
-    {
-        guard let url = CustomEndpointPolicy.validatedURL(model.apiEndpoint) else {
-            throw NSError(
-                domain: "CustomWhisperTranscriptionService", code: -1,
-                userInfo: [
-                    NSLocalizedDescriptionKey:
-                        "API endpoint must use HTTPS (plain HTTP is allowed only for localhost)"
-                ])
-        }
+    func transcribe(audioURL: URL, model: CustomCloudModel, context: TranscriptionRequestContext) async throws -> String {
+        let request = try Self.makeRequest(
+            audioData: AudioUploadPolicy.load(audioURL), endpoint: model.apiEndpoint,
+            apiKey: model.apiKey, modelName: model.modelName, language: context.language
+        )
+        return try await Self.send(request)
+    }
 
+    static func makeRequest(
+        audioData: Data, endpoint: String, apiKey: String, modelName: String, language: String?
+    ) throws -> URLRequest {
+        guard let url = CustomEndpointPolicy.validatedURL(endpoint) else {
+            throw CloudTranscriptionError.unsupportedProvider
+        }
+        guard !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              apiKey.rangeOfCharacter(from: .controlCharacters) == nil else {
+            throw CloudTranscriptionError.missingAPIKey
+        }
+        guard !modelName.isEmpty, modelName.rangeOfCharacter(from: .controlCharacters) == nil else {
+            throw CloudTranscriptionError.dataEncodingError
+        }
         let boundary = "Boundary-\(UUID().uuidString)"
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        let host = url.host?.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).lowercased()
+        request.timeoutInterval = ["localhost", "127.0.0.1", "::1"].contains(host ?? "") ? 180 : 60
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(model.apiKey)", forHTTPHeaderField: "Authorization")
-
-        let body = try buildRequestBody(
-            audioURL: audioURL, modelName: model.modelName, boundary: boundary, context: context)
-        // Ephemeral session per request: the shared session persists Alt-Svc and upgrades
-        // new connections to HTTP/3, but QUIC bulk uploads blackhole behind VPNs that drop
-        // full-size UDP datagrams (e.g. GlobalProtect), timing out large audio uploads.
-        let session = URLSession(configuration: .ephemeral)
-        defer { session.finishTasksAndInvalidate() }
-        let (data, response) = try await session.upload(for: request, from: body)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
-        }
-
-        if !(200...299).contains(httpResponse.statusCode) {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "No error message"
-            throw CloudTranscriptionError.apiRequestFailed(statusCode: httpResponse.statusCode, message: errorMessage)
-        }
-
-        do {
-            return try JSONDecoder().decode(TranscriptionResponse.self, from: data).text
-        } catch {
-            throw CloudTranscriptionError.noTranscriptionReturned
-        }
-    }
-
-    private func buildRequestBody(
-        audioURL: URL, modelName: String, boundary: String, context: TranscriptionRequestContext
-    ) throws -> Data {
-        let audioData = try AudioUploadPolicy.load(audioURL)
-
-        let selectedLanguage = LanguageDictionary.whisperLanguageCode(for: context.language ?? "auto")
-        let crlf = "\r\n"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         var body = Data()
-
-        func append(_ string: String) { body.append(string.data(using: .utf8)!) }
+        func append(_ value: String) { body.append(Data(value.utf8)) }
         func field(_ name: String, _ value: String) {
-            append("--\(boundary)\(crlf)")
-            append("Content-Disposition: form-data; name=\"\(name)\"\(crlf)\(crlf)")
-            body.append(value.data(using: .utf8)!)
-            append(crlf)
+            append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n")
         }
-
-        append("--\(boundary)\(crlf)")
-        append("Content-Disposition: form-data; name=\"file\"; filename=\"\(audioURL.lastPathComponent)\"\(crlf)")
-        append("Content-Type: audio/wav\(crlf)\(crlf)")
+        append("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\nContent-Type: audio/wav\r\n\r\n")
         body.append(audioData)
-        append(crlf)
-
+        append("\r\n")
         field("model", modelName)
         field("response_format", "json")
         field("temperature", "0")
-
+        let selectedLanguage = LanguageDictionary.whisperLanguageCode(for: language ?? "auto")
         if selectedLanguage != "auto" && !selectedLanguage.isEmpty {
+            guard selectedLanguage.rangeOfCharacter(from: .controlCharacters) == nil else {
+                throw CloudTranscriptionError.dataEncodingError
+            }
             field("language", selectedLanguage)
         }
-
-        append("--\(boundary)--\(crlf)")
-        return body
+        append("--\(boundary)--\r\n")
+        request.httpBody = body
+        return request
     }
 
-    private struct TranscriptionResponse: Decodable {
-        let text: String
-        let language: String?
-        let duration: Double?
+    static func send(_ request: URLRequest, session suppliedSession: URLSession? = nil) async throws -> String {
+        let (data, response) = try await SingleRequestHTTPTransport.send(request, session: suppliedSession)
+        return try transcript(from: data, response: response)
     }
+
+    static func transcript(from data: Data, response: URLResponse) throws -> String {
+        guard let response = response as? HTTPURLResponse else {
+            throw CloudTranscriptionError.networkError(URLError(.badServerResponse))
+        }
+        guard (200...299).contains(response.statusCode) else {
+            // Raw server bodies can echo audio content, credentials or URLs.
+            let detail = ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["detail"] as? String
+            let message: String
+            switch detail {
+            case "model_busy": message = String(localized: "The local speech model is busy. Wait for the current request to finish")
+            case "invalid_or_unsupported_wav_max_30_seconds": message = String(localized: "This local speech service accepts WAV recordings up to 30 seconds")
+            case "inference_timeout": message = String(localized: "The local speech model timed out. Check the service and try again")
+            case "model_not_found": message = String(localized: "The requested speech model is not available on this service")
+            case "transcript_limit_reached": message = String(localized: "The speech model reached its output limit. Try a shorter recording")
+            case "unauthorized": message = String(localized: "Invalid API key")
+            default: message = String(localized: "Transcription request failed")
+            }
+            throw CloudTranscriptionError.apiRequestFailed(
+                statusCode: response.statusCode, message: message
+            )
+        }
+        guard let decoded = try? JSONDecoder().decode(TranscriptionResponse.self, from: data),
+              !decoded.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw CloudTranscriptionError.noTranscriptionReturned
+        }
+        return decoded.text
+    }
+
+    private struct TranscriptionResponse: Decodable { let text: String }
 }

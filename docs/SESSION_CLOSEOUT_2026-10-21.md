@@ -1,5 +1,13 @@
 # 本次收尾與候選提交範圍（2026-10-21）
 
+## 後續授權：合併 main 並收尾
+
+- 使用者明確要求「請合併到 main 後收尾」，本次範圍為合併既有功能分支、更新本文件與 `handoff.md`，並推送 `main`。
+- 合併前即時 `git fetch origin` 及 `git ls-remote` 確認遠端 `main` 為 `06a876d45730ea3373292bf191b498c8d4602e17`，功能分支為 `a6e85c25ae341503ff9dad835dfe89dedb3acd01`；工作區乾淨。
+- `git merge --ff-only feat/local-tea-model-workflow` 成功，保留全部 11 個既有提交。選擇快轉，否決 squash 或重寫歷史，因為分支沒有分歧，分批提交已保留各項修改理由及 AI 協作揭露。
+- 本次 `git diff --check origin/main...HEAD` 通過。重新讀取既有 xcresult 的 `get test-results summary`，確認總計 243 項、241 通過、0 失敗、2 略過；重新核對 Release 日誌結尾為 `BUILD SUCCEEDED`。這是既有測試與建置證據的核對，本次未重跑測試。`0eb0cd9..a6e85c2` 僅兩份交接文件，沒有 App 原始碼差異。
+- 本次不替換 App、不公證、不建立 Release，亦不刪除功能分支。下節實機待驗與已知問題持續未結案；Git 合併不代表產品驗收完成。
+
 ## 最後交接：正式位置替換與模型清理
 
 本節依本機收據記錄 2026-10-21 已執行的結果；以下各節保留分批提交時的歷史狀態。「未重裝／未 push」等舊敘述不代表本節之後的狀態。

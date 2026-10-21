@@ -6,6 +6,175 @@ import Testing
 
 @Suite("Vocabulary", .serialized)
 struct VocabularyTests {
+    @Test func quickLearningRequiresOneExplicitTerm() throws {
+        #expect(try VocabularyLearningService.term("  蓋婭科技  ") == "蓋婭科技")
+        for value in ["", "a,b", "a，b", "a\nb", "a\tb", "a\u{2028}b", String(repeating: "字", count: 121)] {
+            #expect(throws: (any Error).self) { try VocabularyLearningService.term(value) }
+        }
+        #expect(try VocabularyLearningService.term(String(repeating: "字", count: 120)).count == 120)
+    }
+
+    @Test func correctionPreviewPreservesBoundaries() throws {
+        let result = try VocabularyLearningService.preview("Typeless typelessly", original: "Typeless", corrected: "聲筆")
+        #expect(result.text == "聲筆 typelessly")
+        #expect(result.matches.count == 1)
+        #expect(throws: (any Error).self) {
+            try VocabularyLearningService.preview("今天開會", original: "不存在", corrected: "聲筆")
+        }
+    }
+
+    @MainActor @Test func correctionRemembersOnlyExplicitChoicesAndPreservesRaw() throws {
+        let container = try learningContainer()
+        let context = container.mainContext
+        let item = Transcription(text: "蓋亞科技", duration: 1, enhancedText: "請聯絡蓋亞科技", transcriptionStatus: .completed)
+        item.rawTranscript = "原始蓋亞科技"
+        context.insert(item)
+        try context.save()
+        try VocabularyLearningService.apply(to: item.id, expected: .init(item), original: "蓋亞科技", corrected: "蓋婭科技",
+            remember: true, fixedReplacement: false, context: context)
+        #expect(item.enhancedText == "請聯絡蓋婭科技")
+        #expect(item.text == "蓋亞科技")
+        #expect(item.rawTranscript == "原始蓋亞科技")
+        #expect(try context.fetch(FetchDescriptor<VocabularyWord>()).map(\.word) == ["蓋婭科技"])
+        #expect(try context.fetchCount(FetchDescriptor<WordReplacement>()) == 0)
+    }
+
+    @MainActor @Test func correctionWithoutRememberingDoesNotLearn() throws {
+        let container = try learningContainer()
+        let context = container.mainContext
+        let item = Transcription(text: "蓋亞科技", duration: 1, transcriptionStatus: .completed)
+        context.insert(item)
+        try context.save()
+        try VocabularyLearningService.apply(to: item.id, expected: .init(item), original: "蓋亞科技", corrected: "蓋婭科技",
+            remember: false, fixedReplacement: false, context: context)
+        #expect(item.text == "蓋婭科技")
+        #expect(try context.fetchCount(FetchDescriptor<VocabularyWord>()) == 0)
+        #expect(try context.fetchCount(FetchDescriptor<WordReplacement>()) == 0)
+    }
+
+    @MainActor @Test func correctionReusesDisabledWordAndExplicitRule() throws {
+        let container = try learningContainer()
+        let context = container.mainContext
+        let item = Transcription(text: "蓋亞科技", duration: 1, transcriptionStatus: .completed)
+        let word = VocabularyWord(word: "蓋婭科技", isEnabled: false)
+        let replacement = WordReplacement(originalText: "蓋亞科技", replacementText: "蓋婭科技", isEnabled: false)
+        context.insert(item); context.insert(word); context.insert(replacement)
+        try context.save()
+        try VocabularyLearningService.apply(to: item.id, expected: .init(item), original: "蓋亞科技", corrected: "蓋婭科技",
+            remember: true, fixedReplacement: true, context: context)
+        #expect(word.isEnabled && replacement.isEnabled)
+        #expect(try context.fetchCount(FetchDescriptor<VocabularyWord>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<WordReplacement>()) == 1)
+    }
+
+    @MainActor @Test func correctionRejectsStalePendingAndMissingHistory() throws {
+        let container = try learningContainer()
+        let context = container.mainContext
+        let item = Transcription(text: "蓋亞科技", duration: 1, transcriptionStatus: .completed)
+        context.insert(item); try context.save()
+        let snapshot = VocabularyLearningService.Source(item)
+        item.text = "其他內容"; try context.save()
+        #expect(throws: (any Error).self) {
+            try VocabularyLearningService.apply(to: item.id, expected: snapshot, original: "蓋亞科技", corrected: "蓋婭科技",
+                remember: true, fixedReplacement: false, context: context)
+        }
+        item.transcriptionStatus = TranscriptionStatus.pending.rawValue; try context.save()
+        #expect(throws: (any Error).self) {
+            try VocabularyLearningService.apply(to: item.id, expected: .init(item), original: "其他內容", corrected: "蓋婭科技",
+                remember: true, fixedReplacement: false, context: context)
+        }
+        #expect(throws: (any Error).self) {
+            try VocabularyLearningService.apply(to: UUID(), expected: snapshot, original: "蓋亞科技", corrected: "蓋婭科技",
+                remember: true, fixedReplacement: false, context: context)
+        }
+        #expect(try context.fetchCount(FetchDescriptor<VocabularyWord>()) == 0)
+    }
+
+    @MainActor @Test func correctionRejectsConflictingRulesWithoutPartialWrites() throws {
+        let container = try learningContainer()
+        let context = container.mainContext
+        let item = Transcription(text: "蓋亞科技", duration: 1, transcriptionStatus: .completed)
+        context.insert(item)
+        context.insert(WordReplacement(originalText: "蓋亞科技", replacementText: "另一家公司"))
+        try context.save()
+        #expect(throws: (any Error).self) {
+            try VocabularyLearningService.apply(to: item.id, expected: .init(item), original: "蓋亞科技", corrected: "蓋婭科技",
+                remember: true, fixedReplacement: true, context: context)
+        }
+        #expect(item.text == "蓋亞科技")
+        #expect(try context.fetchCount(FetchDescriptor<VocabularyWord>()) == 0)
+    }
+
+    @MainActor @Test func correctionSaveFailureRollsBackAndProtectsPendingChanges() throws {
+        enum SaveFailure: Error { case failed }
+        let container = try learningContainer()
+        let context = container.mainContext
+        let item = Transcription(text: "蓋亞科技", duration: 1, transcriptionStatus: .completed)
+        context.insert(item); try context.save()
+        #expect(throws: (any Error).self) {
+            try VocabularyLearningService.apply(to: item.id, expected: .init(item), original: "蓋亞科技", corrected: "蓋婭科技",
+                remember: true, fixedReplacement: true, context: context, save: { _ in throw SaveFailure.failed })
+        }
+        #expect(item.text == "蓋亞科技")
+        #expect(try context.fetchCount(FetchDescriptor<VocabularyWord>()) == 0)
+        #expect(try context.fetchCount(FetchDescriptor<WordReplacement>()) == 0)
+        let pending = VocabularyWord(word: "尚未儲存")
+        context.insert(pending)
+        #expect(throws: (any Error).self) {
+            try VocabularyLearningService.apply(to: item.id, expected: .init(item), original: "蓋亞科技", corrected: "蓋婭科技",
+                remember: true, fixedReplacement: false, context: context)
+        }
+        #expect(context.hasChanges)
+        #expect(pending.word == "尚未儲存")
+    }
+
+    @MainActor private func learningContainer() throws -> ModelContainer {
+        try ModelContainer(for: VocabularyWord.self, WordReplacement.self, Transcription.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none))
+    }
+
+    @MainActor @Test func correctionCapacityAndRecordIdentityAreEnforced() throws {
+        let container = try learningContainer()
+        let context = container.mainContext
+        let item = Transcription(text: "蓋亞科技", duration: 1, transcriptionStatus: .completed)
+        let other = Transcription(text: "蓋亞科技", duration: 1, transcriptionStatus: .completed)
+        context.insert(item); context.insert(other)
+        for index in 0..<1_000 { context.insert(VocabularyWord(word: "term\(index)")) }
+        try context.save()
+        #expect(throws: (any Error).self) {
+            try VocabularyLearningService.apply(to: other.id, expected: .init(item), original: "蓋亞科技", corrected: "蓋婭科技",
+                remember: false, fixedReplacement: false, context: context)
+        }
+        #expect(throws: (any Error).self) {
+            try VocabularyLearningService.apply(to: item.id, expected: .init(item), original: "蓋亞科技", corrected: "蓋婭科技",
+                remember: true, fixedReplacement: false, context: context)
+        }
+        #expect(item.text == "蓋亞科技" && other.text == "蓋亞科技")
+        // Full dictionaries must still permit a one-off correction without learning.
+        try VocabularyLearningService.apply(to: item.id, expected: .init(item), original: "蓋亞科技", corrected: "蓋婭科技",
+            remember: false, fixedReplacement: false, context: context)
+        let reread = ModelContext(container)
+        let saved = try reread.fetch(FetchDescriptor<Transcription>()).first { $0.id == item.id }
+        #expect(saved?.text == "蓋婭科技")
+        #expect(try reread.fetchCount(FetchDescriptor<VocabularyWord>()) == 1_000)
+    }
+
+    @MainActor @Test func correctionRejectsChainedRulesBeforeLearning() throws {
+        let container = try learningContainer()
+        let context = container.mainContext
+        let item = Transcription(text: "蓋亞科技", duration: 1, transcriptionStatus: .completed)
+        context.insert(item)
+        context.insert(WordReplacement(originalText: "蓋婭科技", replacementText: "另一家公司"))
+        try context.save()
+        #expect(throws: (any Error).self) {
+            try VocabularyLearningService.apply(to: item.id, expected: .init(item), original: "蓋亞科技", corrected: "蓋婭科技",
+                remember: true, fixedReplacement: true, context: context)
+        }
+        #expect(item.text == "蓋亞科技")
+        #expect(try context.fetchCount(FetchDescriptor<VocabularyWord>()) == 0)
+        #expect(try context.fetchCount(FetchDescriptor<WordReplacement>()) == 1)
+    }
+
     private func rule(_ aliases: [String], _ replacement: String) -> CustomVocabularyRule {
         CustomVocabularyRule(aliases: aliases, replacement: replacement)
     }

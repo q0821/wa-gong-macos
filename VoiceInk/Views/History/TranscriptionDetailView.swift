@@ -3,6 +3,8 @@ import SwiftUI
 struct TranscriptionDetailView: View {
     let transcription: Transcription
     var onInfoTap: (() -> Void)?
+    @State private var correctionSource: VocabularyLearningService.Source?
+    @State private var showCorrection = false
 
     private var hasAudioFile: Bool {
         if let urlString = transcription.audioFileURL,
@@ -50,6 +52,13 @@ struct TranscriptionDetailView: View {
                             isEnhanced: true
                         )
                     }
+                    if transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue {
+                        Button("Correct and Remember") {
+                            correctionSource = .init(transcription)
+                            showCorrection = true
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
                 .padding(16)
             }
@@ -77,6 +86,15 @@ struct TranscriptionDetailView: View {
             }
         }
         .padding(.vertical, 12)
+        .sheet(isPresented: $showCorrection, onDismiss: { correctionSource = nil }) {
+            if let correctionSource {
+                VocabularyCorrectionSheet(transcriptionID: correctionSource.id, source: correctionSource)
+            }
+        }
+        .onChange(of: transcription.id) { _, _ in
+            showCorrection = false
+            correctionSource = nil
+        }
     }
 }
 

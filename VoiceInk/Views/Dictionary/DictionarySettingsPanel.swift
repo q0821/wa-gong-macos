@@ -15,6 +15,8 @@ struct DictionarySettingsPanel: View {
                     }
                 } header: {
                     Text("Shortcut")
+                } footer: {
+                    Text("Select a term in another app, then use this shortcut to review and add it. Selection uses Accessibility only; no clipboard fallback.")
                 }
             }
             .formStyle(.grouped)

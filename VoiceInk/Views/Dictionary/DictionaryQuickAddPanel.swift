@@ -24,10 +24,15 @@ final class DictionaryQuickAddManager {
 
         previousApp = NSWorkspace.shared.frontmostApplication
 
+        // Capture before making our panel key, while the source app still owns focus.
+        let selection = VocabularySelectionCapture.capture()
+
         let initialSize = NSSize(width: 500, height: DictionaryQuickAddView.Mode.vocabulary.panelHeight)
         let newPanel = DictionaryQuickAddPanel(manager: self, size: initialSize)
 
         let view = DictionaryQuickAddView(
+            initialWord: selection.word,
+            selectionMessage: selection.message,
             onDismiss: { [weak self] in self?.hide() },
             onResize: { [weak self] height in
                 self?.panel?.resize(to: NSSize(width: 500, height: height))
@@ -139,7 +144,7 @@ struct DictionaryQuickAddView: View {
 
         var panelHeight: CGFloat {
             switch self {
-            case .vocabulary: return 130
+            case .vocabulary: return 174
             case .replacement: return 164
             }
         }
@@ -160,12 +165,30 @@ struct DictionaryQuickAddView: View {
 
     let onDismiss: () -> Void
     let onResize: (CGFloat) -> Void
+    @State private var selectionMessage: String
+
+    init(initialWord: String = "", selectionMessage: String = "",
+         onDismiss: @escaping () -> Void, onResize: @escaping (CGFloat) -> Void) {
+        _wordInput = State(initialValue: initialWord)
+        _selectionMessage = State(initialValue: selectionMessage)
+        self.onDismiss = onDismiss
+        self.onResize = onResize
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             modeBar
             Divider().opacity(0.4)
             inputArea
+            if mode == .vocabulary, !selectionMessage.isEmpty {
+                Text(selectionMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+            }
             if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)
@@ -191,6 +214,7 @@ struct DictionaryQuickAddView: View {
             DispatchQueue.main.async { focusedField = .word }
         }
         .onChange(of: mode) { _, newMode in
+            selectionMessage = ""
             wordInput = ""
             originalInput = ""
             replacementInput = ""
@@ -256,6 +280,7 @@ struct DictionaryQuickAddView: View {
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: 14))
                 .focused($focusedField, equals: .word)
+                .accessibilityLabel(Text("Correct vocabulary term"))
                 .onSubmit { submitVocabulary() }
         }
         .padding(.horizontal, 16)

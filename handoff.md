@@ -1,4 +1,22 @@
-# 本機模型測試交接
+# 本機模型與版本交接
+
+## Git 整合交接（2026-10-30）
+
+- 使用者明確授權 review、commit、push 與 merge。整合範圍為 `a6a2310` 詞彙快捷學習及既有 9 個未提交的 1.1.0 候選版檔案，目標為推送功能分支後 fast-forward 合併至 `main`；最終提交與遠端狀態以本輪 Git 歷史及 SHA 核對為準。
+- 規範與規格審查未發現阻擋 Git 合併的問題；未簽署 `build-for-testing`、合成舊資料遷移及 35 項隔離測試（2 suites）通過，產物 `/tmp/wagong-vocabulary.aZIZnQ/`。plist、HTML、diff、文件連結、版本與新增繁中字串檢查通過，詳見發版計畫的本輪驗證。
+- 本輪未啟動測試 App 宿主、未重新安裝或查證既有安裝版，也未執行公證或公開發布。以下 2026-10-22 安裝資料為歷史紀錄；硬體、真實 Provider、跨 App、取消、VoiceOver 與發布前待驗項目維持，不能將 Git 整合視為產品驗收完成。
+
+## 1.1.0 候選版準備（2026-10-22）
+
+- 入口為 [發版規格](docs/RELEASE_1.1.0_SPEC.md) 與 [計畫／驗證](docs/RELEASE_1.1.0_PLAN.md)。使用者已授權版本與文件整理、重新建置及安裝核對，未授權公開發布或推送 main。
+- 來源起點為 `feat/vocabulary-quick-learning` 的 `a6a2310`，本輪已將版本升為 `1.1.0`、build number 升為 `3`，版本與文件修改尚未提交。安裝 metadata 如實記錄 `dirty`，不能把 `a6a2310` 單獨當作包含新版號的完整來源。
+- 公開最新仍為 `1.0.1`，`appcast.xml` 保持原有公開 feed。本輪 README、CHANGELOG 與 `release-notes/1.1.0.html` 明確標示尚未發布。
+- 本輪已安裝並啟動一般 Release `1.1.0`，位於 `/Applications/Wa-Gong.app`，Build ID `LOCAL-20261021T180412Z-a6a2310`，指紋 `fc7d34d2d85a45be14c8a6fdb76f5ca6e439fe7d24e068b1bbd0448059e284fc`。版本／build number、來源、完整 entitlements、主 App／helper 簽章、manifest 與唯一執行程序均已核對，測試版關閉。收據 `.local-build/release-1.1.0-20261022/metadata.json`，舊正式 App 保留於 `/Applications/.Wa-Gong.previous-1.1.0-20261022.app` 及該收據目錄下的 `backup/Wa-Gong.app`。
+- 本輪未簽署 build-for-testing、35 項詞彙隔離測試與一般 Release 建置通過。上輪同功能來源的完整宿主測試為 253 項、251 通過、0 失敗、2 略過，本輪未重跑完整宿主，不冒充為 1.1.0 的完整宿主測試證據。未公證、未公開發布。
+- Gemini 整理逾時與 Claude 額外說明已依使用者 2026-10-22 指示暫停追蹤，不列為本輪修復待辦或發版阻擋，未宣稱已修復。Gemini 外部伺服器暫時異常為使用者推測，Claude 後續正常為使用者回報，歷史證據與封存建議見 [本機紀錄](docs/issues/雲端文字整理逾時與輸出污染.md)。
+- 其他未結案仍包含模型清單精簡、詞彙實際表單與 AX 選取、跨 App／取消／VoiceOver、Majestouch USB 右 Control、休眠喚醒及模型品質／效能。公開發版阻擋見發版計畫，不能因版號整理而視為通過。
+
+以下為先前交接歷史，版本、分支與安裝路徑狀態應以本節及最新收據為準。
 
 更新日期：2026-10-21。原始測試交接為 2026-10-16，以下新增最新進度；舊章節保留當時狀態，不代表目前服務是否正在執行。
 
